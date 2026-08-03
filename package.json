@@ -1,0 +1,26 @@
+{
+  "name": "twilight-strand-collective",
+  "private": true,
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "data:fetch": "pnpm --filter pob-data fetch",
+    "data:bundle": "pnpm --filter pob-data bundle"
+  },
+  "packageManager": "pnpm@10.12.1",
+  "engines": {
+    "node": ">=20"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp"
+    ]
+  },
+  "devDependencies": {
+    "turbo": "^2.10.8"
+  }
+}
