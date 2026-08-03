@@ -12,6 +12,7 @@ import {
 import { TreeRenderer } from "./tree-renderer";
 import { SpatialGrid } from "./tree-spatial";
 import { useTreeStore } from "@/stores/tree-store";
+import { NodePowerControls, useNodePowerStore } from "./NodePowerControls";
 
 export function TreeCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -32,6 +33,9 @@ export function TreeCanvas() {
   } | null>(null);
 
   const { allocatedNodes, toggleNode, setHoveredNode } = useTreeStore();
+  const { mode: npMode, depth: npDepth } = useNodePowerStore();
+  const nodePowerMode = useNodePowerStore((s) => s.mode);
+  const nodePowerDepth = useNodePowerStore((s) => s.depth);
 
   const draw = useCallback(() => {
     const renderer = rendererRef.current;
@@ -44,6 +48,86 @@ export function TreeCanvas() {
   useEffect(() => {
     draw();
   }, [allocatedNodes, draw]);
+
+  useEffect(() => {
+    const renderer = rendererRef.current;
+    const treeData = treeDataRef.current;
+    if (!renderer || !treeData) return;
+
+    if (npMode === "off") {
+      renderer.setNodePower(new Map(), "off");
+      draw();
+      return;
+    }
+
+    // Mock node power scoring: assign random-ish values based on node stats
+    const { setScoring } = useNodePowerStore.getState();
+    setScoring(true);
+
+    requestAnimationFrame(() => {
+      const power = new Map<string, number>();
+      let count = 0;
+      for (const [nid, node] of treeData.nodes) {
+        if (allocatedNodes.has(nid)) continue;
+        if (!node.stats || node.stats.length === 0) continue;
+
+        // Simple heuristic: score by number of stats and stat text length
+        const score = node.stats.reduce((acc, s) => {
+          const nums = s.match(/\d+/g);
+          return acc + (nums ? nums.reduce((a, n) => a + parseInt(n), 0) : 1);
+        }, 0);
+        power.set(nid, score);
+        count++;
+      }
+
+      // Normalize to 0-1
+      const maxScore = Math.max(...power.values(), 1);
+      for (const [nid, score] of power) {
+        power.set(nid, score / maxScore);
+      }
+
+      renderer.setNodePower(power, npMode);
+      setScoring(false, count);
+      draw();
+    });
+  }, [npMode, npDepth, allocatedNodes, draw]);
+
+  useEffect(() => {
+    const renderer = rendererRef.current;
+    const tree = treeDataRef.current;
+    if (!renderer || !tree) return;
+
+    if (nodePowerMode === "off") {
+      renderer.setNodePower(new Map(), "off");
+      draw();
+      return;
+    }
+
+    // Stub heatmap: score nodes by proximity to tree center (placeholder for real engine scoring)
+    const { setScoring } = useNodePowerStore.getState();
+    setScoring(true);
+
+    const power = new Map<string, number>();
+    const cx = (tree.bounds.minX + tree.bounds.maxX) / 2;
+    const cy = (tree.bounds.minY + tree.bounds.maxY) / 2;
+    const maxDist = Math.max(tree.bounds.maxX - tree.bounds.minX, tree.bounds.maxY - tree.bounds.minY) / 2;
+
+    let scored = 0;
+    for (const [nid, node] of tree.nodes) {
+      if (allocatedNodes.has(nid)) continue;
+      if (node.ascendancyName) continue;
+      if (!node.name) continue;
+
+      const dist = Math.sqrt((node.x - cx) ** 2 + (node.y - cy) ** 2);
+      const normalizedDist = Math.min(1, dist / maxDist);
+      power.set(nid, 1 - normalizedDist);
+      scored++;
+    }
+
+    renderer.setNodePower(power, nodePowerMode);
+    setScoring(false, scored);
+    draw();
+  }, [nodePowerMode, nodePowerDepth, allocatedNodes, draw]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -223,6 +307,7 @@ export function TreeCanvas() {
           setHoveredNode(null);
         }}
       />
+      <NodePowerControls />
       {tooltip && (
         <div
           className="absolute z-20 pointer-events-none px-3 py-2 rounded bg-bg-card border border-border-card shadow-lg max-w-xs"
