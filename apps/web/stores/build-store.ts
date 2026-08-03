@@ -1,11 +1,7 @@
 import { create } from "zustand";
 import type { BuildStats, ItemData, SkillGroup } from "@/engine/types";
 
-function decodePobCode(code: string): string | null {
-  // Inline the codec to avoid pulling in pako at module level
-  // (the full codec is in engine/pob-codec.ts, loaded dynamically)
-  return null; // placeholder - will be replaced by dynamic import
-}
+type EngineStatus = "idle" | "loading" | "ready" | "error";
 
 function classifyBuildInput(input: string): string {
   const trimmed = input.trim();
@@ -25,7 +21,9 @@ interface BuildState {
   skills: SkillGroup[];
   loading: boolean;
   error: string | null;
-  engineReady: boolean;
+  engineStatus: EngineStatus;
+  engineProgress: string;
+  evaluating: boolean;
 
   initEngine: () => Promise<void>;
   importBuild: (input: string) => Promise<void>;
@@ -40,16 +38,30 @@ export const useBuildStore = create<BuildState>((set, get) => ({
   skills: [],
   loading: false,
   error: null,
-  engineReady: false,
+  engineStatus: "idle",
+  engineProgress: "",
+  evaluating: false,
 
   async initEngine() {
+    if (get().engineStatus !== "idle") return;
+    set({ engineStatus: "loading", engineProgress: "Starting engine..." });
+
     try {
       const { getEngineBridge } = await import("@/engine/bridge");
       const bridge = getEngineBridge();
+
+      bridge.onProgress((stage) => {
+        set({ engineProgress: stage });
+      });
+
       await bridge.init("poe1");
-      set({ engineReady: true });
+      set({ engineStatus: "ready", engineProgress: "" });
     } catch (e) {
-      set({ error: `Engine init failed: ${e instanceof Error ? e.message : String(e)}` });
+      set({
+        engineStatus: "error",
+        engineProgress: "",
+        error: `Engine init failed: ${e instanceof Error ? e.message : String(e)}`,
+      });
     }
   },
 
@@ -82,8 +94,7 @@ export const useBuildStore = create<BuildState>((set, get) => ({
           throw new Error("Unrecognized input format");
       }
 
-      // Parse XML client-side for immediate data extraction
-      // (the full Lua engine will provide accurate calc results later)
+      // Phase 1: instant client-side XML parse for immediate display
       const { parsePobXml } = await import("@/engine/pob-xml-parser");
       const result = parsePobXml(xml);
 
@@ -95,6 +106,17 @@ export const useBuildStore = create<BuildState>((set, get) => ({
         skills: result.skills,
         loading: false,
       });
+
+      // Phase 2: send to engine for accurate calcs (non-blocking)
+      const { engineStatus } = get();
+      if (engineStatus === "ready") {
+        evaluateWithEngine(xml);
+      } else if (engineStatus === "idle") {
+        get().initEngine().then(() => {
+          const currentXml = get().xml;
+          if (currentXml) evaluateWithEngine(currentXml);
+        });
+      }
     } catch (e) {
       set({
         loading: false,
@@ -111,6 +133,45 @@ export const useBuildStore = create<BuildState>((set, get) => ({
       items: [],
       skills: [],
       error: null,
+      evaluating: false,
     });
   },
 }));
+
+async function evaluateWithEngine(xml: string) {
+  const { setState, getState } = useBuildStore;
+  setState({ evaluating: true });
+
+  try {
+    const { getEngineBridge } = await import("@/engine/bridge");
+    const bridge = getEngineBridge();
+    const result = await bridge.evaluate(xml);
+
+    if (getState().xml !== xml) return;
+
+    const prev = getState().stats;
+    const eng = result.stats;
+
+    // Merge: engine values win when they contain real data,
+    // XML-parsed values are kept as fallback for fields the engine didn't compute
+    const merged: typeof eng = { ...eng };
+    if (prev) {
+      if (merged.class_name === "?" && prev.class_name !== "?") merged.class_name = prev.class_name;
+      if (!merged.ascendancy && prev.ascendancy) merged.ascendancy = prev.ascendancy;
+      if (merged.level <= 1 && prev.level > 1) merged.level = prev.level;
+      if (prev.allocated_nodes.length > 0 && merged.allocated_nodes.length === 0) {
+        merged.allocated_nodes = prev.allocated_nodes;
+      }
+    }
+
+    setState({
+      stats: merged,
+      items: result.items.length > 0 ? result.items : getState().items,
+      skills: result.skills.length > 0 ? result.skills : getState().skills,
+      evaluating: false,
+    });
+  } catch (e) {
+    console.warn("Engine evaluation failed, keeping XML-parsed results:", e);
+    setState({ evaluating: false });
+  }
+}
