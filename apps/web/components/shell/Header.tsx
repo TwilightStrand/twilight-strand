@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { TABS, TAB_LABELS, useUiStore } from "@/stores/ui-store";
 import type { TabId } from "@/stores/ui-store";
 import { useBuildStore } from "@/stores/build-store";
@@ -13,9 +14,45 @@ const TAB_ICONS: Record<TabId, string> = {
   settings: "☰",
 };
 
+function EngineStatus() {
+  const status = useBuildStore((s) => s.engineStatus);
+  const progress = useBuildStore((s) => s.engineProgress);
+  const evaluating = useBuildStore((s) => s.evaluating);
+
+  if (status === "ready" && !evaluating) return null;
+
+  const label =
+    status === "loading"
+      ? progress || "Starting engine..."
+      : status === "error"
+        ? "Engine error"
+        : evaluating
+          ? "Calculating..."
+          : null;
+
+  if (!label) return null;
+
+  return (
+    <div className="flex items-center gap-1.5 text-xs font-mono text-text-dim">
+      {(status === "loading" || evaluating) && (
+        <span className="inline-block h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+      )}
+      {status === "error" && (
+        <span className="inline-block h-2 w-2 rounded-full bg-red-400" />
+      )}
+      <span className="max-w-48 truncate">{label}</span>
+    </div>
+  );
+}
+
 export function Header() {
   const { activeTab, setActiveTab, setImportOpen } = useUiStore();
   const stats = useBuildStore((s) => s.stats);
+  const initEngine = useBuildStore((s) => s.initEngine);
+
+  useEffect(() => {
+    initEngine();
+  }, [initEngine]);
 
   const className = stats?.class_name ?? "Scion";
   const level = stats?.level ?? 1;
@@ -40,6 +77,8 @@ export function Header() {
           <span className="text-text-dim">Lv {level}</span>
         </div>
       </div>
+
+      <EngineStatus />
 
       <nav
         className="hidden md:flex items-center gap-0.5 ml-4"
