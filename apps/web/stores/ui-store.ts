@@ -23,13 +23,17 @@ export const TAB_LABELS: Record<TabId, string> = {
 interface UiState {
   activeTab: TabId;
   sidebarOpen: boolean;
+  importOpen: boolean;
   setActiveTab: (tab: TabId) => void;
   toggleSidebar: () => void;
+  setImportOpen: (open: boolean) => void;
 }
 
 export const useUiStore = create<UiState>((set) => ({
   activeTab: "tree",
   sidebarOpen: true,
+  importOpen: false,
   setActiveTab: (tab) => set({ activeTab: tab }),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+  setImportOpen: (open) => set({ importOpen: open }),
 }));
