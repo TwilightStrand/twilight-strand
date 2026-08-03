@@ -5,6 +5,8 @@ import type { TabId } from "@/stores/ui-store";
 import { TreeCanvas } from "@/components/tree/TreeCanvas";
 import { ItemsTab } from "@/components/items/ItemsTab";
 import { SkillsTab } from "@/components/skills/SkillsTab";
+import { ConfigTab } from "@/components/config/ConfigTab";
+import { CalcsTab } from "@/components/calcs/CalcsTab";
 
 function Placeholder({ tab }: { tab: TabId }) {
   return (
@@ -18,8 +20,14 @@ function renderTab(tab: TabId) {
   switch (tab) {
     case "tree":
       return <TreeCanvas />;
+    case "items":
+      return <ItemsTab />;
     case "skills":
       return <SkillsTab />;
+    case "config":
+      return <ConfigTab />;
+    case "calcs":
+      return <CalcsTab />;
     default:
       return <Placeholder tab={tab} />;
   }
