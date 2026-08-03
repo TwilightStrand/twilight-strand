@@ -17,7 +17,7 @@ fi
 MANIFEST="$POB_DIR/file-list.json"
 
 cd "$POB_DIR"
-find . -name "*.lua" -type f | sort | sed 's|^\./||' | python3 -c "
+find . \( -name "*.lua" -o -name "*.jsonc" -o -name "*.json" \) -type f | sort | sed 's|^\./||' | python3 -c "
 import json, sys
 files = [line.strip() for line in sys.stdin if line.strip()]
 json.dump(files, sys.stdout, indent=None)
