@@ -56,7 +56,7 @@ export interface TreeData {
     ascendancies: Array<{ name: string }>;
   }>;
   classStartNodes: Map<number, string>;
-  sprites: Record<string, Record<string, SpriteSheet[]>>;
+  sprites: Record<string, Record<string, SpriteSheet | SpriteSheet[]>>;
   bounds: { minX: number; maxX: number; minY: number; maxY: number };
   constants: {
     skillsPerOrbit: number[];
