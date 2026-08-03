@@ -2,6 +2,7 @@
 
 import { TABS, TAB_LABELS, useUiStore } from "@/stores/ui-store";
 import type { TabId } from "@/stores/ui-store";
+import { useBuildStore } from "@/stores/build-store";
 
 const TAB_ICONS: Record<TabId, string> = {
   tree: "⬡",
@@ -13,7 +14,11 @@ const TAB_ICONS: Record<TabId, string> = {
 };
 
 export function Header() {
-  const { activeTab, setActiveTab } = useUiStore();
+  const { activeTab, setActiveTab, setImportOpen } = useUiStore();
+  const stats = useBuildStore((s) => s.stats);
+
+  const className = stats?.class_name ?? "Scion";
+  const level = stats?.level ?? 1;
 
   return (
     <header className="h-12 min-h-12 md:h-14 md:min-h-14 border-b border-border-divider bg-bg-surface/60 backdrop-blur-sm flex items-center px-3 gap-2">
@@ -31,8 +36,8 @@ export function Header() {
           <span className="bg-bg-card px-1.5 py-0.5 rounded text-text-primary">
             PoE 1
           </span>
-          <span className="text-text-dim">Scion</span>
-          <span className="text-text-dim">Lv 1</span>
+          <span className="text-text-dim">{className}</span>
+          <span className="text-text-dim">Lv {level}</span>
         </div>
       </div>
 
@@ -68,7 +73,10 @@ export function Header() {
       <div className="flex-1" />
 
       <div className="flex items-center gap-2">
-        <button className="text-xs font-mono text-text-dim hover:text-accent transition-colors px-2 py-1 rounded hover:bg-bg-hover">
+        <button
+          onClick={() => setImportOpen(true)}
+          className="text-xs font-mono text-text-dim hover:text-accent transition-colors px-2 py-1 rounded hover:bg-bg-hover"
+        >
           Import
         </button>
       </div>
