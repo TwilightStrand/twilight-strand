@@ -2,6 +2,7 @@
 
 import { useUiStore } from "@/stores/ui-store";
 import type { TabId } from "@/stores/ui-store";
+import { TreeCanvas } from "@/components/tree/TreeCanvas";
 
 function Placeholder({ tab }: { tab: TabId }) {
   return (
@@ -16,7 +17,7 @@ export function TabContent() {
 
   return (
     <main className="flex-1 overflow-hidden bg-transparent">
-      <Placeholder tab={activeTab} />
+      {activeTab === "tree" ? <TreeCanvas /> : <Placeholder tab={activeTab} />}
     </main>
   );
 }
