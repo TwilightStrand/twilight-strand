@@ -1,14 +1,19 @@
+"use client";
+
+import { Header } from "@/components/shell/Header";
+import { StatsSidebar } from "@/components/shell/StatsSidebar";
+import { TabContent } from "@/components/shell/TabContent";
+import { MobileNav } from "@/components/shell/MobileNav";
+
 export default function Home() {
   return (
-    <main className="flex min-h-dvh items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-3xl font-bold text-text-heading font-display">
-          Twilight Strand
-        </h1>
-        <p className="mt-2 text-text-dim">
-          Open-source Path of Exile build planner
-        </p>
+    <div className="h-dvh flex flex-col">
+      <Header />
+      <div className="flex-1 flex overflow-hidden">
+        <StatsSidebar />
+        <TabContent />
       </div>
-    </main>
+      <MobileNav />
+    </div>
   );
 }
