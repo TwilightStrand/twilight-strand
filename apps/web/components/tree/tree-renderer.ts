@@ -33,6 +33,8 @@ export class TreeRenderer {
   private atlases: Map<string, SpriteAtlas> = new Map();
   private allocatedNodes: Set<string> = new Set();
   private spriteSheets: Map<string, SpriteSheet> = new Map();
+  private nodePower: Map<string, number> = new Map();
+  private nodePowerMode: "off" | "dps" | "defence" | "both" = "off";
 
   constructor(canvas: HTMLCanvasElement, tree: TreeData) {
     this.canvas = canvas;
@@ -104,6 +106,11 @@ export class TreeRenderer {
 
   setAllocatedNodes(nodes: Set<string>): void {
     this.allocatedNodes = nodes;
+  }
+
+  setNodePower(power: Map<string, number>, mode: "off" | "dps" | "defence" | "both"): void {
+    this.nodePower = power;
+    this.nodePowerMode = mode;
   }
 
   resize(): void {
@@ -206,6 +213,13 @@ export class TreeRenderer {
 
       const allocated = this.allocatedNodes.has(nid);
 
+      if (this.nodePowerMode !== "off" && !allocated) {
+        const power = this.nodePower.get(nid);
+        if (power !== undefined) {
+          this.drawHeatmapGlow(ctx, screenPos.x, screenPos.y, radius, power);
+        }
+      }
+
       this.drawNodeCircle(ctx, screenPos.x, screenPos.y, radius, node, allocated);
 
       if (cam.zoom >= minZoomForIcons && node.icon) {
@@ -269,6 +283,15 @@ export class TreeRenderer {
     if (allocated) {
       ctx.shadowColor = "rgba(200, 180, 100, 0.4)";
       ctx.shadowBlur = radius * 0.6;
+    }
+
+    const power = this.nodePowerMode !== "off" ? this.nodePower.get(node.id) : undefined;
+    if (power !== undefined && !allocated) {
+      const hue = power * 120;
+      fill = `hsl(${hue}, 70%, 25%)`;
+      border = `hsl(${hue}, 80%, 45%)`;
+      ctx.shadowColor = `hsla(${hue}, 90%, 50%, 0.5)`;
+      ctx.shadowBlur = radius * 0.8;
     }
 
     ctx.fillStyle = fill;
@@ -339,6 +362,41 @@ export class TreeRenderer {
       iconSize,
       iconSize
     );
+  }
+
+  private getHeatColor(value: number): string {
+    const t = Math.max(0, Math.min(1, value));
+    if (t < 0.5) {
+      const r = 255;
+      const g = Math.round(106 + (170 - 106) * (t * 2));
+      const b = Math.round(74 + (51 - 74) * (t * 2));
+      return `rgba(${r}, ${g}, ${b}, 0.7)`;
+    }
+    const r = Math.round(255 + (74 - 255) * ((t - 0.5) * 2));
+    const g = Math.round(170 + (222 - 170) * ((t - 0.5) * 2));
+    const b = Math.round(51 + (128 - 51) * ((t - 0.5) * 2));
+    return `rgba(${r}, ${g}, ${b}, 0.7)`;
+  }
+
+  private drawHeatmapGlow(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    radius: number,
+    value: number
+  ): void {
+    const color = this.getHeatColor(value);
+    const glowRadius = radius * 2.5;
+
+    ctx.save();
+    const gradient = ctx.createRadialGradient(x, y, radius * 0.5, x, y, glowRadius);
+    gradient.addColorStop(0, color);
+    gradient.addColorStop(1, "transparent");
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(x, y, glowRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
   }
 
   destroy(): void {
