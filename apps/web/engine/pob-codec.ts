@@ -1,4 +1,4 @@
-import pako from "pako";
+import { inflate, deflate } from "pako";
 
 const MAX_DECODE_SIZE = 32 * 1024 * 1024;
 
@@ -22,7 +22,7 @@ export function decodePobCode(code: string): string | null {
       bytes[i] = binary.charCodeAt(i);
     }
 
-    const decoded = pako.inflate(bytes);
+    const decoded = inflate(bytes);
     const xml = new TextDecoder().decode(decoded);
     if (!xml.includes("<?xml") && !xml.includes("<PathOfBuilding")) {
       return null;
@@ -34,7 +34,7 @@ export function decodePobCode(code: string): string | null {
 }
 
 export function encodePobCode(xml: string): string {
-  const compressed = pako.deflate(xml);
+  const compressed = deflate(xml);
   let binary = "";
   for (let i = 0; i < compressed.length; i++) {
     binary += String.fromCharCode(compressed[i]);
