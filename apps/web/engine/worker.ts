@@ -263,6 +263,68 @@ async function fetchAndMountFiles(
   return mounted;
 }
 
+async function preloadTreeData(
+  luaEngine: Awaited<ReturnType<import("wasmoon").default["createEngine"]>>,
+  luaFactory: import("wasmoon").default,
+  baseUrl: string,
+  version: string,
+  progressId: number
+): Promise<boolean> {
+  try {
+    progress(progressId, `Loading tree data (${version})...`);
+    const [treeResp, spritesResp] = await Promise.all([
+      fetch(`${baseUrl}/TreeData/${version}/tree.json`),
+      fetch(`${baseUrl}/TreeData/${version}/sprites.json`),
+    ]);
+
+    if (!treeResp.ok) return false;
+
+    // Get JSON as text - we'll parse it inside Lua with dkjson
+    // to create native Lua tables (global.set creates userdata proxies
+    // that break pairs/ipairs/# operators in PoB code)
+    const treeJson = await treeResp.text();
+    const spritesJson = spritesResp.ok ? await spritesResp.text() : null;
+
+    progress(progressId, "Parsing tree data...");
+
+    luaEngine.global.set("_tsc_tree_json", treeJson);
+    await luaEngine.doString(`
+      local dkjson = require("dkjson")
+      _tsc_preloaded_tree = dkjson.decode(_tsc_tree_json)
+      _tsc_tree_json = nil
+    `);
+
+    if (spritesJson) {
+      luaEngine.global.set("_tsc_sprites_json", spritesJson);
+      await luaEngine.doString(`
+        local dkjson = require("dkjson")
+        _tsc_preloaded_sprites = dkjson.decode(_tsc_sprites_json)
+        _tsc_sprites_json = nil
+      `);
+    }
+
+    // Mount stub files that return the pre-loaded native Lua tables
+    // instead of the 2.9 MB Lua table literal
+    await luaFactory.mountFile(
+      `/pob/TreeData/${version}/tree.lua`,
+      "return _tsc_preloaded_tree"
+    );
+    if (spritesJson) {
+      await luaFactory.mountFile(
+        `/pob/TreeData/${version}/sprites.lua`,
+        "return _tsc_preloaded_sprites"
+      );
+    }
+
+    progress(progressId, "Tree data ready");
+    return true;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    progress(progressId, `Tree preload failed: ${msg.substring(0, 200)}`);
+    return false;
+  }
+}
+
 async function handleInit(id: number, _gameId: string): Promise<void> {
   try {
     progress(id, "Loading wasmoon...");
@@ -320,6 +382,10 @@ async function handleInit(id: number, _gameId: string): Promise<void> {
     await lua.doString('_tsc_ready = true');
     const ready = lua.global.get("_tsc_ready");
     if (!ready) throw new Error("Lua VM failed self-test");
+
+    // Preload tree JSON data to bypass slow Lua table parsing.
+    // Must run after package.path is set so dkjson can be required.
+    await preloadTreeData(lua, factory, "/data/pob", "3_29", id);
 
     // Boot sequence matching SE's HeadlessWrapper pattern:
     // 1. dofile Launch.lua (sets up globals, loads Main module)
