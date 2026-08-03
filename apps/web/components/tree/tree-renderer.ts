@@ -49,16 +49,22 @@ export class TreeRenderer {
 
   private indexSpriteSheets(): void {
     const sprites = this.tree.sprites;
+    const PREFERRED_ZOOM = "0.3835";
+    const FALLBACK_ZOOM = "0.2972";
+
     for (const [category, zoomLevels] of Object.entries(sprites)) {
-      if (typeof zoomLevels !== "object") continue;
-      const zoom3 =
-        (zoomLevels as Record<string, SpriteSheet[]>)["0.3835"] ??
-        (zoomLevels as Record<string, SpriteSheet[]>)["0.2972"] ??
-        Object.values(zoomLevels as Record<string, SpriteSheet[]>).pop();
-      if (Array.isArray(zoom3)) {
-        for (const sheet of zoom3) {
-          this.spriteSheets.set(`${category}`, sheet);
-        }
+      if (typeof zoomLevels !== "object" || zoomLevels === null) continue;
+
+      const levels = zoomLevels as Record<string, SpriteSheet | SpriteSheet[]>;
+      const entry = levels[PREFERRED_ZOOM] ?? levels[FALLBACK_ZOOM] ??
+        Object.values(levels).pop();
+
+      if (!entry) continue;
+
+      // GGG tree JSON uses single objects per zoom level, not arrays
+      const sheet: SpriteSheet = Array.isArray(entry) ? entry[0] : entry;
+      if (sheet?.filename && sheet?.coords) {
+        this.spriteSheets.set(category, sheet);
       }
     }
   }
@@ -350,7 +356,13 @@ export class TreeRenderer {
     const coord = atlas.coords[iconPath];
     if (!coord) return;
 
-    const iconSize = radius * 1.6;
+    const iconSize = radius * 1.8;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, radius * 0.9, 0, Math.PI * 2);
+    ctx.clip();
+
     ctx.drawImage(
       atlas.image,
       coord.x,
@@ -362,6 +374,7 @@ export class TreeRenderer {
       iconSize,
       iconSize
     );
+    ctx.restore();
   }
 
   private getHeatColor(value: number): string {

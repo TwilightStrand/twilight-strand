@@ -16,41 +16,9 @@ export class EngineBridge {
   async init(gameId: GameId = "poe1"): Promise<void> {
     if (this.worker) return;
 
-    // Stub worker that returns default stats without wasmoon
-    // TODO: Replace with real wasmoon worker once the bundling issue is resolved
-    const workerCode = `
-      self.onmessage = function(e) {
-        var msg = e.data;
-        if (msg.type === "init") {
-          self.postMessage({ id: msg.id, type: "ready" });
-        } else if (msg.type === "evaluate") {
-          self.postMessage({
-            id: msg.id,
-            type: "evaluated",
-            stats: {
-              total_dps: 0, combined_dps: 0, total_ehp: 0,
-              life: 60, energy_shield: 0, mana: 50,
-              strength: 20, dexterity: 20, intelligence: 20,
-              armour: 0, evasion: 16, evade_chance: 0,
-              block_chance: 0, spell_block: 0, suppression: 0, phys_reduction: 0,
-              fire_res: -60, cold_res: -60, lightning_res: -60, chaos_res: -60,
-              fire_res_max: 75, cold_res_max: 75, lightning_res_max: 75, chaos_res_max: 75,
-              life_regen: 0, mana_regen: 0.9,
-              crit_chance: 0, crit_multiplier: 150,
-              attack_speed: 1.2, hit_chance: 5, accuracy: 40,
-              class_name: "Scion", ascendancy: "", level: 1,
-              allocated_nodes: [], main_socket_group: 0
-            },
-            items: [],
-            skills: []
-          });
-        } else if (msg.type === "ping") {
-          self.postMessage({ id: msg.id, type: "pong" });
-        }
-      };
-    `;
-    const blob = new Blob([workerCode], { type: "application/javascript" });
-    this.worker = new Worker(URL.createObjectURL(blob));
+    // Worker is pre-built by esbuild (scripts/build-worker.mjs) to avoid
+    // Turbopack following wasmoon's Node.js-only imports into the main bundle.
+    this.worker = new Worker("/engine-worker.js");
 
     this.worker.onmessage = (e: MessageEvent<EngineResponse>) => {
       const msg = e.data;
