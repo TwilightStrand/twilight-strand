@@ -1,0 +1,9 @@
+{
+  "name": "pob-data",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "fetch": "echo 'TODO: fetch PoB data'",
+    "bundle": "echo 'TODO: bundle PoB data'"
+  }
+}

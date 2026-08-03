@@ -1,0 +1,29 @@
+node_modules/
+.next/
+out/
+dist/
+target/
+pkg/
+*.tsbuildinfo
+.turbo/
+.env
+.env.local
+.env.*.local
+
+# PoB data (fetched on build)
+apps/web/public/data/pob/
+apps/web/public/data/tree/
+apps/web/public/data/passive-skill/
+apps/web/public/wasm/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Research artifacts (keep in docs but not built assets)
+docs/research/*.json
