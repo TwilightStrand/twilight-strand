@@ -3,7 +3,8 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "fetch": "echo 'TODO: fetch PoB data'",
-    "bundle": "echo 'TODO: bundle PoB data'"
+    "fetch": "bash fetch-pob.sh && bash fetch-tree.sh",
+    "fetch:tree": "bash fetch-tree.sh",
+    "fetch:pob": "bash fetch-pob.sh"
   }
 }
