@@ -82,13 +82,10 @@ export const useBuildStore = create<BuildState>((set, get) => ({
           throw new Error("Unrecognized input format");
       }
 
-      if (!get().engineReady) {
-        await get().initEngine();
-      }
-
-      const { getEngineBridge } = await import("@/engine/bridge");
-      const bridge = getEngineBridge();
-      const result = await bridge.evaluate(xml);
+      // Parse XML client-side for immediate data extraction
+      // (the full Lua engine will provide accurate calc results later)
+      const { parsePobXml } = await import("@/engine/pob-xml-parser");
+      const result = parsePobXml(xml);
 
       set({
         code: input,
