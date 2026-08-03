@@ -1,26 +1,49 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback } from "react";
-import { parseTreeData, type TreeData } from "./tree-data";
-import { createCamera, zoomCamera, panCamera, type Camera } from "./tree-camera";
+import { parseTreeData, type TreeData, type TreeNode } from "./tree-data";
+import {
+  createCamera,
+  zoomCamera,
+  panCamera,
+  screenToWorld,
+  type Camera,
+} from "./tree-camera";
 import { TreeRenderer } from "./tree-renderer";
+import { SpatialGrid } from "./tree-spatial";
+import { useTreeStore } from "@/stores/tree-store";
 
 export function TreeCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<TreeRenderer | null>(null);
   const cameraRef = useRef<Camera | null>(null);
+  const spatialRef = useRef<SpatialGrid | null>(null);
+  const treeDataRef = useRef<TreeData | null>(null);
   const rafRef = useRef<number>(0);
   const isDraggingRef = useRef(false);
+  const dragDistRef = useRef(0);
   const lastMouseRef = useRef({ x: 0, y: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [tooltip, setTooltip] = useState<{
+    node: TreeNode;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  const { allocatedNodes, toggleNode, setHoveredNode } = useTreeStore();
 
   const draw = useCallback(() => {
     const renderer = rendererRef.current;
     const camera = cameraRef.current;
     if (!renderer || !camera) return;
+    renderer.setAllocatedNodes(allocatedNodes);
     renderer.render(camera);
-  }, []);
+  }, [allocatedNodes]);
+
+  useEffect(() => {
+    draw();
+  }, [allocatedNodes, draw]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -31,15 +54,20 @@ export function TreeCanvas() {
     async function init() {
       try {
         const resp = await fetch("/data/tree/tree-3_29.json");
-        if (!resp.ok) throw new Error(`Failed to load tree data: ${resp.status}`);
+        if (!resp.ok)
+          throw new Error(`Failed to load tree data: ${resp.status}`);
         const raw = await resp.json();
         if (destroyed) return;
 
         const treeData: TreeData = parseTreeData(raw);
+        treeDataRef.current = treeData;
+
         const renderer = new TreeRenderer(canvas!, treeData);
+        const spatial = new SpatialGrid(treeData.nodes);
 
         cameraRef.current = createCamera(treeData.bounds);
         rendererRef.current = renderer;
+        spatialRef.current = spatial;
 
         renderer.resize();
         await renderer.loadSprites();
@@ -60,56 +88,109 @@ export function TreeCanvas() {
     };
     window.addEventListener("resize", handleResize);
 
-    return () => {
-      destroyed = true;
-      window.removeEventListener("resize", handleResize);
-      cancelAnimationFrame(rafRef.current);
-      rendererRef.current?.destroy();
-    };
-  }, [draw]);
-
-  const handleWheel = useCallback(
-    (e: React.WheelEvent) => {
+    const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
       const cam = cameraRef.current;
-      const canvas = canvasRef.current;
       if (!cam || !canvas) return;
 
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
 
-      cameraRef.current = zoomCamera(cam, e.deltaY, x, y, rect.width, rect.height);
+      cameraRef.current = zoomCamera(
+        cam,
+        e.deltaY,
+        x,
+        y,
+        rect.width,
+        rect.height
+      );
       cancelAnimationFrame(rafRef.current);
       rafRef.current = requestAnimationFrame(draw);
-    },
-    [draw]
-  );
+    };
+    canvas.addEventListener("wheel", handleWheel, { passive: false });
+
+    return () => {
+      destroyed = true;
+      window.removeEventListener("resize", handleResize);
+      canvas.removeEventListener("wheel", handleWheel);
+      cancelAnimationFrame(rafRef.current);
+      rendererRef.current?.destroy();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     isDraggingRef.current = true;
+    dragDistRef.current = 0;
     lastMouseRef.current = { x: e.clientX, y: e.clientY };
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    try {
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      // synthetic events may not have a valid pointer id
+    }
   }, []);
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
-      if (!isDraggingRef.current || !cameraRef.current) return;
+      const cam = cameraRef.current;
+      const canvas = canvasRef.current;
 
-      const dx = e.clientX - lastMouseRef.current.x;
-      const dy = e.clientY - lastMouseRef.current.y;
-      lastMouseRef.current = { x: e.clientX, y: e.clientY };
+      if (isDraggingRef.current && cam) {
+        const dx = e.clientX - lastMouseRef.current.x;
+        const dy = e.clientY - lastMouseRef.current.y;
+        dragDistRef.current += Math.abs(dx) + Math.abs(dy);
+        lastMouseRef.current = { x: e.clientX, y: e.clientY };
 
-      cameraRef.current = panCamera(cameraRef.current, dx, dy);
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = requestAnimationFrame(draw);
+        cameraRef.current = panCamera(cam, dx, dy);
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = requestAnimationFrame(draw);
+        setTooltip(null);
+        return;
+      }
+
+      if (!cam || !canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+      const world = screenToWorld(cam, sx, sy, rect.width, rect.height);
+      const node = spatialRef.current?.findNodeAt(world.x, world.y) ?? null;
+
+      setHoveredNode(node?.id ?? null);
+
+      if (node && node.name) {
+        setTooltip({ node, x: e.clientX, y: e.clientY });
+      } else {
+        setTooltip(null);
+      }
     },
-    [draw]
+    [draw, setHoveredNode]
   );
 
-  const handlePointerUp = useCallback(() => {
-    isDraggingRef.current = false;
-  }, []);
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent) => {
+      const wasClick = dragDistRef.current < 5;
+      isDraggingRef.current = false;
+
+      if (!wasClick) return;
+
+      const cam = cameraRef.current;
+      const canvas = canvasRef.current;
+      if (!cam || !canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+      const world = screenToWorld(cam, sx, sy, rect.width, rect.height);
+      const node = spatialRef.current?.findNodeAt(world.x, world.y) ?? null;
+
+      if (node && node.name) {
+        toggleNode(node.id);
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = requestAnimationFrame(draw);
+      }
+    },
+    [toggleNode, draw]
+  );
 
   return (
     <div className="relative w-full h-full">
@@ -133,12 +214,48 @@ export function TreeCanvas() {
       <canvas
         ref={canvasRef}
         className="w-full h-full block cursor-grab active:cursor-grabbing"
-        onWheel={handleWheel}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerUp}
+        onPointerLeave={() => {
+          isDraggingRef.current = false;
+          setTooltip(null);
+          setHoveredNode(null);
+        }}
       />
+      {tooltip && (
+        <div
+          className="absolute z-20 pointer-events-none px-3 py-2 rounded bg-bg-card border border-border-card shadow-lg max-w-xs"
+          style={{
+            left: tooltip.x + 16,
+            top: tooltip.y - 8,
+            transform: "translateY(-100%)",
+          }}
+        >
+          <div className="font-mono text-xs font-bold text-text-heading">
+            {tooltip.node.name}
+          </div>
+          {tooltip.node.isKeystone && (
+            <span className="text-[9px] font-mono text-amber-400 uppercase tracking-wider">
+              Keystone
+            </span>
+          )}
+          {tooltip.node.isNotable && (
+            <span className="text-[9px] font-mono text-gold uppercase tracking-wider">
+              Notable
+            </span>
+          )}
+          {tooltip.node.stats && tooltip.node.stats.length > 0 && (
+            <div className="mt-1 space-y-px">
+              {tooltip.node.stats.map((stat, i) => (
+                <div key={i} className="text-[10px] text-text-primary">
+                  {stat}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
