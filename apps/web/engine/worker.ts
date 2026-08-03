@@ -145,6 +145,12 @@ const LUA_SHIMS = `
   if not unpack then unpack = table.unpack end
   if not table.unpack then table.unpack = unpack end
 
+  -- Command-line args stub (PoB's Main.lua reads arg[0])
+  arg = arg or { [0] = "/pob/Launch.lua" }
+
+  -- Lua 5.1/LuaJIT compat: loadstring was renamed to load in 5.2+
+  if not loadstring then loadstring = load end
+
   -- Bit operations compatibility
   -- PoB expects LuaJIT's 'bit' library; PUC Lua 5.4 uses native operators
   bit = {
@@ -613,6 +619,18 @@ self.onmessage = async (e: MessageEvent<EngineRequest>) => {
     case "ping":
       reply({ id: msg.id, type: "pong" });
       break;
+    case "debug": {
+      if (!lua) { reply({ id: msg.id, type: "error", message: "not init" }); break; }
+      try {
+        const code = (msg as { id: number; type: string; code: string }).code;
+        await lua.doString(`_tsc_debug_result = (function() ${code} end)()`);
+        const result = lua.global.get("_tsc_debug_result");
+        reply({ id: msg.id, type: "debug-result", result } as never);
+      } catch (e) {
+        reply({ id: msg.id, type: "error", message: String(e) } as never);
+      }
+      break;
+    }
     default: {
       const unknown = msg as { id: number; type: string };
       reply({
