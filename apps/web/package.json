@@ -3,8 +3,9 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build",
+    "dev": "node scripts/build-worker.mjs && next dev --turbopack",
+    "dev:worker": "node scripts/build-worker.mjs --watch",
+    "build": "node scripts/build-worker.mjs --minify && next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
@@ -12,6 +13,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@tsc/pob-codec": "workspace:*",
     "next": "^15.3.0",
     "pako": "^3.0.1",
     "react": "^19.1.0",
@@ -26,6 +28,7 @@
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "@vitejs/plugin-react": "^4.4.0",
+    "esbuild": "^0.28.1",
     "jsdom": "^26.1.0",
     "postcss": "^8.5.0",
     "tailwindcss": "^4.1.0",
