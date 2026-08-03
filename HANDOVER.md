@@ -1,8 +1,8 @@
 # Session Handover - Twilight Strand Collective Build Planner
 
 **Date:** 2026-08-03
-**Repo:** 23 commits, 96 files
-**Status:** Phase 1 complete, Phase 2 in progress
+**Repo:** 25 commits, 97 files
+**Status:** Phase 1 complete, Phase 2 in progress - PoB engine boots and enters BUILD mode
 
 ## What Was Built
 
@@ -82,52 +82,83 @@ docs/research/               SolvedExile reverse-engineering (8 analysis docs)
 
 ## What's NOT Working Yet
 
-### Critical: Stat extraction from PoB engine (90% there)
+### Critical: PoB tree/calc loading is slow (10-30s)
 
-The engine enters BUILD mode and `loadBuildFromXML` runs, but the stat extraction in `handleEvaluate` isn't reading the correct fields from the build object. The Lua code at the end of `handleEvaluate` in `worker.ts` tries to read from `b.calcsTab.mainOutput` but the build object's field names may differ.
+The PoB engine boots and enters BUILD mode successfully. When `loadBuildFromXML` is called, it triggers loading of the passive tree data (3.29 tree.lua is ~2.9 MB of Lua tables). This takes 10-30 seconds in the wasmoon VM, which causes timeouts in the debug probe.
 
-**Next step:** Debug by probing the build object structure after `loadBuildFromXML`:
+**What we've confirmed works:**
+- `launch.main` initializes (Main module loads)
+- `build` object is created with `characterLevel`, `viewMode`, `targetVersion`
+- Tabs load: `notesTab`, `partyTab`, `importTab`, `configTab`
+- `loadBuildFromXML` succeeds (returns without error, sets level correctly)
+
+**What's slow/missing:**
+- `treeTab` / `calcsTab` / `itemsTab` / `skillsTab` are nil after a quick load
+- These tabs depend on `PassiveTree.lua` which loads the full 3.29 tree data
+- The tree loading is the bottleneck (2.9 MB Lua table parsing in WASM)
+
+**Shims that were needed and added:**
+- `SetMainObject`, `runCallback` - PoB callback system
+- `RenderInit`, `SetViewport`, `GetVirtualScreenSize`, `GetResourceCount` - rendering stubs
+- `bit` library (LuaJIT compat for `bit.band`, `bit.bor`, etc.)
+- `unpack`/`table.unpack` compat (Lua 5.4 moved unpack)
+- `loadstring = load` (renamed in Lua 5.2+)
+- `arg` table stub (Main.lua reads `arg[0]`)
+- `lua-utf8` module shim (C extension replaced with Lua 5.4 utf8 lib)
+- `io.open` with `/pob/` prefix and missing file blocklist
+- `CheckForUpdate` disabled
+
+### Next Steps (in priority order)
+
+#### Step 1: Wait for tree loading or optimize it
+The tree data takes 10-30s to parse. Options:
+1. **Just wait** - increase the timeout in bridge.ts and show a loading indicator
+2. **Pre-parse tree data** - convert tree.lua to JSON at build time, load via fetch
+3. **Lazy-load tree tab** - init without tree, load it in background
+
+The simplest approach: increase `defaultTimeout` in `bridge.ts` from 60s to 120s, and add a progress callback so the UI shows "Loading passive tree data..."
+
+#### Step 2: Extract stats from calcsTab.mainOutput
+Once the tree loads, `build.calcsTab.mainOutput` should have all the stats. The worker has a `debug` message type for probing:
 
 ```javascript
-// In the browser console, test with:
 const w = new Worker('/engine-worker.js?v=' + Date.now());
-w.onmessage = (e) => console.log(e.data);
-w.postMessage({ id: 1, type: 'init', gameId: 'poe1' });
 // After ready:
-w.postMessage({ id: 2, type: 'evaluate', xml: '<your PoB XML here>' });
+w.postMessage({ id: 10, type: 'debug', code: `
+  -- Wait for tree to finish loading
+  for i = 1, 10 do runCallback("OnFrame") end
+  if build.calcsTab and build.calcsTab.mainOutput then
+    local out = build.calcsTab.mainOutput
+    return "Life=" .. tostring(out.Life) .. " DPS=" .. tostring(out.TotalDPS)
+  end
+  return "calcsTab still nil"
+` });
 ```
 
-The worker needs a `probe` message type that runs arbitrary Lua and returns the result, so you can inspect:
-- `build.className` vs `build.spec.curClassName`
-- `build.calcsTab` existence
-- `build.calcsTab.mainOutput` field names
-- Whether `runCallback("OnFrame")` needs more iterations
+#### Step 3: Wire engine bridge into build store
+**File:** `apps/web/stores/build-store.ts`
+**Change:** Replace `parsePobXml(xml)` with `bridge.evaluate(xml)` call
+**Add:** Engine init on app load with loading state
 
-### File: `apps/web/engine/worker.ts`
+#### Step 4: Add engine status indicator
+**File:** New component or in Header
+**Show:** "Engine loading (mounting 327 files...)" → "Engine ready" → "Evaluating build..."
 
-The `handleEvaluate` function (around line 300) has the stat extraction code. The key section to debug:
+### Engine bridge already points to real worker
 
-```lua
-local b = build or (launch.main.modes and launch.main.modes["BUILD"])
--- Check: what fields does b have?
--- Check: does b.calcsTab exist?
--- Check: does b.calcsTab.mainOutput have the expected field names?
+`bridge.ts` loads `/engine-worker.js` (the esbuild-bundled wasmoon worker). The build store currently bypasses it by using `parsePobXml()` directly. To switch:
+
+```typescript
+// In build-store.ts importBuild():
+// Replace:
+const { parsePobXml } = await import("@/engine/pob-xml-parser");
+const result = parsePobXml(xml);
+// With:
+const { getEngineBridge } = await import("@/engine/bridge");
+const bridge = getEngineBridge();
+if (!bridge.isReady()) await bridge.init("poe1");
+const result = await bridge.evaluate(xml);
 ```
-
-### Missing HeadlessWrapper shims
-
-These are currently stubbed but may need real implementations:
-- `Inflate`/`Deflate` - used for PoB code encoding (currently stubbed; the JS codec handles this)
-- `xml.LoadXMLFile` - used for parsing PoB XML within Lua (the Lua xml module should handle this)
-- `NewFileSearch` - used for scanning data directories (stubbed as nil)
-
-### Engine bridge uses stub worker for main app
-
-The main app's build store (`stores/build-store.ts`) currently bypasses the engine bridge and uses the client-side XML parser directly. To use the real wasmoon engine:
-
-1. Update `bridge.ts` to point to `/engine-worker.js` (it already does)
-2. Update `build-store.ts` to call `bridge.evaluate(xml)` instead of `parsePobXml(xml)`
-3. Initialize the engine on app load or on first import
 
 ## Exact Files to Edit for Next Steps
 
