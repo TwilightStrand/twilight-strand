@@ -3,6 +3,8 @@
 import { useUiStore } from "@/stores/ui-store";
 import type { TabId } from "@/stores/ui-store";
 import { TreeCanvas } from "@/components/tree/TreeCanvas";
+import { ItemsTab } from "@/components/items/ItemsTab";
+import { SkillsTab } from "@/components/skills/SkillsTab";
 
 function Placeholder({ tab }: { tab: TabId }) {
   return (
@@ -12,12 +14,23 @@ function Placeholder({ tab }: { tab: TabId }) {
   );
 }
 
+function renderTab(tab: TabId) {
+  switch (tab) {
+    case "tree":
+      return <TreeCanvas />;
+    case "skills":
+      return <SkillsTab />;
+    default:
+      return <Placeholder tab={tab} />;
+  }
+}
+
 export function TabContent() {
   const { activeTab } = useUiStore();
 
   return (
     <main className="flex-1 overflow-hidden bg-transparent">
-      {activeTab === "tree" ? <TreeCanvas /> : <Placeholder tab={activeTab} />}
+      {renderTab(activeTab)}
     </main>
   );
 }
