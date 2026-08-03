@@ -11,17 +11,26 @@ export class EngineBridge {
   private pending = new Map<number, PendingRequest>();
   private nextId = 1;
   private ready = false;
-  private defaultTimeout = 60_000;
+  private defaultTimeout = 120_000;
+  private progressCallback?: (stage: string) => void;
+
+  onProgress(cb: (stage: string) => void): void {
+    this.progressCallback = cb;
+  }
 
   async init(gameId: GameId = "poe1"): Promise<void> {
     if (this.worker) return;
 
-    // Worker is pre-built by esbuild (scripts/build-worker.mjs) to avoid
-    // Turbopack following wasmoon's Node.js-only imports into the main bundle.
     this.worker = new Worker("/engine-worker.js");
 
     this.worker.onmessage = (e: MessageEvent<EngineResponse>) => {
       const msg = e.data;
+
+      if (msg.type === "progress") {
+        this.progressCallback?.(msg.stage);
+        return;
+      }
+
       const pending = this.pending.get(msg.id);
       if (pending) {
         clearTimeout(pending.timer);
@@ -46,7 +55,7 @@ export class EngineBridge {
     items: ItemData[];
     skills: SkillGroup[];
   }> {
-    const resp = await this.send({ type: "evaluate", xml } as Omit<EngineRequest, "id">, 120_000);
+    const resp = await this.send({ type: "evaluate", xml } as Omit<EngineRequest, "id">, 180_000);
     if (resp.type === "error") {
       throw new Error(resp.message);
     }
@@ -64,6 +73,7 @@ export class EngineBridge {
     this.worker?.terminate();
     this.worker = null;
     this.ready = false;
+    this.progressCallback = undefined;
     for (const [, p] of this.pending) {
       clearTimeout(p.timer);
       p.reject(new Error("Engine destroyed"));

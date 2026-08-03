@@ -497,35 +497,56 @@ async function handleEvaluate(id: number, xml: string): Promise<void> {
     // Try PoB evaluation
     try {
       lua.global.set("_tsc_build_xml", xml);
+
+      progress(id, "Loading build XML...");
       await lua.doString(`
         _tsc_eval_ok = false
         _tsc_eval_error = nil
         _tsc_eval_stats = nil
 
         local ok, err = xpcall(function()
-          -- Load the build from XML
           loadBuildFromXML(_tsc_build_xml, "imported")
+        end, debug.traceback)
 
-          -- Run a few OnFrame cycles to let calcs settle
-          for i = 1, 3 do
-            if mainObject and mainObject.OnFrame then
-              runCallback("OnFrame")
-            end
+        if not ok then
+          _tsc_eval_error = "loadBuild: " .. tostring(err)
+        end
+      `);
+
+      const loadErr = lua.global.get("_tsc_eval_error");
+      if (loadErr) {
+        console.warn("PoB loadBuild error:", String(loadErr).substring(0, 300));
+      }
+
+      progress(id, "Running calculations...");
+      await lua.doString(`
+        -- Run OnFrame cycles to let tree load and calcs settle.
+        -- Tree parsing (2.9 MB) can take many frames.
+        local maxFrames = 30
+        for i = 1, maxFrames do
+          if mainObject and mainObject.OnFrame then
+            pcall(runCallback, "OnFrame")
           end
+          local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
+          if b and b.calcsTab and b.calcsTab.mainOutput then
+            break
+          end
+        end
+      `);
 
-          -- Find the build object
+      progress(id, "Extracting stats...");
+      await lua.doString(`
+        local ok, err = xpcall(function()
           local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
           if not b then
             error("No build object after loadBuildFromXML")
           end
 
-          -- Extract class info from build
           local result = {}
           result.class_name = b.className or (b.spec and b.spec.curClassName) or "?"
           result.ascendancy = b.ascendClassName or (b.spec and b.spec.curAscendClassName) or ""
           result.level = b.characterLevel or 1
 
-          -- Try to get calc output
           if b.calcsTab and b.calcsTab.mainOutput then
             local out = b.calcsTab.mainOutput
             result.total_dps = out.TotalDPS or out.CombinedDPS or 0
@@ -542,6 +563,8 @@ async function handleEvaluate(id: number, xml: string): Promise<void> {
             result.evade_chance = out.EvadeChance or 0
             result.block_chance = out.BlockChance or 0
             result.spell_block = out.SpellBlockChance or 0
+            result.suppression = out.SpellSuppressionChance or 0
+            result.phys_reduction = out.PhysicalDamageReduction or 0
             result.fire_res = out.FireResist or 0
             result.cold_res = out.ColdResist or 0
             result.lightning_res = out.LightningResist or 0
@@ -557,10 +580,9 @@ async function handleEvaluate(id: number, xml: string): Promise<void> {
             result.accuracy = out.Accuracy or 0
             result.life_regen = out.LifeRegen or 0
             result.mana_regen = out.ManaRegen or 0
-          elseif b.buildFlag then
-            -- Build exists but calcs haven't run yet
-            result.class_name = b.className or "?"
-            result.level = b.characterLevel or 1
+            result.has_calcs = true
+          else
+            result.has_calcs = false
           end
 
           _tsc_eval_stats = result
