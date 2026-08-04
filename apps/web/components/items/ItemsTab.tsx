@@ -188,6 +188,8 @@ function ItemDetail({ item }: { item: ItemData }) {
   const keyStats = extractKeyStats(item);
   const reqs = parseRequirements(item);
   const influences = getInfluences(item);
+  const [price, setPrice] = useState<{ min: number; median: number } | null>(null);
+  const [priceLoading, setPriceLoading] = useState(false);
 
   return (
     <div className="p-4 border-t-2" style={{ borderTopColor: color }}>
@@ -231,6 +233,21 @@ function ItemDetail({ item }: { item: ItemData }) {
           >
             Copy
           </button>
+          {item.rarity === "Unique" && (
+            <button
+              onClick={async () => {
+                setPriceLoading(true);
+                const { priceCheckUnique } = await import("@/lib/trade");
+                const result = await priceCheckUnique(item.name, item.base);
+                setPrice(result ? { min: result.min, median: result.median } : null);
+                setPriceLoading(false);
+              }}
+              disabled={priceLoading}
+              className="text-[10px] font-mono text-amber-400 hover:text-amber-300 transition-colors"
+            >
+              {priceLoading ? "..." : price ? `~${price.median}c` : "Price Check"}
+            </button>
+          )}
         </div>
         {item.name && (
           <h3 className="font-mono text-sm font-bold" style={{ color }}>
