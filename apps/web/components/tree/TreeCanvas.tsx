@@ -46,6 +46,12 @@ export function TreeCanvas() {
   const isDraggingRef = useRef(false);
   const dragDistRef = useRef(0);
   const lastMouseRef = useRef({ x: 0, y: 0 });
+  const touchRef = useRef({
+    lastDist: 0,
+    startTime: 0,
+    startPos: { x: 0, y: 0 },
+    longPressTimer: 0 as ReturnType<typeof setTimeout> | 0,
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tooltip, setTooltip] = useState<{
@@ -55,6 +61,7 @@ export function TreeCanvas() {
   } | null>(null);
 
   const { allocatedNodes, toggleNode, setHoveredNode } = useTreeStore();
+  const hoveredNode = useTreeStore((s) => s.hoveredNode);
   const searchResults = useTreeStore((s) => s.searchResults);
   const { mode: npMode, depth: npDepth } = useNodePowerStore();
   const nodePowerMode = useNodePowerStore((s) => s.mode);
@@ -69,6 +76,7 @@ export function TreeCanvas() {
     if (!renderer || !camera) return;
     renderer.setAllocatedNodes(allocatedNodes);
     renderer.setSearchResults(searchResults);
+    renderer.setHoveredNode(hoveredNode);
     renderer.render(camera);
     setCameraState({ ...camera });
     const canvas = canvasRef.current;
@@ -76,11 +84,11 @@ export function TreeCanvas() {
       const rect = canvas.getBoundingClientRect();
       setCanvasDims({ w: rect.width, h: rect.height });
     }
-  }, [allocatedNodes, searchResults]);
+  }, [allocatedNodes, searchResults, hoveredNode]);
 
   useEffect(() => {
     draw();
-  }, [allocatedNodes, draw]);
+  }, [allocatedNodes, hoveredNode, draw]);
 
   useEffect(() => {
     const renderer = rendererRef.current;
@@ -331,7 +339,10 @@ export function TreeCanvas() {
       )}
       <canvas
         ref={canvasRef}
-        className="w-full h-full block cursor-grab active:cursor-grabbing"
+        tabIndex={0}
+        role="application"
+        aria-label="Passive skill tree"
+        className="w-full h-full block cursor-grab active:cursor-grabbing focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -339,6 +350,77 @@ export function TreeCanvas() {
           isDraggingRef.current = false;
           setTooltip(null);
           setHoveredNode(null);
+        }}
+        onTouchStart={(e) => {
+          if (e.touches.length === 2) {
+            e.preventDefault();
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            touchRef.current.lastDist = Math.sqrt(dx * dx + dy * dy);
+          } else if (e.touches.length === 1) {
+            touchRef.current.startTime = Date.now();
+            touchRef.current.startPos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            clearTimeout(touchRef.current.longPressTimer);
+            const touch = e.touches[0];
+            touchRef.current.longPressTimer = setTimeout(() => {
+              const cam = cameraRef.current;
+              const canvas = canvasRef.current;
+              if (!cam || !canvas) return;
+              const rect = canvas.getBoundingClientRect();
+              const world = screenToWorld(cam, touch.clientX - rect.left, touch.clientY - rect.top, rect.width, rect.height);
+              const node = spatialRef.current?.findNodeAt(world.x, world.y) ?? null;
+              if (node?.name) {
+                toggleNode(node.id);
+                cancelAnimationFrame(rafRef.current);
+                rafRef.current = requestAnimationFrame(draw);
+              }
+            }, 500);
+          }
+        }}
+        onTouchMove={(e) => {
+          clearTimeout(touchRef.current.longPressTimer);
+          if (e.touches.length === 2) {
+            e.preventDefault();
+            const cam = cameraRef.current;
+            if (!cam) return;
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (touchRef.current.lastDist > 0) {
+              const scale = dist / touchRef.current.lastDist;
+              const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+              const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+              const rect = canvasRef.current?.getBoundingClientRect();
+              if (rect) {
+                const newZoom = Math.max(0.1, Math.min(5, cam.zoom * scale));
+                cameraRef.current = { ...cam, zoom: newZoom };
+                cancelAnimationFrame(rafRef.current);
+                rafRef.current = requestAnimationFrame(draw);
+              }
+            }
+            touchRef.current.lastDist = dist;
+          }
+        }}
+        onTouchEnd={() => {
+          clearTimeout(touchRef.current.longPressTimer);
+          touchRef.current.lastDist = 0;
+        }}
+        onKeyDown={(e) => {
+          const cam = cameraRef.current;
+          if (!cam) return;
+          const step = 50 / cam.zoom;
+          switch (e.key) {
+            case "ArrowUp": cameraRef.current = panCamera(cam, 0, step); break;
+            case "ArrowDown": cameraRef.current = panCamera(cam, 0, -step); break;
+            case "ArrowLeft": cameraRef.current = panCamera(cam, step, 0); break;
+            case "ArrowRight": cameraRef.current = panCamera(cam, -step, 0); break;
+            case "+": case "=": cameraRef.current = { ...cam, zoom: Math.min(5, cam.zoom * 1.15) }; break;
+            case "-": cameraRef.current = { ...cam, zoom: Math.max(0.1, cam.zoom / 1.15) }; break;
+            default: return;
+          }
+          e.preventDefault();
+          cancelAnimationFrame(rafRef.current);
+          rafRef.current = requestAnimationFrame(draw);
         }}
       />
       <TreeSearch treeData={treeData} />
