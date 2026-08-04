@@ -10,10 +10,21 @@ import { KeyboardShortcuts } from "@/components/shell/KeyboardShortcuts";
 import { WelcomeHint } from "@/components/shell/WelcomeHint";
 import { ErrorBoundary } from "@/components/shell/ErrorBoundary";
 import { useUiStore } from "@/stores/ui-store";
+import { useBuildStore } from "@/stores/build-store";
 
 export default function Home() {
   const { importOpen, setImportOpen } = useUiStore();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const buildName = useBuildStore((s) => s.buildName);
+  const stats = useBuildStore((s) => s.stats);
+
+  useEffect(() => {
+    if (stats && buildName !== "Unnamed Build") {
+      document.title = `${buildName} - Twilight Strand`;
+    } else {
+      document.title = "Twilight Strand - PoE Build Planner";
+    }
+  }, [buildName, stats]);
 
   useEffect(() => {
     const hash = window.location.hash.slice(1);
