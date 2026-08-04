@@ -133,6 +133,25 @@ function ItemDetail({ item }: { item: ItemData }) {
           >
             {item.rarity}
           </span>
+          <button
+            onClick={async () => {
+              const lines: string[] = [];
+              if (item.rarity) lines.push(`Rarity: ${item.rarity}`);
+              if (item.name) lines.push(item.name);
+              if (item.base && item.base !== item.name) lines.push(item.base);
+              if (item.quality > 0) lines.push(`Quality: ${item.quality}%`);
+              if (item.sockets) lines.push(`Sockets: ${item.sockets}`);
+              if (item.mods.length > 0) {
+                lines.push("--------");
+                lines.push(...item.mods);
+              }
+              await navigator.clipboard.writeText(lines.join("\n"));
+            }}
+            className="text-[10px] font-mono text-text-dim hover:text-accent transition-colors"
+            title="Copy item text"
+          >
+            Copy
+          </button>
         </div>
         {item.name && (
           <h3 className="font-mono text-sm font-bold" style={{ color }}>

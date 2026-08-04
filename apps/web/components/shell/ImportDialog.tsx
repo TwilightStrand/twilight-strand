@@ -263,10 +263,6 @@ export function ImportDialog({
           </div>
         )}
 
-        {error && (
-          <div className="mt-2 text-blood text-xs font-mono">{error}</div>
-        )}
-
         {savedBuilds.length > 0 && (
           <div className="mt-3 border-t border-border-subtle pt-3">
             <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-text-dim">
@@ -299,6 +295,26 @@ export function ImportDialog({
               ))}
             </div>
           </div>
+        )}
+
+        {loading && (
+          <div className="mt-3">
+            <div className="w-full h-1 bg-bg-inset rounded-full overflow-hidden">
+              <div className="h-full bg-accent rounded-full animate-pulse" style={{ width: "60%" }} />
+            </div>
+            <div className="flex items-center gap-2 mt-1.5">
+              <div className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+              <span className="text-[10px] font-mono text-text-dim">
+                {input.includes("pobb.in") || input.includes("pastebin")
+                  ? "Fetching from URL..."
+                  : "Decoding build..."}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="mt-2 text-blood text-xs font-mono">{error}</div>
         )}
 
         <div className="flex justify-end gap-2 mt-4">
