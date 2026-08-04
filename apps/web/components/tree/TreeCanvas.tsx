@@ -8,6 +8,7 @@ import {
   zoomCamera,
   panCamera,
   screenToWorld,
+  frameBounds,
   type Camera,
 } from "./tree-camera";
 import { TreeRenderer } from "./tree-renderer";
@@ -316,6 +317,32 @@ export function TreeCanvas() {
       />
       <TreeSearch treeData={treeData} />
       <TreeSpecBar />
+      <div className="absolute bottom-14 left-3 z-10 flex gap-1">
+        <button
+          onClick={() => {
+            const tree = treeDataRef.current;
+            const canvas = canvasRef.current;
+            if (!tree || !canvas || allocatedNodes.size < 2) return;
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            for (const nid of allocatedNodes) {
+              const node = tree.nodes.get(nid);
+              if (!node) continue;
+              minX = Math.min(minX, node.x);
+              maxX = Math.max(maxX, node.x);
+              minY = Math.min(minY, node.y);
+              maxY = Math.max(maxY, node.y);
+            }
+            if (!isFinite(minX)) return;
+            const rect = canvas.getBoundingClientRect();
+            cameraRef.current = frameBounds({ minX, maxX, minY, maxY }, rect.width, rect.height);
+            draw();
+          }}
+          className="text-[10px] font-mono text-text-dim hover:text-accent px-2 py-1 rounded bg-bg-card/80 border border-border-subtle hover:border-accent/30 transition-colors"
+          title="Center on allocated nodes"
+        >
+          Center
+        </button>
+      </div>
       <NodePowerControls />
       {tooltip && (
         <div
