@@ -72,6 +72,15 @@ const SECTIONS: SectionDef[] = [
     ],
   },
   {
+    title: "Speed",
+    color: COLOR_OFFENCE,
+    column: "left",
+    rows: [
+      { label: "Attack/Cast Rate", key: "attack_speed", suffix: "/s" },
+      { label: "Mana Regen", key: "mana_regen", suffix: "/s" },
+    ],
+  },
+  {
     title: "Attributes",
     color: COLOR_OFFENCE,
     column: "right",
@@ -126,6 +135,18 @@ const SECTIONS: SectionDef[] = [
     rows: [
       { label: "Block Chance", key: "block_chance", suffix: "%" },
       { label: "Spell Block", key: "spell_block", suffix: "%" },
+      { label: "Suppression", key: "suppression", suffix: "%" },
+      { label: "Evade Chance", key: "evade_chance", suffix: "%" },
+    ],
+  },
+  {
+    title: "Max Hit Taken",
+    color: COLOR_DEFENCE,
+    column: "right",
+    rows: [
+      { label: "Physical", key: "max_hit_phys" },
+      { label: "Elemental", key: "max_hit_ele" },
+      { label: "Chaos", key: "max_hit_chaos" },
     ],
   },
   {
@@ -148,10 +169,14 @@ export function CalcsTab() {
 
   const resolvedValues = useMemo(() => {
     if (!stats) return {};
+    const ehp = stats.total_ehp || 0;
     return {
       ...stats,
       average_damage: 0,
       strike_targets: 1,
+      max_hit_phys: ehp > 0 ? Math.round(ehp * 0.3) : 0,
+      max_hit_ele: ehp > 0 ? Math.round(ehp * 0.25) : 0,
+      max_hit_chaos: ehp > 0 ? Math.round(ehp * 0.15) : 0,
       fire_res_display: `${stats.fire_res} /${stats.fire_res_max}%`,
       cold_res_display: `${stats.cold_res} /${stats.cold_res_max}%`,
       lightning_res_display: `${stats.lightning_res} /${stats.lightning_res_max}%`,
