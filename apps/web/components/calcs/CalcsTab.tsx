@@ -318,6 +318,8 @@ export function CalcsTab() {
               `Chaos: ${stats.chaos_res}/${stats.chaos_res_max}%`,
             ];
             await navigator.clipboard.writeText(lines.join("\n"));
+            const { toast } = await import("@/components/shell/Toast");
+            toast("Stats copied to clipboard");
           }}
           className="text-[10px] font-mono text-text-dim hover:text-accent transition-colors shrink-0"
         >
@@ -327,6 +329,8 @@ export function CalcsTab() {
           onClick={async () => {
             if (!stats) return;
             await navigator.clipboard.writeText(JSON.stringify(stats, null, 2));
+            const { toast } = await import("@/components/shell/Toast");
+            toast("JSON copied to clipboard");
           }}
           disabled={!stats}
           className="text-[10px] font-mono text-text-dim hover:text-accent transition-colors shrink-0"
