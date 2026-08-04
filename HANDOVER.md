@@ -1,192 +1,126 @@
 # Session Handover - Twilight Strand Collective Build Planner
 
-**Date:** 2026-08-03
-**Repo:** 25 commits, 97 files
-**Status:** Phase 1 complete, Phase 2 in progress - PoB engine boots and enters BUILD mode
+**Date:** 2026-08-04
+**Repo:** 35 commits
+**Status:** Phase 1 and Phase 2 complete. PoB engine produces real calc numbers in the browser.
 
 ## What Was Built
 
-### From Zero to Working App in One Session
+### From Zero to Working Build Planner
 
-Started with an empty directory. Reverse-engineered SolvedExile's architecture (dual Lua+Rust engine, 12.5 MB WASM binary, full API surface), wrote a spec, planned 16 tasks, executed all of them plus Phase 2 work.
+Started with an empty directory. Reverse-engineered SolvedExile's architecture, wrote a spec, planned 16 tasks, executed all of them, then completed the engine integration (Phase 2) across two sessions.
 
 ### Architecture
 
 ```
 apps/web/                    Next.js 15 (App Router, Turbopack, Tailwind 4)
-  ├── app/                   Layout, page, globals.css
+  ├── app/
+  │   ├── layout.tsx, page.tsx, globals.css
+  │   └── api/import/route.ts  Proxy for pobb.in/pastebin URL imports
   ├── components/
-  │   ├── shell/             Header, StatsSidebar, TabContent, MobileNav, ImportDialog
+  │   ├── shell/             Header (with EngineStatus), StatsSidebar, TabContent, MobileNav, ImportDialog
   │   ├── tree/              TreeCanvas, tree-renderer, tree-camera, tree-spatial, tree-data, NodePowerControls
   │   ├── items/             ItemsTab
   │   ├── skills/            SkillsTab
   │   ├── calcs/             CalcsTab, CalcSection, CalcRow
   │   └── config/            ConfigTab
   ├── engine/
-  │   ├── worker.ts          Web Worker (wasmoon + PoB Lua bootstrap)
-  │   ├── bridge.ts          Main thread ↔ Worker messaging
+  │   ├── worker.ts          Web Worker (wasmoon + PoB Lua bootstrap + LuaJIT compat shims)
+  │   ├── bridge.ts          Main thread <> Worker messaging with progress callbacks
   │   ├── pob-codec.ts       Re-exports from @tsc/pob-codec
-  │   ├── pob-xml-parser.ts  Client-side XML parser (fallback)
+  │   ├── pob-xml-parser.ts  Client-side XML parser (Phase 1 instant display)
   │   ├── types.ts           BuildStats, ItemData, SkillGroup types
   │   └── shims/             Node.js shims for esbuild (empty, url, path)
   ├── stores/
-  │   ├── build-store.ts     Build state (Zustand)
-  │   ├── tree-store.ts      Tree allocation state
+  │   ├── build-store.ts     Build state (Zustand) with two-phase eval
+  │   ├── tree-store.ts      Tree allocation state (synced from engine)
   │   └── ui-store.ts        Tab, sidebar, import dialog state
   ├── scripts/
-  │   └── build-worker.mjs   esbuild script for worker bundling
+  │   ├── build-worker.mjs   esbuild script for worker bundling
+  │   └── convert-tree-lua.mjs  Converts tree.lua/sprites.lua to JSON at build time
   └── public/
       ├── data/              PoB Lua files, tree JSON, sprite atlases
       ├── manifest.json      PWA manifest
       └── sw.js              Service worker
 
 packages/
-  ├── engine/                Rust WASM calc engine (wasm-bindgen + tsify)
-  │   └── src/lib.rs         BuildStats, WasmEvaluator, evaluate_build_xml (stubs)
+  ├── engine/                Rust WASM calc engine (stubs, not yet used)
   ├── pob-codec/             Publishable npm package (@tsc/pob-codec)
-  │   └── src/index.ts       decodePobCode, encodePobCode, classifyBuildInput
-  └── pob-data/              Data fetching scripts
-      ├── fetch-pob.sh       Download PoB Lua files from GitHub
-      ├── fetch-tree.sh      Download tree JSON + sprites from GGG
-      └── gen-manifest.sh    Generate file-list.json for worker mounting
+  └── pob-data/              Data fetching scripts (fetch-pob.sh, fetch-tree.sh, gen-manifest.sh)
 
 docs/research/               SolvedExile reverse-engineering (8 analysis docs)
 ```
 
-### Key Milestones Reached
+## What's Working
 
-1. **PoB Lua engine boots in-browser** via wasmoon in a Web Worker
-   - 327 files mounted (313 Lua + .jsonc + runtime)
-   - Launch.lua → OnInit → Main module → BUILD mode all succeed
-   - esbuild bundles the worker separately to avoid Turbopack issues with wasmoon's Node.js code
-   - Node.js shims (module, url, fs, path) stub Emscripten's dead code paths
+### Engine Pipeline (fully operational)
+- **PoB Lua engine boots in-browser** via wasmoon in a Web Worker (~5s boot)
+- **Tree data pre-converted to JSON** at build time (2.9 MB Lua -> 1.7 MB JSON in 59ms), parsed with dkjson inside Lua to create native tables
+- **All build tabs initialize**: itemsTab, treeTab, skillsTab, calcsTab, configTab, notesTab, partyTab, importTab
+- **Real calc output** from calcsTab.mainOutput: DPS, life, ES, mana, resistances, attributes, mitigation, block, suppression
+- **Two-phase import**: instant XML parse for immediate display, then engine evaluation in background
 
-2. **Interactive passive tree** with 3,390 nodes
-   - Canvas 2D renderer with sprite atlas icons from GGG's CDN
-   - Spatial grid for O(1) hit testing
-   - Zoom/pan with pointer events
-   - Click to allocate, hover tooltips with stat text
-   - Node power heatmap UI (stub scoring until real engine calcs)
+### Import Flow
+- **PoB codes** (base64 + zlib): decoded via @tsc/pob-codec
+- **Raw XML**: parsed directly
+- **pobb.in URLs**: fetched via `/api/import` proxy route (`/pob/{id}` endpoint)
+- **pastebin URLs**: fetched via `/api/import` proxy route (`/raw/{id}` endpoint)
 
-3. **Full app shell** with 6 tabs, stats sidebar, mobile responsive
+### UI
+- **Header**: shows ascendancy name (e.g. "Occultist Lv 97"), engine status indicator with progress
+- **Stats sidebar**: real calc numbers (DPS, life/ES/mana, attributes, armour/evasion, resistances, block/suppression, Total EHP)
+- **Passive tree**: 3,390 nodes with canvas renderer, allocated nodes lit up from engine spec
+- **Items tab**: equipment and flasks from engine's itemsTab
+- **Skills tab**: socket groups with gems, levels, quality from engine's skillsTab
+- **Mobile responsive** with bottom nav
 
-4. **Import flow** with PoB code decode (base64 + zlib)
+### Tested With
+- Witch Occultist Lv 97 Winter Orb build (from pobb.in): 1.7M DPS, 3289 ES, 116 allocated nodes, all items/skills populated
 
-## What's Working Right Now
+## LuaJIT Compatibility Shims
 
-- App renders at localhost:3003 with full tree, tabs, sidebar
-- Import dialog opens (Import button in header)
-- PoB engine initializes in ~3-5 seconds (mounting 327 files)
-- Build XML is parsed, level is extracted correctly (tested: level=90)
-- Client-side XML parser provides fallback data for items/skills
+The PoB codebase targets LuaJIT, but wasmoon uses PUC Lua 5.4. Several shims were needed:
 
-## What's NOT Working Yet
+| Shim | Issue | Fix |
+|------|-------|-----|
+| `string.format` | Lua 5.4 rejects `%d` with non-integer floats | Auto-floor numeric args for integer specifiers |
+| `string.gsub` | Lua 5.4 rejects `%X` in replacement strings where X is not digit/% | Sanitize replacement strings, strip invalid `%` escapes |
+| `bit` / `bit32` | LuaJIT's bit library vs Lua 5.4 native bitwise ops | Shim using `&`, `\|`, `~`, `<<`, `>>` operators |
+| `unpack` / `table.unpack` | Moved between Lua versions | Cross-alias both |
+| `loadstring` | Renamed to `load` in Lua 5.2+ | Alias `loadstring = load` |
+| `jit` | PoB checks `jit.version` | Stub with `{ version = "disabled" }` |
+| Timeless Jewel LUT | `assert` crashes when binary data files missing | Graceful return of empty table |
+| Tree JSON keys | dkjson parses numeric keys as strings | Post-parse `rekey_numeric` converts back to integers |
 
-### Critical: PoB tree/calc loading is slow (10-30s)
+## What's NOT Working / Known Issues
 
-The PoB engine boots and enters BUILD mode successfully. When `loadBuildFromXML` is called, it triggers loading of the passive tree data (3.29 tree.lua is ~2.9 MB of Lua tables). This takes 10-30 seconds in the wasmoon VM, which causes timeouts in the debug probe.
+1. **CalcDefence edge case**: one remaining `string.format` error deep in defence breakdown calculations. Build still loads and produces stats; only some breakdown detail text is missing.
+2. **Tree node rendering**: allocated nodes show connections but node icons don't change to "allocated" appearance (needs tree-renderer.ts update to use different sprite frames).
+3. **No build editing**: builds are view-only. Changing items/skills/tree nodes doesn't recalculate.
+4. **Crit Multiplier display**: shows raw engine value (e.g. "4%") which may need interpretation - PoB returns this in different units depending on the skill type.
+5. **`@tsc` npm scope**: likely already claimed on npm. Need to pick alternative scope for publishing.
+6. **Remaining prior work**: `/Users/alkj/code/github/pob-mcp` has a PoB MCP bridge using native LuaJIT + HeadlessWrapper (subprocess approach, different from our WASM approach).
 
-**What we've confirmed works:**
-- `launch.main` initializes (Main module loads)
-- `build` object is created with `characterLevel`, `viewMode`, `targetVersion`
-- Tabs load: `notesTab`, `partyTab`, `importTab`, `configTab`
-- `loadBuildFromXML` succeeds (returns without error, sets level correctly)
+## Next Steps (priority order)
 
-**What's slow/missing:**
-- `treeTab` / `calcsTab` / `itemsTab` / `skillsTab` are nil after a quick load
-- These tabs depend on `PassiveTree.lua` which loads the full 3.29 tree data
-- The tree loading is the bottleneck (2.9 MB Lua table parsing in WASM)
-
-**Shims that were needed and added:**
-- `SetMainObject`, `runCallback` - PoB callback system
-- `RenderInit`, `SetViewport`, `GetVirtualScreenSize`, `GetResourceCount` - rendering stubs
-- `bit` library (LuaJIT compat for `bit.band`, `bit.bor`, etc.)
-- `unpack`/`table.unpack` compat (Lua 5.4 moved unpack)
-- `loadstring = load` (renamed in Lua 5.2+)
-- `arg` table stub (Main.lua reads `arg[0]`)
-- `lua-utf8` module shim (C extension replaced with Lua 5.4 utf8 lib)
-- `io.open` with `/pob/` prefix and missing file blocklist
-- `CheckForUpdate` disabled
-
-### Next Steps (in priority order)
-
-#### Step 1: Wait for tree loading or optimize it
-The tree data takes 10-30s to parse. Options:
-1. **Just wait** - increase the timeout in bridge.ts and show a loading indicator
-2. **Pre-parse tree data** - convert tree.lua to JSON at build time, load via fetch
-3. **Lazy-load tree tab** - init without tree, load it in background
-
-The simplest approach: increase `defaultTimeout` in `bridge.ts` from 60s to 120s, and add a progress callback so the UI shows "Loading passive tree data..."
-
-#### Step 2: Extract stats from calcsTab.mainOutput
-Once the tree loads, `build.calcsTab.mainOutput` should have all the stats. The worker has a `debug` message type for probing:
-
-```javascript
-const w = new Worker('/engine-worker.js?v=' + Date.now());
-// After ready:
-w.postMessage({ id: 10, type: 'debug', code: `
-  -- Wait for tree to finish loading
-  for i = 1, 10 do runCallback("OnFrame") end
-  if build.calcsTab and build.calcsTab.mainOutput then
-    local out = build.calcsTab.mainOutput
-    return "Life=" .. tostring(out.Life) .. " DPS=" .. tostring(out.TotalDPS)
-  end
-  return "calcsTab still nil"
-` });
-```
-
-#### Step 3: Wire engine bridge into build store
-**File:** `apps/web/stores/build-store.ts`
-**Change:** Replace `parsePobXml(xml)` with `bridge.evaluate(xml)` call
-**Add:** Engine init on app load with loading state
-
-#### Step 4: Add engine status indicator
-**File:** New component or in Header
-**Show:** "Engine loading (mounting 327 files...)" → "Engine ready" → "Evaluating build..."
-
-### Engine bridge already points to real worker
-
-`bridge.ts` loads `/engine-worker.js` (the esbuild-bundled wasmoon worker). The build store currently bypasses it by using `parsePobXml()` directly. To switch:
-
-```typescript
-// In build-store.ts importBuild():
-// Replace:
-const { parsePobXml } = await import("@/engine/pob-xml-parser");
-const result = parsePobXml(xml);
-// With:
-const { getEngineBridge } = await import("@/engine/bridge");
-const bridge = getEngineBridge();
-if (!bridge.isReady()) await bridge.init("poe1");
-const result = await bridge.evaluate(xml);
-```
-
-## Exact Files to Edit for Next Steps
-
-### Step 1: Debug stat extraction
-**File:** `apps/web/engine/worker.ts` (handleEvaluate function, ~line 300)
-**Action:** Add a `probe` message type that runs arbitrary Lua and returns the result. Use it to inspect the build object structure.
-
-### Step 2: Wire real engine into main app
-**File:** `apps/web/stores/build-store.ts`
-**Action:** Replace `parsePobXml(xml)` with engine bridge calls. Add engine initialization on first import.
-
-### Step 3: Add engine loading indicator
-**File:** `apps/web/components/shell/Header.tsx` or new `EngineStatus.tsx`
-**Action:** Show "Engine loading..." during the 3-5 second init, "Engine ready" when done.
-
-### Step 4: Publish packages (when ready)
-**Files:** `packages/pob-codec/package.json`, `packages/engine/Cargo.toml`
-**Action:** `cd packages/pob-codec && npm publish` and `cd packages/engine && cargo publish`
-**Note:** Both are publish-ready but set `private: false`. Don't publish until the API is stable.
+1. **Build editing** - let users modify tree nodes, swap items, change skills and recalculate
+2. **Tree renderer allocated state** - use allocated sprite frames for allocated nodes
+3. **ES Recharge / Mana Regen** in sidebar (add to BuildStats type and extraction)
+4. **Share builds** - generate PoB codes from current build state (encodePobCode already exists)
+5. **Performance** - engine boot + eval takes ~15-20s. Consider caching the initialized engine state in IndexedDB, or pre-compiling Lua bytecode
+6. **Publish @tsc/pob-codec** to npm (pick available scope first)
 
 ## Development Commands
 
 ```bash
 # Start dev server
-pnpm dev                    # Builds worker + starts Next.js
+pnpm dev                    # Builds worker + starts Next.js on port 3003
 
 # Rebuild worker after changes to engine/worker.ts
 node apps/web/scripts/build-worker.mjs
+
+# Convert tree data to JSON (after fetching new PoB data)
+node apps/web/scripts/convert-tree-lua.mjs 3_29
 
 # Fetch PoB data (if not already done)
 pnpm data:fetch
@@ -196,30 +130,25 @@ bash packages/pob-data/gen-manifest.sh
 
 # Typecheck
 pnpm typecheck
-
-# Rust engine
-cd packages/engine && cargo check --target wasm32-unknown-unknown
-cd packages/engine && cargo test
-
-# Run tests
-pnpm test
 ```
 
 ## Dev Server
 
-The dev server runs on port 3003 (3000-3002 are taken by other projects). Start with:
+Port 3003 (3000-3002 taken by other projects):
 ```bash
 cd apps/web && npx next dev --turbopack -p 3003
 ```
 
 ## Browser Testing
 
-Use the Chrome DevTools MCP (chrome-devtools-visible) to interact:
+Use Chrome DevTools MCP (chrome-devtools-visible):
 ```javascript
 // Test engine in browser console
 const w = new Worker('/engine-worker.js?v=' + Date.now());
 w.onmessage = (e) => console.log(JSON.stringify(e.data, null, 2));
 w.postMessage({ id: 1, type: 'init', gameId: 'poe1' });
+// After ready, evaluate a build:
+// w.postMessage({ id: 2, type: 'evaluate', xml: '<PathOfBuilding>...' });
 ```
 
 ## Research Reference
