@@ -129,6 +129,7 @@ const PRESETS: { name: string; config: Record<string, boolean | string | number>
 
 export function ConfigTab() {
   const [config, setConfig] = useState(DEFAULT_CONFIG);
+  const [configDirty, setConfigDirty] = useState(false);
   const setConfigOverride = useBuildStore((s) => s.setConfigOverride);
 
   const updateValue = (id: string, value: boolean | string | number) => {
@@ -136,6 +137,7 @@ export function ConfigTab() {
       prev.map((opt) => (opt.id === id ? { ...opt, value } : opt))
     );
     setConfigOverride(id, value);
+    setConfigDirty(true);
   };
 
   const applyPreset = (preset: typeof PRESETS[number]) => {
@@ -168,6 +170,13 @@ export function ConfigTab() {
             </button>
           ))}
         </div>
+
+        {configDirty && (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-400/10 border border-amber-400/20 rounded text-[10px] font-mono text-amber-400 mb-3">
+            <span>Config changed. Re-import build to recalculate.</span>
+            <button onClick={() => setConfigDirty(false)} className="text-text-dim hover:text-text-primary ml-auto">x</button>
+          </div>
+        )}
 
         <BuildInfoSection />
 
