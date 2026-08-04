@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "node scripts/e2e-test.mjs",
+    "data:gen": "node scripts/gen-cluster-data.mjs && node scripts/gen-gem-data.mjs && node scripts/gen-unique-data.mjs && node scripts/convert-tree-lua.mjs",
     "test:watch": "vitest"
   },
   "dependencies": {

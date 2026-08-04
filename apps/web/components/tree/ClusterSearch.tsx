@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useBuildStore } from "@/stores/build-store";
-import { CLUSTER_NOTABLES, CLUSTER_BASES, type ClusterBase } from "@/data/cluster-notables";
+import { CLUSTER_NOTABLES, CLUSTER_BASES, type ClusterBase } from "@/data/cluster-adapter";
 
 function fmtNum(n: number): string {
   if (Math.abs(n) >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
