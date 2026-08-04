@@ -73,6 +73,7 @@ interface SectionDef {
     key: string;
     color?: string;
     suffix?: string;
+    statKey?: string;
     sub?: string;
   }>;
 }
@@ -145,38 +146,38 @@ const SECTIONS: SectionDef[] = [
     color: COLOR_OFFENCE,
     column: "right",
     rows: [
-      { label: "Strength", key: "strength", color: COLOR_STRENGTH },
-      { label: "Dexterity", key: "dexterity", color: COLOR_DEXTERITY },
-      { label: "Intelligence", key: "intelligence", color: COLOR_INTELLIGENCE },
+      { label: "Strength", key: "strength", color: COLOR_STRENGTH, statKey: "strength" },
+      { label: "Dexterity", key: "dexterity", color: COLOR_DEXTERITY, statKey: "dexterity" },
+      { label: "Intelligence", key: "intelligence", color: COLOR_INTELLIGENCE, statKey: "intelligence" },
     ],
   },
   {
     title: "Life",
     color: COLOR_LIFE,
     column: "right",
-    rows: [{ label: "Life", key: "life", color: COLOR_LIFE }],
+    rows: [{ label: "Life", key: "life", color: COLOR_LIFE, statKey: "life" }],
   },
   {
     title: "Mana",
     color: COLOR_MANA,
     column: "right",
-    rows: [{ label: "Mana", key: "mana", color: COLOR_MANA }],
+    rows: [{ label: "Mana", key: "mana", color: COLOR_MANA, statKey: "mana" }],
   },
   {
     title: "Energy Shield",
     color: COLOR_ES,
     column: "right",
-    rows: [{ label: "Energy Shield", key: "energy_shield", color: COLOR_ES }],
+    rows: [{ label: "Energy Shield", key: "energy_shield", color: COLOR_ES, statKey: "energy_shield" }],
   },
   {
     title: "Resists",
     color: COLOR_BLOOD,
     column: "right",
     rows: [
-      { label: "Fire", key: "fire_res_display", color: COLOR_BLOOD },
-      { label: "Cold", key: "cold_res_display", color: COLOR_BLOOD },
-      { label: "Lightning", key: "lightning_res_display", color: COLOR_BLOOD },
-      { label: "Chaos", key: "chaos_res_display", color: COLOR_BLOOD },
+      { label: "Fire", key: "fire_res_display", color: COLOR_BLOOD, statKey: "fire_res" },
+      { label: "Cold", key: "cold_res_display", color: COLOR_BLOOD, statKey: "cold_res" },
+      { label: "Lightning", key: "lightning_res_display", color: COLOR_BLOOD, statKey: "lightning_res" },
+      { label: "Chaos", key: "chaos_res_display", color: COLOR_BLOOD, statKey: "chaos_res" },
     ],
   },
   {
@@ -185,7 +186,7 @@ const SECTIONS: SectionDef[] = [
     column: "right",
     rows: [
       { label: "Phys Damage Reduction", key: "phys_reduction", suffix: "%" },
-      { label: "Evasion", key: "evasion" },
+      { label: "Evasion", key: "evasion", statKey: "evasion" },
     ],
   },
   {
@@ -358,6 +359,7 @@ export function CalcsTab() {
                     color={row.color}
                     suffix={row.suffix}
                     filterQuery={filter || undefined}
+                    statKey={row.statKey}
                   />
                 </div>
               ))}
@@ -378,6 +380,7 @@ export function CalcsTab() {
                   value={resolvedValues[row.key] ?? 0}
                   color={row.color}
                   suffix={row.suffix}
+                  statKey={row.statKey}
                 />
               ))}
             </CalcSection>
