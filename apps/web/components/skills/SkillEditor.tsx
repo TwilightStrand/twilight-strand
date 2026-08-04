@@ -2,22 +2,7 @@
 
 import { useState } from "react";
 import type { SkillGroup, GemData } from "@/engine/types";
-
-const COMMON_GEMS = [
-  "Ground Slam", "Cyclone", "Blade Vortex", "Arc", "Fireball", "Ice Nova",
-  "Lightning Arrow", "Tornado Shot", "Winter Orb", "Righteous Fire",
-  "Summon Raging Spirit", "Raise Zombie", "Spark", "Ball Lightning",
-  "Shield Charge", "Whirling Blades", "Flame Dash", "Frostblink",
-];
-
-const COMMON_SUPPORTS = [
-  "Melee Physical Damage Support", "Brutality Support", "Multistrike Support",
-  "Concentrated Effect Support", "Elemental Focus Support", "Controlled Destruction Support",
-  "Spell Echo Support", "Faster Attacks Support", "Added Cold Damage Support",
-  "Cold Penetration Support", "Chain Support", "Greater Multiple Projectiles Support",
-  "Elemental Damage with Attacks Support", "Minion Damage Support",
-  "Burning Damage Support", "Inspiration Support", "Infused Channelling Support",
-];
+import { GemBrowser } from "./GemBrowser";
 
 interface SkillEditorProps {
   group?: SkillGroup;
@@ -30,28 +15,37 @@ export function SkillEditor({ group, index, onSave, onCancel }: SkillEditorProps
   const [slot, setSlot] = useState(group?.slot || "");
   const [enabled, setEnabled] = useState(group?.enabled ?? true);
   const [gems, setGems] = useState<GemData[]>(group?.gems || []);
-
-  const addGem = (isSupport: boolean) => {
-    setGems([...gems, {
-      name: "",
-      level: 20,
-      quality: 20,
-      enabled: true,
-      skillId: "",
-      isSupport,
-    }]);
-  };
+  const [browsingGem, setBrowsingGem] = useState<number | null>(null);
+  const [browsingSupport, setBrowsingSupport] = useState(false);
 
   const updateGem = (i: number, updates: Partial<GemData>) => {
-    setGems(gems.map((g, idx) => idx === i ? { ...g, ...updates } : g));
+    setGems(gems.map((g, idx) => (idx === i ? { ...g, ...updates } : g)));
   };
 
   const removeGem = (i: number) => {
     setGems(gems.filter((_, idx) => idx !== i));
   };
 
+  const handleBrowserSelect = (gem: { name: string; skillId: string; isSupport: boolean }) => {
+    const newGem: GemData = {
+      name: gem.name,
+      level: 20,
+      quality: 20,
+      enabled: true,
+      skillId: gem.skillId,
+      isSupport: gem.isSupport,
+    };
+
+    if (browsingGem === -1) {
+      setGems([...gems, newGem]);
+    } else if (browsingGem !== null) {
+      updateGem(browsingGem, newGem);
+    }
+    setBrowsingGem(null);
+  };
+
   const handleSave = () => {
-    const activeGem = gems.find(g => !g.isSupport);
+    const activeGem = gems.find((g) => !g.isSupport);
     onSave({
       slot,
       enabled,
@@ -59,6 +53,16 @@ export function SkillEditor({ group, index, onSave, onCancel }: SkillEditorProps
       label: activeGem?.name || slot || `Group ${index + 1}`,
     });
   };
+
+  if (browsingGem !== null) {
+    return (
+      <GemBrowser
+        supportOnly={browsingSupport}
+        onSelect={handleBrowserSelect}
+        onClose={() => setBrowsingGem(null)}
+      />
+    );
+  }
 
   return (
     <div className="p-4 space-y-3 bg-bg-card border border-accent/30 rounded-lg max-w-2xl">
@@ -71,7 +75,7 @@ export function SkillEditor({ group, index, onSave, onCancel }: SkillEditorProps
           <label className="text-[10px] font-mono text-text-dim block mb-0.5">Slot</label>
           <input
             value={slot}
-            onChange={e => setSlot(e.target.value)}
+            onChange={(e) => setSlot(e.target.value)}
             placeholder="e.g., Body Armour"
             className="w-full bg-bg-inset border border-border-subtle rounded px-2 py-1 text-xs font-mono text-text-primary focus:outline-none focus:border-accent"
           />
@@ -91,27 +95,40 @@ export function SkillEditor({ group, index, onSave, onCancel }: SkillEditorProps
         <div className="flex items-center justify-between mb-1">
           <label className="text-[10px] font-mono text-text-dim">Gems</label>
           <div className="flex gap-2">
-            <button onClick={() => addGem(false)} className="text-[9px] font-mono text-accent hover:text-accent/80">+ Active</button>
-            <button onClick={() => addGem(true)} className="text-[9px] font-mono text-text-dim hover:text-accent">+ Support</button>
+            <button
+              onClick={() => { setBrowsingSupport(false); setBrowsingGem(-1); }}
+              className="text-[9px] font-mono text-accent hover:text-accent/80"
+            >
+              + Active
+            </button>
+            <button
+              onClick={() => { setBrowsingSupport(true); setBrowsingGem(-1); }}
+              className="text-[9px] font-mono text-text-dim hover:text-accent"
+            >
+              + Support
+            </button>
           </div>
         </div>
 
         <div className="space-y-1">
           {gems.map((gem, i) => (
             <div key={i} className="flex items-center gap-1.5 bg-bg-inset rounded px-2 py-1">
-              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${gem.isSupport ? "bg-text-dim/40" : "bg-accent"}`} />
-              <input
-                value={gem.name}
-                onChange={e => updateGem(i, { name: e.target.value, skillId: e.target.value.replace(/\s+/g, "") })}
-                placeholder={gem.isSupport ? "Support gem name..." : "Active skill name..."}
-                list={gem.isSupport ? "support-gems" : "active-gems"}
-                className="flex-1 bg-transparent text-xs font-mono text-text-primary placeholder:text-text-dim/40 focus:outline-none min-w-0"
+              <span
+                className={`w-1.5 h-1.5 rounded-full shrink-0 ${gem.isSupport ? "bg-text-dim/40" : "bg-accent"}`}
               />
+              <button
+                onClick={() => { setBrowsingSupport(gem.isSupport); setBrowsingGem(i); }}
+                className="flex-1 text-left text-xs font-mono text-text-primary hover:text-accent transition-colors truncate min-w-0"
+                title="Click to change gem"
+              >
+                {gem.name || "(click to select)"}
+              </button>
               <input
                 type="number"
                 value={gem.level}
-                onChange={e => updateGem(i, { level: parseInt(e.target.value) || 1 })}
-                min={1} max={21}
+                onChange={(e) => updateGem(i, { level: parseInt(e.target.value) || 1 })}
+                min={1}
+                max={21}
                 className="w-8 bg-transparent text-xs font-mono text-text-dim text-center"
                 title="Level"
               />
@@ -119,32 +136,39 @@ export function SkillEditor({ group, index, onSave, onCancel }: SkillEditorProps
               <input
                 type="number"
                 value={gem.quality}
-                onChange={e => updateGem(i, { quality: parseInt(e.target.value) || 0 })}
-                min={0} max={30}
+                onChange={(e) => updateGem(i, { quality: parseInt(e.target.value) || 0 })}
+                min={0}
+                max={30}
                 className="w-8 bg-transparent text-xs font-mono text-text-dim text-center"
                 title="Quality"
               />
-              <button onClick={() => removeGem(i)} className="text-text-dim/40 hover:text-blood text-xs transition-colors">x</button>
+              <button
+                onClick={() => removeGem(i)}
+                className="text-text-dim/40 hover:text-blood text-xs transition-colors"
+              >
+                x
+              </button>
             </div>
           ))}
           {gems.length === 0 && (
-            <p className="text-[10px] font-mono text-text-dim/40 text-center py-2">No gems added yet</p>
+            <p className="text-[10px] font-mono text-text-dim/40 text-center py-2">
+              No gems added yet
+            </p>
           )}
         </div>
-
-        <datalist id="active-gems">
-          {COMMON_GEMS.map(g => <option key={g} value={g} />)}
-        </datalist>
-        <datalist id="support-gems">
-          {COMMON_SUPPORTS.map(g => <option key={g} value={g} />)}
-        </datalist>
       </div>
 
       <div className="flex gap-2 justify-end pt-1">
-        <button onClick={onCancel} className="px-3 py-1 text-xs font-mono text-text-dim hover:text-text-primary border border-border-subtle rounded transition-colors">
+        <button
+          onClick={onCancel}
+          className="px-3 py-1 text-xs font-mono text-text-dim hover:text-text-primary border border-border-subtle rounded transition-colors"
+        >
           Cancel
         </button>
-        <button onClick={handleSave} className="px-3 py-1 text-xs font-mono bg-accent/20 text-accent border border-accent/30 rounded hover:bg-accent/30 transition-colors">
+        <button
+          onClick={handleSave}
+          className="px-3 py-1 text-xs font-mono bg-accent/20 text-accent border border-accent/30 rounded hover:bg-accent/30 transition-colors"
+        >
           {group ? "Update" : "Create"}
         </button>
       </div>
