@@ -139,7 +139,7 @@ function PinnedStats({ stats }: { stats: BuildStats | null }) {
       </div>
       <div className="space-y-px">
         {pinned.map((key) => {
-          const val = (stats as Record<string, unknown>)[key];
+          const val = (stats as unknown as Record<string, unknown>)[key];
           if (val === undefined || typeof val !== "number") return null;
           return (
             <div key={key} className="flex justify-between items-baseline text-xs font-mono group">
