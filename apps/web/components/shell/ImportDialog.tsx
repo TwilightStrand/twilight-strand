@@ -157,8 +157,19 @@ export function ImportDialog({
                   <button
                     key={char.name}
                     className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-mono rounded hover:bg-bg-hover transition-colors"
-                    onClick={() => {
-                      setAccountError(`Character import for ${char.name} requires PoB JSON conversion (coming soon)`);
+                    onClick={async () => {
+                      setAccountError(null);
+                      setFetchingChars(true);
+                      try {
+                        const resp = await fetch(`/api/character?account=${encodeURIComponent(accountName)}&character=${encodeURIComponent(char.name)}`);
+                        const data = await resp.json();
+                        if (data.error) { setAccountError(data.error); return; }
+                        const { convertCharacterToXml } = await import("@/lib/character-converter");
+                        const xml = convertCharacterToXml(char, data.items || { items: [] }, data.passives || { hashes: [] });
+                        await importBuild(xml);
+                        if (!useBuildStore.getState().error) { setInput(""); onClose(); }
+                      } catch { setAccountError("Failed to import character"); }
+                      finally { setFetchingChars(false); }
                     }}
                   >
                     <span className="text-text-primary">{char.name}</span>
