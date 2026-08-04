@@ -5,6 +5,7 @@ import { useBuildStore } from "@/stores/build-store";
 import { EmptyState } from "@/components/shell/EmptyState";
 import { ItemEditor } from "./ItemEditor";
 import { ClusterDisplay } from "./ClusterDisplay";
+import { CraftingBench } from "./CraftingBench";
 import type { ItemData } from "@/engine/types";
 
 const WEAPON_SLOTS_SET1 = ["Weapon 1", "Weapon 2"];
@@ -185,7 +186,7 @@ function getInfluences(item: ItemData): string[] {
   return influences;
 }
 
-function ItemDetail({ item, onEdit, onDelete }: { item: ItemData; onEdit?: () => void; onDelete?: () => void }) {
+function ItemDetail({ item, onEdit, onDelete, onCraft }: { item: ItemData; onEdit?: () => void; onDelete?: () => void; onCraft?: () => void }) {
   const color = rarityColor(item.rarity);
   const keyStats = extractKeyStats(item);
   const reqs = parseRequirements(item);
@@ -258,6 +259,14 @@ function ItemDetail({ item, onEdit, onDelete }: { item: ItemData; onEdit?: () =>
               className="text-[10px] font-mono text-text-dim hover:text-accent transition-colors"
             >
               Edit
+            </button>
+          )}
+          {onCraft && (
+            <button
+              onClick={onCraft}
+              className="text-[10px] font-mono text-accent hover:text-accent/80 transition-colors"
+            >
+              Craft
             </button>
           )}
           {onDelete && (
@@ -399,6 +408,7 @@ export function ItemsTab() {
   const [itemFilter, setItemFilter] = useState("");
   const [editing, setEditing] = useState(false);
   const [editingItem, setEditingItem] = useState<ItemData | undefined>();
+  const [crafting, setCrafting] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const loadouts = ["Default"];
 
@@ -552,7 +562,21 @@ export function ItemsTab() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {editing ? (
+        {crafting && selectedItem ? (
+          <CraftingBench
+            item={selectedItem}
+            onCraft={(mod) => {
+              const current = [...useBuildStore.getState().items];
+              const idx = current.findIndex(i => i.slot === selectedItem.slot);
+              if (idx >= 0) {
+                current[idx] = { ...current[idx], mods: [...current[idx].mods, mod] };
+                useBuildStore.setState({ items: current });
+              }
+              setCrafting(false);
+            }}
+            onClose={() => setCrafting(false)}
+          />
+        ) : editing ? (
           <ItemEditor
             item={editingItem}
             defaultSlot={selectedSlot}
@@ -577,6 +601,7 @@ export function ItemsTab() {
           <ItemDetail
             item={selectedItem}
             onEdit={() => { setEditingItem(selectedItem); setEditing(true); }}
+            onCraft={() => setCrafting(true)}
             onDelete={() => {
               const filtered = useBuildStore.getState().items.filter(i => i.slot !== selectedItem.slot);
               useBuildStore.setState({ items: filtered });
