@@ -18,6 +18,7 @@ import { useBuildStore } from "@/stores/build-store";
 import { NodePowerControls, useNodePowerStore } from "./NodePowerControls";
 import { TreeSearch } from "./TreeSearch";
 import { TreeSpecBar } from "./TreeSpecBar";
+import { TreeMinimap } from "./TreeMinimap";
 
 function PointCounter() {
   const allocatedNodes = useTreeStore((s) => s.allocatedNodes);
@@ -59,6 +60,8 @@ export function TreeCanvas() {
   const nodePowerMode = useNodePowerStore((s) => s.mode);
   const nodePowerDepth = useNodePowerStore((s) => s.depth);
   const [treeData, setTreeData] = useState<TreeData | null>(null);
+  const [cameraState, setCameraState] = useState<Camera | null>(null);
+  const [canvasDims, setCanvasDims] = useState({ w: 0, h: 0 });
 
   const draw = useCallback(() => {
     const renderer = rendererRef.current;
@@ -67,6 +70,12 @@ export function TreeCanvas() {
     renderer.setAllocatedNodes(allocatedNodes);
     renderer.setSearchResults(searchResults);
     renderer.render(camera);
+    setCameraState({ ...camera });
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const rect = canvas.getBoundingClientRect();
+      setCanvasDims({ w: rect.width, h: rect.height });
+    }
   }, [allocatedNodes, searchResults]);
 
   useEffect(() => {
@@ -407,6 +416,21 @@ export function TreeCanvas() {
             )}
           </div>
         </div>
+      )}
+      {treeData && (
+        <TreeMinimap
+          nodes={Array.from(treeData.nodes.values()).map(n => ({ x: n.x, y: n.y, id: n.id }))}
+          bounds={treeData.bounds}
+          camera={cameraState}
+          canvasWidth={canvasDims.w}
+          canvasHeight={canvasDims.h}
+          onNavigate={(wx, wy) => {
+            if (!cameraRef.current) return;
+            cameraRef.current = { ...cameraRef.current, x: wx, y: wy };
+            cancelAnimationFrame(rafRef.current);
+            rafRef.current = requestAnimationFrame(draw);
+          }}
+        />
       )}
     </div>
   );
