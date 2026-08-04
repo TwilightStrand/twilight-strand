@@ -242,6 +242,7 @@ export function StatsSidebar() {
 
       <StatSection title="Offence" color="var(--color-offence)">
         <StatRow label="Skill DPS" value={fmtNum(dps)} delta={cmp ? calcDelta(dps, cmp.combined_dps ?? cmp.total_dps) : undefined} title={`Total DPS: ${fmtNum(stats?.total_dps ?? 0)} | Combined: ${fmtNum(stats?.combined_dps ?? 0)}`} />
+        {stats && <DpsBar stats={stats} />}
         <StatRow label="Crit Chance" value={`${fmtNum(critChance, 1)}%`} delta={cmp ? calcDelta(critChance, cmp.crit_chance) : undefined} />
         <StatRow label="Crit Multi" value={`${fmtNum(critMulti)}%`} delta={cmp ? calcDelta(critMulti, cmp.crit_multiplier) : undefined} />
         <StatRow label="Attack Speed" value={`${fmtNum(atkSpd, 2)}/s`} delta={cmp ? calcDelta(atkSpd, cmp.attack_speed) : undefined} />
