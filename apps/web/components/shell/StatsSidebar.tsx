@@ -258,10 +258,14 @@ export function StatsSidebar() {
   const suppress = stats?.suppression ?? 0;
   const physRed = stats?.phys_reduction ?? 0;
 
+  const compact = useUiStore((s) => s.sidebarCompact);
+  const toggleCompact = useUiStore((s) => s.toggleSidebarCompact);
+
   return (
-    <aside ref={scrollRef} className="w-48 min-w-48 hidden md:block border-r border-border-subtle bg-bg-deep/80 overflow-y-auto p-3" aria-label="Build statistics">
+    <aside ref={scrollRef} className={`${compact ? "w-36 min-w-36 p-2" : "w-48 min-w-48 p-3"} hidden md:block border-r border-border-subtle bg-bg-deep/80 overflow-y-auto`} aria-label="Build statistics">
       <div className="mb-3 pb-2 border-b border-border-subtle">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between mb-0.5">
+          <div className="flex items-center gap-2">
           <span className="text-life font-mono text-sm font-bold tabular-nums">
             {fmtNum(life)}
           </span>
@@ -282,6 +286,10 @@ export function StatsSidebar() {
               <span className="text-[10px] text-text-dim uppercase">Ward</span>
             </>
           )}
+          </div>
+          <button onClick={toggleCompact} className="text-[9px] font-mono text-text-dim/40 hover:text-text-dim transition-colors" title={compact ? "Normal view" : "Compact view"}>
+            {compact ? "+" : "-"}
+          </button>
         </div>
         {(stats?.total_ehp ?? 0) > 0 && (
           <div className="flex justify-between items-baseline text-xs font-mono mt-1" title="Effective Hit Pool against physical damage">

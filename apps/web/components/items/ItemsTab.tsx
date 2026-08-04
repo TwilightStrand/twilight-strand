@@ -162,15 +162,37 @@ function parseRequirements(item: ItemData): string[] {
   return reqs;
 }
 
+const INFLUENCE_COLORS: Record<string, string> = {
+  Shaper: "#6688cc",
+  Elder: "#886644",
+  Crusader: "#cc8844",
+  Redeemer: "#4488cc",
+  Hunter: "#44cc44",
+  Warlord: "#cc4444",
+};
+
+function getInfluences(item: ItemData): string[] {
+  const influences: string[] = [];
+  const allText = [...item.mods].join(" ").toLowerCase();
+  if (allText.includes("shaper's") || allText.includes("(shaper)")) influences.push("Shaper");
+  if (allText.includes("elder's") || allText.includes("(elder)")) influences.push("Elder");
+  if (allText.includes("(crusader)")) influences.push("Crusader");
+  if (allText.includes("(redeemer)")) influences.push("Redeemer");
+  if (allText.includes("(hunter)")) influences.push("Hunter");
+  if (allText.includes("(warlord)")) influences.push("Warlord");
+  return influences;
+}
+
 function ItemDetail({ item }: { item: ItemData }) {
   const color = rarityColor(item.rarity);
   const keyStats = extractKeyStats(item);
   const reqs = parseRequirements(item);
+  const influences = getInfluences(item);
 
   return (
     <div className="p-4 border-t-2" style={{ borderTopColor: color }}>
       <div className="mb-3">
-        <div className="flex items-center gap-2 mb-1">
+        <div className="flex items-center gap-2 mb-1 flex-wrap">
           <span
             className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded"
             style={{
@@ -181,6 +203,15 @@ function ItemDetail({ item }: { item: ItemData }) {
           >
             {item.rarity}
           </span>
+          {influences.map(inf => (
+            <span key={inf} className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{
+              color: INFLUENCE_COLORS[inf],
+              backgroundColor: `${INFLUENCE_COLORS[inf]}15`,
+              border: `1px solid ${INFLUENCE_COLORS[inf]}30`,
+            }}>
+              {inf}
+            </span>
+          ))}
           <button
             onClick={async () => {
               const lines: string[] = [];
@@ -306,9 +337,20 @@ export function ItemsTab() {
 
   const selectedItem = itemsBySlot.get(selectedSlot);
 
+  const filledCount = items.filter(i => i.slot).length;
+  const uniqueCount = items.filter(i => i.rarity === "Unique").length;
+  const rareCount = items.filter(i => i.rarity === "Rare").length;
+
   return (
     <div className="flex h-full">
       <div className="w-64 min-w-56 border-r border-border-subtle overflow-y-auto">
+        {items.length > 0 && (
+          <div className="px-3 py-1 border-b border-border-subtle text-[10px] font-mono text-text-dim flex gap-3">
+            <span>{filledCount} equipped</span>
+            {uniqueCount > 0 && <span style={{ color: RARITY_COLORS.Unique }}>{uniqueCount} unique</span>}
+            {rareCount > 0 && <span style={{ color: RARITY_COLORS.Rare }}>{rareCount} rare</span>}
+          </div>
+        )}
         <div className="flex items-center gap-1 px-3 py-1.5 border-b border-border-subtle">
           {loadouts.map((name, i) => (
             <button
