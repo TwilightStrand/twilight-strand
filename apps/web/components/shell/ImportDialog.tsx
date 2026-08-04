@@ -12,13 +12,14 @@ export function ImportDialog({
 }) {
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { importBuild, loading, error } = useBuildStore();
+  const { importBuild, loading, error, savedBuilds, loadSavedBuilds, deleteSavedBuild } = useBuildStore();
 
   useEffect(() => {
     if (open) {
+      loadSavedBuilds();
       setTimeout(() => textareaRef.current?.focus(), 100);
     }
-  }, [open]);
+  }, [open, loadSavedBuilds]);
 
   if (!open) return null;
 
@@ -116,6 +117,40 @@ export function ImportDialog({
 
         {error && (
           <div className="mt-2 text-blood text-xs font-mono">{error}</div>
+        )}
+
+        {savedBuilds.length > 0 && (
+          <div className="mt-3 border-t border-border-subtle pt-3">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-text-dim">
+              Saved Builds
+            </span>
+            <div className="mt-1.5 space-y-1 max-h-32 overflow-y-auto">
+              {savedBuilds.map((build, i) => (
+                <div key={i} className="flex items-center gap-2 text-xs font-mono">
+                  <button
+                    onClick={() => {
+                      importBuild(build.code).then(() => {
+                        if (!useBuildStore.getState().error) {
+                          setInput("");
+                          onClose();
+                        }
+                      });
+                    }}
+                    className="flex-1 text-left text-text-primary hover:text-accent transition-colors truncate"
+                  >
+                    {build.name}{" "}
+                    <span className="text-text-dim">Lv {build.level}</span>
+                  </button>
+                  <button
+                    onClick={() => deleteSavedBuild(i)}
+                    className="text-text-dim hover:text-blood transition-colors shrink-0 px-1"
+                  >
+                    x
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         <div className="flex justify-end gap-2 mt-4">
