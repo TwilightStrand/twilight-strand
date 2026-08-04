@@ -12,6 +12,9 @@ pub mod stat_parser;
 pub mod node_power;
 pub mod pathfinder;
 pub mod supports;
+
+#[cfg(test)]
+mod integration_tests;
 pub mod keystones;
 pub mod ascendancy;
 pub use stat_parser::{parse_stat_line, parse_stats};
@@ -229,19 +232,31 @@ fn calc_ehp(
 
 #[wasm_bindgen]
 pub fn evaluate_build(input: BuildInput) -> CalcOutput {
+    // Use class defaults when base attributes are zero
+    let (class_str, class_dex, class_int) = ascendancy::class_base_stats(input.class_id);
+    let eff_str = if input.base_str > 0 { input.base_str } else { class_str };
+    let eff_dex = if input.base_dex > 0 { input.base_dex } else { class_dex };
+    let eff_int = if input.base_int > 0 { input.base_int } else { class_int };
+
     let mut all_mods = input.modifiers.clone();
     keystones::apply_keystones(&input, &mut all_mods);
+
+    // Inject ascendancy bonuses
+    if !input.ascendancy_name.is_empty() {
+        all_mods.extend(ascendancy::get_ascendancy_mods(&input.ascendancy_name));
+    }
+
     let agg = aggregate_mods(&all_mods);
 
     // --- Attributes ----------------------------------------------------------
     let (sf, si, sm) = get_buckets(&agg, "Str");
-    let strength = calc_stat(input.base_str as f64, sf, si, sm).round();
+    let strength = calc_stat(eff_str as f64, sf, si, sm).round();
 
     let (df, di, dm) = get_buckets(&agg, "Dex");
-    let dexterity = calc_stat(input.base_dex as f64, df, di, dm).round();
+    let dexterity = calc_stat(eff_dex as f64, df, di, dm).round();
 
     let (nf, ni, nm) = get_buckets(&agg, "Int");
-    let intelligence = calc_stat(input.base_int as f64, nf, ni, nm).round();
+    let intelligence = calc_stat(eff_int as f64, nf, ni, nm).round();
 
     // --- Pool ----------------------------------------------------------------
     let life = calc_life(input.level, strength, &agg);
@@ -459,6 +474,7 @@ mod tests {
             modifiers: vec![],
             allocated_keystones: vec![],
             main_skill_id: String::new(),
+            ascendancy_name: String::new(),
         }
     }
 
@@ -836,6 +852,7 @@ mod bench_tests {
             ],
             allocated_keystones: vec![],
             main_skill_id: String::new(),
+            ascendancy_name: String::new(),
         }
     }
 
