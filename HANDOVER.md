@@ -1,8 +1,19 @@
 # Session Handover - Twilight Strand Collective Build Planner
 
 **Date:** 2026-08-04
-**Repo:** 120+ commits, 170+ features, 207+ tests (32 TS + 156 Rust + 19 E2E)
-**Status:** Production-ready build planner with dual Lua/Rust engines, auth, community, trade integration
+**Repo:** 142+ commits, 180+ features, 250+ tests (32 TS + 199 Rust + 19 E2E)
+**Status:** Production-ready build planner with dual Lua/Rust engines, auto-generated game data, auth, community, trade integration
+
+## Game Data (auto-generated from PoB source files)
+
+All data generated via `pnpm data:gen` from PoB Lua files. Never hand-coded.
+
+- **53 cluster bases, 300 notables** - from ClusterJewels.lua + ModJewelCluster.lua
+- **821 gems, 1,160 skills** - from Gems.lua + Skills/*.lua
+- **1,202 unique items** - from Uniques/*.lua
+- **3,397 tree nodes** - from tree.lua (converted to JSON)
+
+Pipeline: `pnpm data:fetch` -> `pnpm data:gen` -> all TypeScript data files regenerated
 
 ## Architecture
 
