@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useBuildStore } from "@/stores/build-store";
 import { EmptyState } from "@/components/shell/EmptyState";
+import { ItemEditor } from "./ItemEditor";
 import type { ItemData } from "@/engine/types";
 
 const WEAPON_SLOTS_SET1 = ["Weapon 1", "Weapon 2"];
@@ -183,7 +184,7 @@ function getInfluences(item: ItemData): string[] {
   return influences;
 }
 
-function ItemDetail({ item }: { item: ItemData }) {
+function ItemDetail({ item, onEdit, onDelete }: { item: ItemData; onEdit?: () => void; onDelete?: () => void }) {
   const color = rarityColor(item.rarity);
   const keyStats = extractKeyStats(item);
   const reqs = parseRequirements(item);
@@ -246,6 +247,22 @@ function ItemDetail({ item }: { item: ItemData }) {
               className="text-[10px] font-mono text-amber-400 hover:text-amber-300 transition-colors"
             >
               {priceLoading ? "..." : price ? `~${price.median}c` : "Price Check"}
+            </button>
+          )}
+          {onEdit && (
+            <button
+              onClick={onEdit}
+              className="text-[10px] font-mono text-text-dim hover:text-accent transition-colors"
+            >
+              Edit
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={onDelete}
+              className="text-[10px] font-mono text-text-dim hover:text-blood transition-colors"
+            >
+              Delete
             </button>
           )}
         </div>
@@ -333,6 +350,8 @@ export function ItemsTab() {
   const [weaponSet, setWeaponSet] = useState<1 | 2>(1);
   const [activeFlasks, setActiveFlasks] = useState<Set<string>>(new Set());
   const [itemFilter, setItemFilter] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [editingItem, setEditingItem] = useState<ItemData | undefined>();
   const loadouts = ["Default"];
 
   function toggleFlask(slot: string) {
@@ -405,6 +424,12 @@ export function ItemsTab() {
             Equipment
           </span>
           <button
+            onClick={() => { setEditingItem(undefined); setEditing(true); }}
+            className="text-[10px] font-mono text-accent hover:text-accent/80 transition-colors mr-1"
+          >
+            + New
+          </button>
+          <button
             onClick={() => setWeaponSet(1)}
             className={`text-[9px] font-mono px-1.5 py-0.5 rounded transition-colors ${weaponSet === 1 ? "bg-accent/20 text-accent" : "text-text-dim/50 hover:text-text-dim"}`}
           >
@@ -465,16 +490,50 @@ export function ItemsTab() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {selectedItem ? (
-          <ItemDetail item={selectedItem} />
+        {editing ? (
+          <ItemEditor
+            item={editingItem}
+            defaultSlot={selectedSlot}
+            onSave={(item) => {
+              const current = [...useBuildStore.getState().items];
+              if (editingItem) {
+                const idx = current.findIndex(i => i.slot === editingItem.slot);
+                if (idx >= 0) current[idx] = item;
+                else current.push(item);
+              } else {
+                const idx = current.findIndex(i => i.slot === item.slot);
+                if (idx >= 0) current[idx] = item;
+                else current.push(item);
+              }
+              useBuildStore.setState({ items: current });
+              setSelectedSlot(item.slot);
+              setEditing(false);
+            }}
+            onCancel={() => setEditing(false)}
+          />
+        ) : selectedItem ? (
+          <ItemDetail
+            item={selectedItem}
+            onEdit={() => { setEditingItem(selectedItem); setEditing(true); }}
+            onDelete={() => {
+              const filtered = useBuildStore.getState().items.filter(i => i.slot !== selectedItem.slot);
+              useBuildStore.setState({ items: filtered });
+            }}
+          />
         ) : items.length === 0 ? (
           <EmptyState
             title="No Equipment"
             description="Import a build to see equipped items, flasks, and jewels."
           />
         ) : (
-          <div className="flex items-center justify-center h-full text-text-dim font-mono text-sm">
-            No item in {selectedSlot}
+          <div className="flex flex-col items-center justify-center h-full gap-2">
+            <span className="text-text-dim font-mono text-sm">No item in {selectedSlot}</span>
+            <button
+              onClick={() => { setEditingItem(undefined); setEditing(true); }}
+              className="text-[10px] font-mono text-accent hover:text-accent/80 transition-colors"
+            >
+              + Create item
+            </button>
           </div>
         )}
       </div>
