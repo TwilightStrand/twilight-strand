@@ -97,6 +97,35 @@ function cleanMod(mod: string): string {
   return mod.replace(/\{?(\(crafted\)|\(implicit\)|\(enchant\)|\(fractured\))\}?/g, "").trim();
 }
 
+const SOCKET_COLORS: Record<string, string> = {
+  R: "#c44", G: "#4c4", B: "#44c", W: "#ccc", A: "#888",
+};
+
+function SocketVisual({ sockets }: { sockets: string }) {
+  if (!sockets) return null;
+  const groups = sockets.split(" ");
+  return (
+    <div className="flex items-center gap-2">
+      {groups.map((group, gi) => (
+        <div key={gi} className="flex items-center">
+          {group.split("-").map((color, si) => (
+            <div key={si} className="flex items-center">
+              {si > 0 && <div className="w-1.5 h-px bg-text-dim/40" />}
+              <div
+                className="w-3 h-3 rounded-full border"
+                style={{
+                  backgroundColor: SOCKET_COLORS[color] || "#888",
+                  borderColor: `${SOCKET_COLORS[color] || "#888"}88`,
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function extractKeyStats(item: ItemData): Array<{ label: string; value: string; color: string }> {
   const stats: Array<{ label: string; value: string; color: string }> = [];
   for (const mod of item.mods) {
@@ -184,8 +213,8 @@ function ItemDetail({ item }: { item: ItemData }) {
       )}
 
       {item.sockets && (
-        <div className="text-xs font-mono text-text-dim mb-2">
-          Sockets: {item.sockets}
+        <div className="mb-2">
+          <SocketVisual sockets={item.sockets} />
         </div>
       )}
 
