@@ -11,6 +11,7 @@ export function ImportDialog({
   onClose: () => void;
 }) {
   const [input, setInput] = useState("");
+  const [importScope, setImportScope] = useState<"full" | "tree" | "items" | "skills">("full");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { importBuild, loading, error, savedBuilds, loadSavedBuilds, deleteSavedBuild } = useBuildStore();
 
@@ -114,6 +115,50 @@ export function ImportDialog({
             </label>
           </div>
         </div>
+
+        <div className="flex items-center gap-2 mt-2">
+          <span className="text-[10px] font-mono text-text-dim">Import:</span>
+          {(["full", "tree", "items", "skills"] as const).map((scope) => (
+            <button
+              key={scope}
+              onClick={() => scope === "full" && setImportScope(scope)}
+              disabled={scope !== "full"}
+              className={`text-[10px] font-mono px-2 py-0.5 rounded transition-colors ${
+                importScope === scope
+                  ? "bg-accent/20 text-accent border border-accent/30"
+                  : "text-text-dim border border-transparent disabled:opacity-30"
+              }`}
+            >
+              {scope === "full" ? "Full Build" : scope.charAt(0).toUpperCase() + scope.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        {!input.trim() && savedBuilds.length === 0 && (
+          <div className="mt-3">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-text-dim">
+              Quick Start
+            </span>
+            <div className="mt-1.5 grid grid-cols-1 gap-1.5">
+              {[
+                { name: "RF Juggernaut", desc: "Tanky regen tank", cls: "Marauder" },
+                { name: "LA Deadeye", desc: "Fast bow mapper", cls: "Ranger" },
+                { name: "DD Elementalist", desc: "Ignite corpse build", cls: "Witch" },
+              ].map((build) => (
+                <button
+                  key={build.name}
+                  className="flex items-center gap-2 px-3 py-2 text-left rounded border border-border-subtle transition-colors opacity-40 cursor-not-allowed"
+                  disabled
+                  title="Example builds coming soon"
+                >
+                  <span className="text-xs font-mono text-text-primary">{build.name}</span>
+                  <span className="text-[10px] font-mono text-text-dim flex-1">{build.desc}</span>
+                  <span className="text-[9px] font-mono text-text-dim/40 shrink-0">soon</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {error && (
           <div className="mt-2 text-blood text-xs font-mono">{error}</div>

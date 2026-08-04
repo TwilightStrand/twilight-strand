@@ -15,6 +15,7 @@ export function parsePobXml(xml: string): {
   stats: BuildStats;
   items: ItemData[];
   skills: SkillGroup[];
+  notes: string;
 } {
   const parser = new DOMParser();
   const doc = parser.parseFromString(xml, "text/xml");
@@ -24,8 +25,10 @@ export function parsePobXml(xml: string): {
   const stats = extractBuildInfo(root);
   const items = extractItems(root);
   const skills = extractSkills(root);
+  const notesEl = root.querySelector("Notes");
+  const notes = notesEl?.textContent?.trim() ?? "";
 
-  return { stats, items, skills };
+  return { stats, items, skills, notes };
 }
 
 function extractBuildInfo(root: Element): BuildStats {
