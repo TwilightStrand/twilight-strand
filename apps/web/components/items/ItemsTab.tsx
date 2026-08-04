@@ -4,9 +4,9 @@ import { useState } from "react";
 import { useBuildStore } from "@/stores/build-store";
 import type { ItemData } from "@/engine/types";
 
-const EQUIPMENT_SLOTS = [
-  "Weapon 1",
-  "Weapon 1 Swap",
+const WEAPON_SLOTS_SET1 = ["Weapon 1", "Weapon 2"];
+const WEAPON_SLOTS_SET2 = ["Weapon 1 Swap", "Weapon 2 Swap"];
+const ARMOUR_SLOTS = [
   "Helmet",
   "Body Armour",
   "Gloves",
@@ -19,7 +19,6 @@ const EQUIPMENT_SLOTS = [
 
 const FLASK_SLOTS = ["Flask 1", "Flask 2", "Flask 3", "Flask 4", "Flask 5"];
 
-const ALL_SLOTS = [...EQUIPMENT_SLOTS, ...FLASK_SLOTS];
 
 const RARITY_COLORS: Record<string, string> = {
   Normal: "#9ca3af",
@@ -61,6 +60,25 @@ function SlotRow({
       )}
     </button>
   );
+}
+
+function modColor(mod: string): string {
+  if (mod.includes("(crafted)") || mod.includes("{crafted}")) return "#8888ff";
+  if (mod.includes("(implicit)")) return "#b8a0ff";
+  if (mod.includes("(enchant)")) return "#b8a0ff";
+  if (mod.includes("(fractured)")) return "#a29162";
+  return "var(--color-accent-dim)";
+}
+
+function modTag(mod: string): { label: string; color: string } | null {
+  if (mod.includes("(crafted)") || mod.includes("{crafted}")) return { label: "crafted", color: "#8888ff" };
+  if (mod.includes("(fractured)")) return { label: "fractured", color: "#a29162" };
+  if (mod.includes("(enchant)")) return { label: "enchant", color: "#b8a0ff" };
+  return null;
+}
+
+function cleanMod(mod: string): string {
+  return mod.replace(/\{?(\(crafted\)|\(implicit\)|\(enchant\)|\(fractured\))\}?/g, "").trim();
 }
 
 function ItemDetail({ item }: { item: ItemData }) {
@@ -105,11 +123,19 @@ function ItemDetail({ item }: { item: ItemData }) {
 
       {item.mods.length > 0 && (
         <div className="border-t border-border-subtle pt-2 mt-2 space-y-0.5">
-          {item.mods.map((mod, i) => (
-            <div key={i} className="text-xs font-mono text-accent-dim">
-              {mod}
-            </div>
-          ))}
+          {item.mods.map((mod, i) => {
+            const tag = modTag(mod);
+            return (
+              <div key={i} className="flex items-baseline gap-1.5 text-xs font-mono" style={{ color: modColor(mod) }}>
+                <span>{cleanMod(mod)}</span>
+                {tag && (
+                  <span className="text-[9px] opacity-60" style={{ color: tag.color }}>
+                    [{tag.label}]
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -118,9 +144,13 @@ function ItemDetail({ item }: { item: ItemData }) {
 
 export function ItemsTab() {
   const items = useBuildStore((s) => s.items);
-  const [selectedSlot, setSelectedSlot] = useState<string>(EQUIPMENT_SLOTS[0]);
+  const [selectedSlot, setSelectedSlot] = useState<string>("Weapon 1");
   const [activeLoadout, setActiveLoadout] = useState(0);
+  const [weaponSet, setWeaponSet] = useState<1 | 2>(1);
   const loadouts = ["Default"];
+
+  const weaponSlots = weaponSet === 1 ? WEAPON_SLOTS_SET1 : WEAPON_SLOTS_SET2;
+  const equipmentSlots = [...weaponSlots, ...ARMOUR_SLOTS];
 
   const itemsBySlot = new Map<string, ItemData>();
   for (const item of items) {
@@ -155,12 +185,24 @@ export function ItemsTab() {
           </button>
         </div>
         <div className="p-2">
-        <div className="mb-2">
-          <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-text-dim px-3">
+        <div className="flex items-center gap-1 mb-2 px-3">
+          <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-text-dim mr-auto">
             Equipment
           </span>
+          <button
+            onClick={() => setWeaponSet(1)}
+            className={`text-[9px] font-mono px-1.5 py-0.5 rounded transition-colors ${weaponSet === 1 ? "bg-accent/20 text-accent" : "text-text-dim/50 hover:text-text-dim"}`}
+          >
+            Set I
+          </button>
+          <button
+            onClick={() => setWeaponSet(2)}
+            className={`text-[9px] font-mono px-1.5 py-0.5 rounded transition-colors ${weaponSet === 2 ? "bg-accent/20 text-accent" : "text-text-dim/50 hover:text-text-dim"}`}
+          >
+            Set II
+          </button>
         </div>
-        {EQUIPMENT_SLOTS.map((slot) => (
+        {equipmentSlots.map((slot) => (
           <SlotRow
             key={slot}
             slot={slot}
