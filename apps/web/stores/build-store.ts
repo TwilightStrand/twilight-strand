@@ -59,6 +59,8 @@ interface BuildState {
   saveBuild: () => void;
   loadSavedBuilds: () => void;
   deleteSavedBuild: (index: number) => void;
+  saveToCloud: () => Promise<void>;
+  loadCloudBuilds: () => Promise<SavedBuild[]>;
 }
 
 export const useBuildStore = create<BuildState>((set, get) => ({
@@ -145,6 +147,49 @@ export const useBuildStore = create<BuildState>((set, get) => ({
     try {
       localStorage.setItem("tsc-saved-builds", JSON.stringify(builds));
     } catch {}
+  },
+
+  async saveToCloud() {
+    const { code, stats, buildName } = get();
+    if (!code || !stats) return;
+    try {
+      const resp = await fetch("/api/builds", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: buildName,
+          pobCode: code,
+          className: stats.class_name,
+          ascendancy: stats.ascendancy,
+          level: stats.level,
+          totalDps: stats.total_dps,
+          life: stats.life,
+          energyShield: stats.energy_shield,
+          treeVersion: stats.tree_version,
+        }),
+      });
+      if (resp.ok) {
+        get().addHistory("Saved to cloud");
+      }
+    } catch {}
+  },
+
+  async loadCloudBuilds() {
+    try {
+      const resp = await fetch("/api/builds");
+      if (!resp.ok) return [];
+      const data = await resp.json();
+      return (data.builds || []).map((b: Record<string, unknown>) => ({
+        name: String(b.name || ""),
+        code: String(b.pobCode || ""),
+        savedAt: new Date(b.createdAt as string).getTime(),
+        className: String(b.className || ""),
+        ascendancy: String(b.ascendancy || ""),
+        level: Number(b.level || 1),
+      }));
+    } catch {
+      return [];
+    }
   },
 
   async initEngine() {
