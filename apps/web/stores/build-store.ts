@@ -52,6 +52,15 @@ interface BuildState {
   configOverrides: Record<string, string | boolean | number>;
   setConfigOverride: (key: string, value: string | boolean | number) => void;
 
+  importScope: "full" | "tree" | "items" | "skills";
+  setImportScope: (scope: "full" | "tree" | "items" | "skills") => void;
+
+  loadouts: Array<{ name: string; items: ItemData[] }>;
+  activeLoadout: number;
+  addLoadout: (name?: string) => void;
+  switchLoadout: (index: number) => void;
+  deleteLoadout: (index: number) => void;
+
   initEngine: () => Promise<void>;
   importBuild: (input: string) => Promise<void>;
   reEvaluate: () => Promise<void>;
@@ -86,6 +95,33 @@ export const useBuildStore = create<BuildState>((set, get) => ({
   engineEvalTime: null,
   history: [],
   configOverrides: {},
+  importScope: "full",
+  loadouts: [{ name: "Default", items: [] }],
+  activeLoadout: 0,
+
+  setImportScope: (scope) => set({ importScope: scope }),
+
+  addLoadout: (name) =>
+    set((s) => {
+      const newLoadout = { name: name || `Set ${s.loadouts.length + 1}`, items: [...s.items] };
+      return { loadouts: [...s.loadouts, newLoadout], activeLoadout: s.loadouts.length };
+    }),
+
+  switchLoadout: (index) =>
+    set((s) => {
+      if (index < 0 || index >= s.loadouts.length) return s;
+      const loadouts = [...s.loadouts];
+      loadouts[s.activeLoadout] = { ...loadouts[s.activeLoadout], items: s.items };
+      return { loadouts, activeLoadout: index, items: loadouts[index].items };
+    }),
+
+  deleteLoadout: (index) =>
+    set((s) => {
+      if (s.loadouts.length <= 1) return s;
+      const loadouts = s.loadouts.filter((_, i) => i !== index);
+      const newIndex = Math.min(s.activeLoadout, loadouts.length - 1);
+      return { loadouts, activeLoadout: newIndex, items: loadouts[newIndex].items };
+    }),
 
   setConfigOverride(key: string, value: string | boolean | number) {
     set((s) => ({ configOverrides: { ...s.configOverrides, [key]: value } }));
@@ -269,16 +305,32 @@ export const useBuildStore = create<BuildState>((set, get) => ({
         ? `${result.stats.ascendancy} ${result.stats.class_name}`
         : result.stats.class_name || "Unnamed Build";
 
-      set({
-        code: input,
-        xml,
-        stats: result.stats,
-        items: result.items,
-        skills: result.skills,
-        notes: result.notes || "",
-        loading: false,
-        buildName,
-      });
+      const scope = get().importScope;
+      if (scope === "tree") {
+        const prev = get().stats;
+        set({
+          xml,
+          loading: false,
+          stats: prev
+            ? { ...prev, allocated_nodes: result.stats.allocated_nodes, level: result.stats.level, class_name: result.stats.class_name, ascendancy: result.stats.ascendancy }
+            : result.stats,
+        });
+      } else if (scope === "items") {
+        set({ xml, items: result.items, loading: false });
+      } else if (scope === "skills") {
+        set({ xml, skills: result.skills, loading: false });
+      } else {
+        set({
+          code: input,
+          xml,
+          stats: result.stats,
+          items: result.items,
+          skills: result.skills,
+          notes: result.notes || "",
+          loading: false,
+          buildName,
+        });
+      }
 
       get().addHistory(`Imported build: ${buildName}`);
 

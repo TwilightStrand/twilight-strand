@@ -402,7 +402,8 @@ function EquipmentGrid({ itemsBySlot, selectedSlot, onSelect }: {
 export function ItemsTab() {
   const items = useBuildStore((s) => s.items);
   const [selectedSlot, setSelectedSlot] = useState<string>("Weapon 1");
-  const [activeLoadout, setActiveLoadout] = useState(0);
+  const activeLoadout = useBuildStore((s) => s.activeLoadout);
+  const switchLoadout = useBuildStore((s) => s.switchLoadout);
   const [weaponSet, setWeaponSet] = useState<1 | 2>(1);
   const [activeFlasks, setActiveFlasks] = useState<Set<string>>(new Set());
   const [itemFilter, setItemFilter] = useState("");
@@ -410,7 +411,8 @@ export function ItemsTab() {
   const [editingItem, setEditingItem] = useState<ItemData | undefined>();
   const [crafting, setCrafting] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
-  const loadouts = ["Default"];
+  const storeLoadouts = useBuildStore((s) => s.loadouts);
+  const loadouts = storeLoadouts.map(l => l.name);
 
   function toggleFlask(slot: string) {
     setActiveFlasks(prev => {
@@ -463,7 +465,7 @@ export function ItemsTab() {
           {loadouts.map((name, i) => (
             <button
               key={i}
-              onClick={() => setActiveLoadout(i)}
+              onClick={() => switchLoadout(i)}
               className={`text-[10px] font-mono px-2 py-0.5 rounded transition-colors ${
                 i === activeLoadout
                   ? "bg-accent/20 text-accent border border-accent/30"
@@ -474,9 +476,9 @@ export function ItemsTab() {
             </button>
           ))}
           <button
-            className="text-[10px] font-mono px-1.5 py-0.5 rounded text-text-dim/40 cursor-not-allowed"
-            disabled
-            title="Add loadout (coming soon)"
+            onClick={() => useBuildStore.getState().addLoadout()}
+            className="text-[10px] font-mono px-1.5 py-0.5 rounded text-text-dim hover:text-accent transition-colors"
+            title="Add loadout"
           >
             +
           </button>
