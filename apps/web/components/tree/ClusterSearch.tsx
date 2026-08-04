@@ -11,11 +11,21 @@ function fmtNum(n: number): string {
   return String(Math.round(n));
 }
 
+interface PairResult {
+  names: string[];
+  dpsGain: number;
+  ehpGain: number;
+  estimatedPrice: number;
+  valueScore: number;
+}
+
 export function ClusterSearch() {
   const stats = useBuildStore((s) => s.stats);
   const [results, setResults] = useState<ClusterSearchResult[]>([]);
+  const [pairs, setPairs] = useState<PairResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [sortBy, setSortBy] = useState<"dps" | "value" | "ehp">("value");
+  const [searchMode, setSearchMode] = useState<"single" | "pairs">("single");
 
   const search = async () => {
     if (!stats) return;
@@ -112,6 +122,50 @@ export function ClusterSearch() {
       });
 
       setResults(notableResults);
+
+      // Pair search
+      if (searchMode === "pairs" && useRust && baseInput && baseOutput) {
+        const notableEntries = Object.entries(CLUSTER_NOTABLES);
+        const pairResults: PairResult[] = [];
+
+        for (let i = 0; i < notableEntries.length; i++) {
+          for (let j = i + 1; j < notableEntries.length; j++) {
+            const [name1, notable1] = notableEntries[i];
+            const [name2, notable2] = notableEntries[j];
+
+            const combinedMods = [
+              ...notable1.stats.flatMap((s) => parseStatLine(s)),
+              ...notable2.stats.flatMap((s) => parseStatLine(s)),
+            ];
+
+            const withBoth = evaluateBuildRust({
+              ...baseInput,
+              modifiers: [...baseInput.modifiers, ...combinedMods],
+            });
+
+            if (withBoth) {
+              const dG = withBoth.total_dps - baseOutput.total_dps;
+              const eG = withBoth.total_ehp - baseOutput.total_ehp;
+              const price = Math.max(5, Math.round((50 / notable1.weight + 50 / notable2.weight) * 100));
+              pairResults.push({
+                names: [name1, name2],
+                dpsGain: dG,
+                ehpGain: eG,
+                estimatedPrice: price,
+                valueScore: price > 0 ? (dG + eG) / price : 0,
+              });
+            }
+          }
+        }
+
+        pairResults.sort((a, b) => {
+          if (sortBy === "dps") return b.dpsGain - a.dpsGain;
+          if (sortBy === "ehp") return b.ehpGain - a.ehpGain;
+          return b.valueScore - a.valueScore;
+        });
+
+        setPairs(pairResults.slice(0, 15));
+      }
     } catch (e) {
       console.warn("Cluster search error:", e);
     } finally {
@@ -127,7 +181,16 @@ export function ClusterSearch() {
         <h2 className="text-xs font-mono uppercase tracking-widest text-text-dim">
           Cluster Jewel Search
         </h2>
-        <div className="flex gap-1">
+        <div className="flex gap-1 flex-wrap">
+          <button
+            onClick={() => setSearchMode("single")}
+            className={`text-[10px] font-mono px-2 py-0.5 rounded ${searchMode === "single" ? "bg-accent/20 text-accent" : "text-text-dim"}`}
+          >Singles</button>
+          <button
+            onClick={() => setSearchMode("pairs")}
+            className={`text-[10px] font-mono px-2 py-0.5 rounded ${searchMode === "pairs" ? "bg-accent/20 text-accent" : "text-text-dim"}`}
+          >Pairs</button>
+          <span className="text-text-dim/20 mx-0.5">|</span>
           {(["value", "dps", "ehp"] as const).map((s) => (
             <button
               key={s}
@@ -220,7 +283,35 @@ export function ClusterSearch() {
         </div>
       )}
 
-      {results.length === 0 && !searching && (
+      {searchMode === "pairs" && pairs.length > 0 && (
+        <div className="space-y-1 max-w-2xl mt-3">
+          <div className="text-[9px] font-mono font-bold uppercase tracking-widest text-accent/60 mb-1">
+            Best Notable Pairs
+          </div>
+          {pairs.map((p, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-3 px-3 py-2 bg-bg-card border border-border-card rounded text-xs font-mono"
+            >
+              <span className="w-5 text-text-dim/40 tabular-nums shrink-0">{i + 1}</span>
+              <span className="text-text-primary flex-1 truncate">
+                {p.names.join(" + ")}
+              </span>
+              <div className="flex items-center gap-2 shrink-0">
+                {p.dpsGain > 0 && (
+                  <span className="text-accent tabular-nums">+{fmtNum(p.dpsGain)} DPS</span>
+                )}
+                {p.ehpGain > 0 && (
+                  <span className="text-green-400 tabular-nums">+{Math.round(p.ehpGain)} EHP</span>
+                )}
+                <span className="text-amber-400 tabular-nums">~{p.estimatedPrice}c</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {results.length === 0 && pairs.length === 0 && !searching && (
         <p className="text-xs font-mono text-text-dim/60 text-center py-6">
           Click Search to find the best cluster jewel notables for your build.
           Results are ranked by value (stat gain per chaos).
