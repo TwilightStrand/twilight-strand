@@ -228,6 +228,8 @@ function ItemDetail({ item, onEdit, onDelete }: { item: ItemData; onEdit?: () =>
                 lines.push(...item.mods);
               }
               await navigator.clipboard.writeText(lines.join("\n"));
+              const { toast } = await import("@/components/shell/Toast");
+              toast("Item text copied");
             }}
             className="text-[10px] font-mono text-text-dim hover:text-accent transition-colors"
             title="Copy item text"
@@ -343,6 +345,48 @@ function ItemDetail({ item, onEdit, onDelete }: { item: ItemData; onEdit?: () =>
   );
 }
 
+function EquipmentGrid({ itemsBySlot, selectedSlot, onSelect }: {
+  itemsBySlot: Map<string, ItemData>;
+  selectedSlot: string;
+  onSelect: (slot: string) => void;
+}) {
+  const layout: (string | null)[][] = [
+    [null, "Helmet", null],
+    ["Weapon 1", "Body Armour", "Weapon 2"],
+    ["Ring 1", "Belt", "Ring 2"],
+    ["Gloves", "Amulet", "Boots"],
+  ];
+
+  return (
+    <div className="grid grid-cols-3 gap-1 p-2 max-w-48 mx-auto mb-3">
+      {layout.flat().map((slot, i) => {
+        if (!slot) return <div key={i} />;
+        const item = itemsBySlot.get(slot);
+        const isSelected = selectedSlot === slot;
+        return (
+          <button
+            key={slot}
+            onClick={() => onSelect(slot)}
+            className={`aspect-square rounded border text-center flex flex-col items-center justify-center p-1 transition-colors ${
+              isSelected ? "border-accent bg-accent/10" :
+              item ? "border-border-card bg-bg-card hover:border-accent/30" :
+              "border-border-subtle/50 bg-bg-inset/30 hover:border-border-card"
+            }`}
+            title={slot}
+          >
+            <span className="text-[7px] font-mono text-text-dim/60 leading-tight">{slot.replace("Body Armour", "Chest")}</span>
+            {item && (
+              <span className="text-[7px] font-mono truncate w-full mt-0.5" style={{ color: rarityColor(item.rarity) }}>
+                {(item.name || item.base).split(" ").slice(0, 2).join(" ")}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function ItemsTab() {
   const items = useBuildStore((s) => s.items);
   const [selectedSlot, setSelectedSlot] = useState<string>("Weapon 1");
@@ -352,6 +396,7 @@ export function ItemsTab() {
   const [itemFilter, setItemFilter] = useState("");
   const [editing, setEditing] = useState(false);
   const [editingItem, setEditingItem] = useState<ItemData | undefined>();
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const loadouts = ["Default"];
 
   function toggleFlask(slot: string) {
@@ -385,7 +430,21 @@ export function ItemsTab() {
             <span>{filledCount} equipped</span>
             {uniqueCount > 0 && <span style={{ color: RARITY_COLORS.Unique }}>{uniqueCount} unique</span>}
             {rareCount > 0 && <span style={{ color: RARITY_COLORS.Rare }}>{rareCount} rare</span>}
+            <button
+              onClick={() => setViewMode(viewMode === "list" ? "grid" : "list")}
+              className="ml-auto text-text-dim/50 hover:text-text-dim"
+              title={viewMode === "list" ? "Grid view" : "List view"}
+            >
+              {viewMode === "list" ? "grid" : "list"}
+            </button>
           </div>
+        )}
+        {viewMode === "grid" && (
+          <EquipmentGrid
+            itemsBySlot={itemsBySlot}
+            selectedSlot={selectedSlot}
+            onSelect={setSelectedSlot}
+          />
         )}
         <div className="flex items-center gap-1 px-3 py-1.5 border-b border-border-subtle">
           {loadouts.map((name, i) => (

@@ -176,7 +176,12 @@ export function ConfigTab() {
     }
   };
 
-  const categories = [...new Set(config.map((c) => c.category))];
+  const [configFilter, setConfigFilter] = useState("");
+
+  const filteredConfig = configFilter.trim()
+    ? config.filter(opt => opt.label.toLowerCase().includes(configFilter.toLowerCase()))
+    : config;
+  const categories = [...new Set(filteredConfig.map((c) => c.category))];
 
   return (
     <div className="h-full overflow-y-auto p-4">
@@ -198,6 +203,14 @@ export function ConfigTab() {
           ))}
         </div>
 
+        <input
+          type="text"
+          value={configFilter}
+          onChange={e => setConfigFilter(e.target.value)}
+          placeholder="Filter options..."
+          className="w-full bg-bg-inset border border-border-subtle rounded px-2.5 py-1.5 text-xs font-mono text-text-primary placeholder:text-text-dim/40 focus:outline-none focus:border-accent mb-3"
+        />
+
         {configDirty && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-400/10 border border-amber-400/20 rounded text-[10px] font-mono text-amber-400 mb-3">
             <span>Config changed.</span>
@@ -216,7 +229,7 @@ export function ConfigTab() {
 
         {categories.map((cat) => (
           <ConfigSection key={cat} title={cat}>
-            {config
+            {filteredConfig
               .filter((opt) => opt.category === cat)
               .map((opt) => (
                 <div
