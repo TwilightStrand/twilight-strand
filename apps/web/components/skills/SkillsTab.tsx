@@ -67,6 +67,11 @@ function SocketGroupCard({ group, index, isMain }: { group: SkillGroup; index: n
             main
           </span>
         )}
+        {group.dps !== undefined && group.dps > 0 && (
+          <span className="text-[10px] font-mono text-accent tabular-nums">
+            {group.dps >= 1e6 ? `${(group.dps / 1e6).toFixed(1)}M` : group.dps >= 1e3 ? `${Math.round(group.dps / 1e3)}k` : Math.round(group.dps)} DPS
+          </span>
+        )}
         {group.slot && (
           <span className="text-[10px] font-mono text-text-dim truncate">
             {group.slot}
