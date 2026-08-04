@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { Header } from "@/components/shell/Header";
 import { StatsSidebar } from "@/components/shell/StatsSidebar";
 import { TabContent } from "@/components/shell/TabContent";
@@ -9,6 +10,17 @@ import { useUiStore } from "@/stores/ui-store";
 
 export default function Home() {
   const { importOpen, setImportOpen } = useUiStore();
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === "i") {
+        e.preventDefault();
+        setImportOpen(true);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [setImportOpen]);
 
   return (
     <>

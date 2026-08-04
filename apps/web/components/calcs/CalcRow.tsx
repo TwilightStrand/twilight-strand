@@ -13,9 +13,13 @@ export function CalcRow({
 }) {
   const formatted =
     typeof value === "number"
-      ? Number.isInteger(value)
-        ? value.toLocaleString()
-        : value.toFixed(2)
+      ? Math.abs(value) >= 1e6
+        ? `${(value / 1e6).toFixed(1)}M`
+        : Math.abs(value) >= 1e4
+          ? `${Math.round(value / 1e3)}k`
+          : Number.isInteger(value)
+            ? value.toLocaleString()
+            : value.toFixed(2)
       : value;
 
   return (
