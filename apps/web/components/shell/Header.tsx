@@ -6,6 +6,7 @@ import type { TabId } from "@/stores/ui-store";
 import { useBuildStore } from "@/stores/build-store";
 import { useTreeStore } from "@/stores/tree-store";
 import { BuildCard } from "./BuildCard";
+import { AuthButton } from "./AuthButton";
 
 function RecentBuildsDropdown() {
   const [open, setOpen] = useState(false);
@@ -326,6 +327,7 @@ export function Header() {
         >
           Import
         </button>
+        <AuthButton />
         <LastSavedIndicator />
       </div>
     </header>
