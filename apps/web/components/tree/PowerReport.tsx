@@ -14,6 +14,8 @@ interface NodeRanking {
   ehpGain: number;
   isNotable: boolean;
   isKeystone: boolean;
+  pathCost: number;
+  valuePerPoint: number;
 }
 
 function fmtNum(n: number): string {
@@ -22,13 +24,65 @@ function fmtNum(n: number): string {
   return String(Math.round(n));
 }
 
+function buildConnectionMap(treeData: Record<string, unknown>): Map<string, string[]> {
+  const connections = new Map<string, string[]>();
+  const nodes = (treeData.nodes || {}) as Record<string, Record<string, unknown>>;
+
+  for (const [nodeId, node] of Object.entries(nodes)) {
+    const outs = ((node.out || []) as (string | number)[]).map(String);
+    const ins = ((node.in || []) as (string | number)[]).map(String);
+    const allNeighbors = [...outs, ...ins];
+    const existing = connections.get(nodeId) || [];
+    connections.set(nodeId, [...new Set([...existing, ...allNeighbors])]);
+
+    for (const neighbor of allNeighbors) {
+      const nExisting = connections.get(neighbor) || [];
+      if (!nExisting.includes(nodeId)) {
+        connections.set(neighbor, [...nExisting, nodeId]);
+      }
+    }
+  }
+
+  return connections;
+}
+
+function findPathCost(
+  nodeId: string,
+  allocatedNodes: Set<string>,
+  connections: Map<string, string[]>
+): number {
+  if (allocatedNodes.has(nodeId)) return 0;
+
+  const visited = new Set<string>();
+  const queue: [string, number][] = [[nodeId, 0]];
+  visited.add(nodeId);
+
+  while (queue.length > 0) {
+    const [current, depth] = queue.shift()!;
+    if (depth > 15) return 99;
+
+    const neighbors = connections.get(current) || [];
+    for (const neighbor of neighbors) {
+      if (allocatedNodes.has(neighbor)) return depth + 1;
+      if (!visited.has(neighbor)) {
+        visited.add(neighbor);
+        queue.push([neighbor, depth + 1]);
+      }
+    }
+  }
+
+  return 99;
+}
+
 export function PowerReport() {
   const stats = useBuildStore((s) => s.stats);
   const allocatedNodes = useTreeStore((s) => s.allocatedNodes);
   const [rankings, setRankings] = useState<NodeRanking[]>([]);
   const [mode, setMode] = useState<"dps" | "defence" | "combined">("dps");
+  const [sortBy, setSortBy] = useState<"raw" | "perpoint">("perpoint");
   const [computing, setComputing] = useState(false);
   const [computed, setComputed] = useState(false);
+  const [nodeCount, setNodeCount] = useState(0);
 
   const compute = async () => {
     if (!stats) return;
@@ -46,6 +100,7 @@ export function PowerReport() {
 
       const treeResp = await fetch("/data/pob/TreeData/3_29/tree.json");
       const treeData = await treeResp.json();
+      const connectionMap = buildConnectionMap(treeData);
 
       const baseInput = {
         level: stats.level,
@@ -73,6 +128,7 @@ export function PowerReport() {
 
       const results: NodeRanking[] = [];
       const nodes = treeData.nodes || {};
+      let evaluated = 0;
 
       for (const [nodeId, node] of Object.entries(nodes) as [string, Record<string, unknown>][]) {
         if (allocatedNodes.has(nodeId)) continue;
@@ -81,8 +137,10 @@ export function PowerReport() {
         if (node.isAscendancyStart || nodeId === "root") continue;
 
         const nodeMods = nodeStats.flatMap((s: string) => parseStatLine(s));
-
         if (nodeMods.length === 0) continue;
+
+        const pathCost = findPathCost(nodeId, allocatedNodes, connectionMap);
+        if (pathCost > 15) continue;
 
         const withNode = evaluateBuildRust({
           ...baseInput,
@@ -90,6 +148,7 @@ export function PowerReport() {
         });
 
         if (!withNode) continue;
+        evaluated++;
 
         const dpsGain = withNode.total_dps - baseOutput.total_dps;
         const lifeGain = withNode.life - baseOutput.life;
@@ -99,31 +158,45 @@ export function PowerReport() {
         if (Math.abs(dpsGain) < 0.01 && Math.abs(lifeGain) < 0.01 && Math.abs(esGain) < 0.01)
           continue;
 
+        const dpsPct =
+          baseOutput.total_dps > 0 ? (dpsGain / baseOutput.total_dps) * 100 : 0;
+        const ehpPct =
+          baseOutput.total_ehp > 0 ? (ehpGain / baseOutput.total_ehp) * 100 : 0;
+
+        let rawScore: number;
+        if (mode === "dps") rawScore = dpsPct;
+        else if (mode === "defence") rawScore = ehpPct;
+        else rawScore = dpsPct + ehpPct;
+
+        const valuePerPoint = pathCost > 0 ? rawScore / pathCost : rawScore;
+
         results.push({
           id: nodeId,
           name: (node.name || node.dn || nodeId) as string,
           dpsGain,
-          dpsPct:
-            baseOutput.total_dps > 0 ? (dpsGain / baseOutput.total_dps) * 100 : 0,
+          dpsPct,
           lifeGain,
           esGain,
           ehpGain,
           isNotable: !!node.isNotable,
           isKeystone: !!node.isKeystone,
+          pathCost,
+          valuePerPoint,
         });
       }
 
-      results.sort((a, b) => {
-        if (mode === "dps") return b.dpsGain - a.dpsGain;
-        if (mode === "defence") return b.ehpGain - a.ehpGain;
-        return (
-          b.dpsPct +
-          (b.ehpGain / Math.max(1, baseOutput.total_ehp)) * 100 -
-          (a.dpsPct + (a.ehpGain / Math.max(1, baseOutput.total_ehp)) * 100)
-        );
-      });
+      results.sort((a, b) =>
+        sortBy === "perpoint"
+          ? b.valuePerPoint - a.valuePerPoint
+          : mode === "dps"
+            ? b.dpsGain - a.dpsGain
+            : mode === "defence"
+              ? b.ehpGain - a.ehpGain
+              : b.dpsPct + b.ehpGain - (a.dpsPct + a.ehpGain)
+      );
 
       setRankings(results.slice(0, 30));
+      setNodeCount(evaluated);
       setComputed(true);
     } catch (e) {
       console.warn("Power report error:", e);
@@ -140,14 +213,11 @@ export function PowerReport() {
         <h2 className="text-xs font-mono uppercase tracking-widest text-text-dim">
           Power Report
         </h2>
-        <div className="flex gap-1">
+        <div className="flex gap-1 flex-wrap">
           {(["dps", "defence", "combined"] as const).map((m) => (
             <button
               key={m}
-              onClick={() => {
-                setMode(m);
-                setComputed(false);
-              }}
+              onClick={() => { setMode(m); setComputed(false); }}
               className={`text-[10px] font-mono px-2 py-0.5 rounded ${
                 mode === m ? "bg-accent/20 text-accent" : "text-text-dim"
               }`}
@@ -155,10 +225,17 @@ export function PowerReport() {
               {m === "dps" ? "DPS" : m === "defence" ? "Defence" : "Combined"}
             </button>
           ))}
+          <span className="text-text-dim/30 mx-0.5">|</span>
+          <button
+            onClick={() => { setSortBy(sortBy === "raw" ? "perpoint" : "raw"); setComputed(false); }}
+            className="text-[10px] font-mono px-2 py-0.5 rounded bg-bg-hover text-text-dim hover:text-text-primary"
+          >
+            {sortBy === "perpoint" ? "Value/pt" : "Raw"}
+          </button>
           <button
             onClick={compute}
             disabled={computing}
-            className="text-[10px] font-mono px-3 py-0.5 rounded bg-accent/20 text-accent border border-accent/30 hover:bg-accent/30 disabled:opacity-40 ml-2"
+            className="text-[10px] font-mono px-3 py-0.5 rounded bg-accent/20 text-accent border border-accent/30 hover:bg-accent/30 disabled:opacity-40 ml-1"
           >
             {computing ? "Computing..." : computed ? "Refresh" : "Analyze"}
           </button>
@@ -170,8 +247,9 @@ export function PowerReport() {
           <div className="flex text-[9px] font-mono text-text-dim/60 border-b border-border-subtle pb-0.5 mb-1 px-2">
             <span className="w-5">#</span>
             <span className="flex-1">Node</span>
-            <span className="w-16 text-right">DPS</span>
-            <span className="w-12 text-right">%</span>
+            <span className="w-12 text-right">{mode === "defence" ? "EHP%" : "DPS%"}</span>
+            <span className="w-10 text-right">Cost</span>
+            <span className="w-14 text-right">%/pt</span>
             <span className="w-14 text-right">Life/ES</span>
           </div>
           {rankings.map((r, i) => (
@@ -188,24 +266,25 @@ export function PowerReport() {
               <span className="w-5 text-text-dim/40 tabular-nums">{i + 1}</span>
               <span className="flex-1 truncate text-text-primary">{r.name}</span>
               <span
-                className={`w-16 text-right tabular-nums ${
-                  r.dpsGain > 0
-                    ? "text-accent"
-                    : r.dpsGain < 0
-                      ? "text-red-400"
-                      : "text-text-dim/40"
+                className={`w-12 text-right tabular-nums ${
+                  r.dpsPct > 0 ? "text-accent" : r.dpsPct < 0 ? "text-red-400" : "text-text-dim/40"
                 }`}
               >
-                {r.dpsGain > 0 ? "+" : ""}
-                {fmtNum(r.dpsGain)}
+                {r.dpsPct > 0 ? "+" : ""}{r.dpsPct.toFixed(1)}%
               </span>
               <span
-                className={`w-12 text-right tabular-nums ${
-                  r.dpsPct > 0 ? "text-accent/70" : "text-text-dim/40"
+                className={`w-10 text-right tabular-nums ${
+                  r.pathCost <= 1
+                    ? "text-green-400"
+                    : r.pathCost <= 3
+                      ? "text-text-dim"
+                      : "text-red-400/60"
                 }`}
               >
-                {r.dpsPct > 0 ? "+" : ""}
-                {r.dpsPct.toFixed(1)}%
+                {r.pathCost}pt
+              </span>
+              <span className="w-14 text-right tabular-nums text-amber-400">
+                {r.valuePerPoint.toFixed(2)}
               </span>
               <span
                 className={`w-14 text-right tabular-nums ${
@@ -220,18 +299,17 @@ export function PowerReport() {
               </span>
             </div>
           ))}
+          <div className="text-[9px] font-mono text-text-dim/40 text-right mt-1">
+            {nodeCount} nodes evaluated
+          </div>
         </div>
       )}
 
       {!computed && !computing && (
         <p className="text-xs font-mono text-text-dim/60 text-center py-6">
-          Click Analyze to rank every unallocated node by{" "}
-          {mode === "dps"
-            ? "DPS gain"
-            : mode === "defence"
-              ? "EHP gain"
-              : "combined value"}
-          . Uses the Rust WASM engine for instant evaluation.
+          Click Analyze to rank unallocated nodes by{" "}
+          {sortBy === "perpoint" ? "value per skill point" : "raw gain"}.
+          Considers pathing cost via BFS. Powered by Rust WASM.
         </p>
       )}
     </div>
