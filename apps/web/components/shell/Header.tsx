@@ -46,7 +46,7 @@ function EngineStatus() {
 }
 
 export function Header() {
-  const { activeTab, setActiveTab, setImportOpen } = useUiStore();
+  const { activeTab, setActiveTab, setImportOpen, gameVersion, setGameVersion } = useUiStore();
   const stats = useBuildStore((s) => s.stats);
   const initEngine = useBuildStore((s) => s.initEngine);
   const buildName = useBuildStore((s) => s.buildName);
@@ -70,9 +70,16 @@ export function Header() {
         <span className="text-border-card hidden sm:inline">|</span>
 
         <div className="flex items-center gap-1.5 text-xs font-mono text-text-dim">
-          <span className="bg-bg-card px-1.5 py-0.5 rounded text-text-primary">
-            PoE 1
-          </span>
+          <button
+            onClick={() => setGameVersion(gameVersion === "poe1" ? "poe2" : "poe1")}
+            className="bg-bg-card px-1.5 py-0.5 rounded text-text-primary hover:bg-bg-hover transition-colors"
+            title="Switch game version"
+          >
+            {gameVersion === "poe1" ? "PoE 1" : "PoE 2"}
+          </button>
+          {gameVersion === "poe2" && (
+            <span className="text-[9px] font-mono text-amber-400">beta</span>
+          )}
           <span className="text-text-dim truncate max-w-32">{buildName}</span>
           <span className="text-text-dim/60 text-[10px]">Lv {level}</span>
         </div>
