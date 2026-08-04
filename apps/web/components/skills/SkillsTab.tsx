@@ -1,8 +1,15 @@
 "use client";
 
+import { useState } from "react";
 import { useBuildStore } from "@/stores/build-store";
 import { EmptyState } from "@/components/shell/EmptyState";
 import type { SkillGroup, GemData } from "@/engine/types";
+
+function fmtNum(n: number): string {
+  if (Math.abs(n) >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  if (Math.abs(n) >= 1e3) return `${Math.round(n / 1e3)}k`;
+  return String(Math.round(n));
+}
 
 function gemColor(gem: GemData): string {
   const name = (gem.name || gem.skillId).toLowerCase();
@@ -75,6 +82,7 @@ function SocketGroupCard({ group, index, isMain }: { group: SkillGroup; index: n
   const items = useBuildStore((s) => s.items);
   const equippedItem = items.find((item) => item.slot === group.slot);
   const allGems = group.gems;
+  const [showTooltip, setShowTooltip] = useState(false);
 
   return (
     <div
@@ -86,7 +94,35 @@ function SocketGroupCard({ group, index, isMain }: { group: SkillGroup; index: n
           : "border-border-subtle bg-bg-card/50 opacity-60"
       }`}
     >
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-border-subtle bg-bg-card-alt/50">
+      <div
+        className="flex items-center gap-2 px-3 py-2 border-b border-border-subtle bg-bg-card-alt/50 relative"
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+      >
+        {showTooltip && group.dps !== undefined && group.dps > 0 && (
+          <div className="absolute top-full left-0 mt-1 z-20 bg-bg-card border border-border-card rounded-lg shadow-xl p-3 min-w-48">
+            <div className="text-xs font-mono space-y-1">
+              <div className="flex justify-between gap-4">
+                <span className="text-text-dim">DPS</span>
+                <span className="text-accent tabular-nums">{fmtNum(group.dps)}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-text-dim">Active Gems</span>
+                <span className="text-text-primary">{allGems.filter(g => !g.isSupport).length}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-text-dim">Supports</span>
+                <span className="text-text-primary">{allGems.filter(g => g.isSupport).length}</span>
+              </div>
+              {equippedItem && (
+                <div className="flex justify-between gap-4 border-t border-border-subtle pt-1 mt-1">
+                  <span className="text-text-dim">Item</span>
+                  <span className="text-text-primary truncate max-w-32">{equippedItem.name || equippedItem.base}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         <button
           onClick={() => {
             const { stats } = useBuildStore.getState();

@@ -28,6 +28,7 @@ interface UiState {
   numberFormat: "us" | "eu";
   performanceMode: boolean;
   gameVersion: "poe1" | "poe2";
+  pinnedStats: string[];
   setActiveTab: (tab: TabId) => void;
   toggleSidebar: () => void;
   setImportOpen: (open: boolean) => void;
@@ -35,6 +36,7 @@ interface UiState {
   setNumberFormat: (format: "us" | "eu") => void;
   setPerformanceMode: (enabled: boolean) => void;
   setGameVersion: (version: "poe1" | "poe2") => void;
+  togglePinnedStat: (stat: string) => void;
 }
 
 export const useUiStore = create<UiState>((set) => ({
@@ -45,6 +47,9 @@ export const useUiStore = create<UiState>((set) => ({
   numberFormat: "us",
   performanceMode: false,
   gameVersion: "poe1",
+  pinnedStats: (() => {
+    try { const s = typeof localStorage !== "undefined" && localStorage.getItem("tsc-pinned"); return s ? JSON.parse(s) : []; } catch { return []; }
+  })(),
   setActiveTab: (tab) => set({ activeTab: tab }),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   setImportOpen: (open) => set({ importOpen: open }),
@@ -71,4 +76,11 @@ export const useUiStore = create<UiState>((set) => ({
     set({ gameVersion: version });
     try { localStorage.setItem("tsc-game", version); } catch {}
   },
+  togglePinnedStat: (stat) => set((s) => {
+    const pinned = s.pinnedStats.includes(stat)
+      ? s.pinnedStats.filter(p => p !== stat)
+      : [...s.pinnedStats, stat];
+    try { localStorage.setItem("tsc-pinned", JSON.stringify(pinned)); } catch {}
+    return { pinnedStats: pinned };
+  }),
 }));
