@@ -539,16 +539,33 @@ export class TreeRenderer {
 
   private getHeatColor(value: number): string {
     const t = Math.max(0, Math.min(1, value));
+    const alpha = 0.3 + t * 0.5;
+
+    if (this.nodePowerMode === "dps") {
+      // Orange -> Yellow -> Bright Green
+      const r = Math.round(255 * (1 - t * 0.8));
+      const g = Math.round(120 + 135 * t);
+      const b = Math.round(40 * (1 - t));
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+    if (this.nodePowerMode === "defence") {
+      // Dim blue -> Bright cyan
+      const r = Math.round(20 * (1 - t));
+      const g = Math.round(140 + 80 * t);
+      const b = Math.round(180 + 75 * t);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+    // Combined: low=warm orange, high=bright green
     if (t < 0.5) {
       const r = 255;
-      const g = Math.round(106 + (170 - 106) * (t * 2));
-      const b = Math.round(74 + (51 - 74) * (t * 2));
-      return `rgba(${r}, ${g}, ${b}, 0.7)`;
+      const g = Math.round(140 + 60 * (t * 2));
+      const b = Math.round(50 * (1 - t * 2));
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
     }
-    const r = Math.round(255 + (74 - 255) * ((t - 0.5) * 2));
-    const g = Math.round(170 + (222 - 170) * ((t - 0.5) * 2));
-    const b = Math.round(51 + (128 - 51) * ((t - 0.5) * 2));
-    return `rgba(${r}, ${g}, ${b}, 0.7)`;
+    const r = Math.round(255 * (1 - (t - 0.5) * 2));
+    const g = Math.round(200 + 55 * ((t - 0.5) * 2));
+    const b = Math.round(60 * ((t - 0.5) * 2));
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
 
   private drawHeatmapGlow(
