@@ -4,6 +4,7 @@
 // Run: node apps/web/scripts/gen-cluster-data.mjs
 
 export interface ClusterBaseData {
+  id: string;
   name: string;
   tag: string;
   type: "large" | "medium" | "small";
