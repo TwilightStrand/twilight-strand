@@ -19,6 +19,7 @@ import { NodePowerControls, useNodePowerStore } from "./NodePowerControls";
 import { TreeSearch } from "./TreeSearch";
 import { TreeSpecBar } from "./TreeSpecBar";
 import { TreeMinimap } from "./TreeMinimap";
+import { TreeOptimizer } from "./TreeOptimizer";
 
 function AllocatedKeystones({ treeData }: { treeData: TreeData | null }) {
   const allocatedNodes = useTreeStore((s) => s.allocatedNodes);
@@ -532,6 +533,7 @@ export function TreeCanvas() {
         }}
       />
       <AllocatedKeystones treeData={treeData} />
+      <TreeOptimizer />
       <TreeSpecBar />
       <div className="absolute bottom-14 left-3 z-10 flex items-center gap-1">
         <button
