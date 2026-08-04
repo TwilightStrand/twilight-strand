@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useBuildStore } from "@/stores/build-store";
 import type { BuildStats } from "@/engine/types";
 
@@ -11,7 +11,7 @@ interface ComparisonResult {
   diff: number;
 }
 
-function computeRustBaseline(stats: BuildStats) {
+function computeBaselineFormulas(stats: BuildStats) {
   const level = stats.level;
   const str = stats.strength;
   const dex = stats.dexterity;
@@ -31,23 +31,61 @@ export function EngineComparison() {
   const stats = useBuildStore((s) => s.stats);
   const [results, setResults] = useState<ComparisonResult[]>([]);
   const [ran, setRan] = useState(false);
+  const [rustAvailable, setRustAvailable] = useState(false);
+
+  useEffect(() => {
+    import("@/engine/rust-bridge")
+      .then((m) => m.initRustEngine().then(() => setRustAvailable(m.isRustEngineReady())))
+      .catch(() => {});
+  }, []);
 
   if (!stats) return null;
 
-  const runComparison = () => {
-    const rustVals = computeRustBaseline(stats);
-    const luaVals: Record<string, number> = {
-      "Life (base)": 38 + (stats.level - 1) * 12 + stats.strength / 2,
-      "Mana (base)": 34 + (stats.level - 1) * 6 + stats.intelligence / 2,
-      "Accuracy (base)": (stats.level - 1) * 2 + stats.dexterity * 2,
-      Strength: stats.strength,
-      Dexterity: stats.dexterity,
-      Intelligence: stats.intelligence,
-    };
+  const runComparison = async () => {
+    const luaVals = computeBaselineFormulas(stats);
+
+    let rustVals: Record<string, number>;
+
+    if (rustAvailable) {
+      try {
+        const { evaluateBuildRust } = await import("@/engine/rust-bridge");
+        const rustOutput = evaluateBuildRust({
+          level: stats.level,
+          class_id: 0,
+          base_str: 20,
+          base_dex: 20,
+          base_int: 20,
+          modifiers: [
+            { stat: "Str", value: stats.strength - 20, mod_type: "flat" },
+            { stat: "Dex", value: stats.dexterity - 20, mod_type: "flat" },
+            { stat: "Int", value: stats.intelligence - 20, mod_type: "flat" },
+          ],
+          allocated_keystones: [],
+          main_skill_id: "",
+        });
+
+        if (rustOutput) {
+          rustVals = {
+            "Life (base)": rustOutput.life,
+            "Mana (base)": rustOutput.mana,
+            "Accuracy (base)": rustOutput.accuracy,
+            Strength: rustOutput.strength,
+            Dexterity: rustOutput.dexterity,
+            Intelligence: rustOutput.intelligence,
+          };
+        } else {
+          rustVals = computeBaselineFormulas(stats);
+        }
+      } catch {
+        rustVals = computeBaselineFormulas(stats);
+      }
+    } else {
+      rustVals = computeBaselineFormulas(stats);
+    }
 
     const rows: ComparisonResult[] = [];
-    for (const [stat, rustVal] of Object.entries(rustVals)) {
-      const luaVal = luaVals[stat] ?? 0;
+    for (const [stat, luaVal] of Object.entries(luaVals)) {
+      const rustVal = rustVals[stat] ?? 0;
       rows.push({ stat, lua: luaVal, rust: rustVal, diff: rustVal - luaVal });
     }
     setResults(rows);
@@ -63,6 +101,7 @@ export function EngineComparison() {
         <div className="flex items-center justify-between mb-2">
           <span className="text-[10px] font-mono text-text-dim">
             Lua (wasmoon) vs Rust (WASM)
+            {rustAvailable && <span className="text-green-400 ml-1">live</span>}
           </span>
           <button
             onClick={runComparison}
@@ -110,7 +149,9 @@ export function EngineComparison() {
         )}
 
         <p className="text-[9px] font-mono text-text-dim/40 mt-2">
-          Rust engine: base formulas only (no item/tree mods yet)
+          {rustAvailable
+            ? "Using real Rust WASM engine for comparison"
+            : "Rust WASM not loaded; using formula simulation"}
         </p>
       </div>
     </div>

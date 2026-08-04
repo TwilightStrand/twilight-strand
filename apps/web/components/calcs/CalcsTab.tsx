@@ -5,6 +5,7 @@ import { useBuildStore } from "@/stores/build-store";
 import { CalcSection } from "./CalcSection";
 import { EmptyState } from "@/components/shell/EmptyState";
 import { CalcRow, CalcSubheader } from "./CalcRow";
+import { ClusterSearch } from "@/components/tree/ClusterSearch";
 
 const COLOR_OFFENCE = "#cfe0ff";
 const COLOR_DEFENCE = "#9fb0d8";
@@ -329,6 +330,9 @@ export function CalcsTab() {
             </CalcSection>
           ))}
         </div>
+      </div>
+      <div className="border-t border-border-subtle mt-4 pt-4">
+        <ClusterSearch />
       </div>
     </div>
   );
