@@ -259,6 +259,41 @@ pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
     if let Some(val) = extract_pct(line, "increased effect of curses") {
         mods.push(increased("CurseEffect", val));
     }
+    if let Some(val) = extract_pct(line, "increased effect of your curses") {
+        mods.push(increased("CurseEffect", val));
+    }
+
+    // --- Aura effect --------------------------------------------------------
+    if let Some(val) = extract_pct(line, "increased effect of non-curse auras") {
+        mods.push(increased("AuraEffect", val));
+    }
+    if let Some(val) = extract_pct(line, "increased aura effect") {
+        mods.push(increased("AuraEffect", val));
+    }
+
+    // --- Minion modifiers ---------------------------------------------------
+    {
+        let lower = line.to_lowercase();
+        if lower.contains("minion") {
+            if let Some(val) = extract_pct(line, "increased minion damage") {
+                mods.push(increased("MinionDamage", val));
+            }
+            if let Some(val) = extract_pct(line, "increased minion attack speed") {
+                mods.push(increased("MinionSpeed", val));
+            }
+            if let Some(val) = extract_pct(line, "increased minion life") {
+                mods.push(increased("MinionLife", val));
+            }
+            if let Some(val) = extract_pct(line, "increased minion movement speed") {
+                mods.push(increased("MinionMoveSpeed", val));
+            }
+        }
+        if lower.contains("minions deal") && lower.contains("increased damage") {
+            if let Some(val) = extract_pct(line, "increased damage") {
+                mods.push(increased("MinionDamage", val));
+            }
+        }
+    }
 
     mods
 }
@@ -458,7 +493,7 @@ mod tests {
 
     #[test]
     fn test_unknown_line() {
-        let mods = parse_stat_line("Minions deal 20% increased Damage");
+        let mods = parse_stat_line("Some completely unknown stat text xyz");
         assert!(mods.is_empty());
     }
 
@@ -603,9 +638,11 @@ mod tests {
     }
 
     #[test]
-    fn test_minion_damage_not_matched() {
+    fn test_minion_damage_now_matched() {
         let mods = parse_stat_line("Minions deal 30% increased Damage");
-        assert!(mods.is_empty());
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "MinionDamage");
+        assert_eq!(mods[0].value, 30.0);
     }
 
     #[test]
@@ -614,5 +651,52 @@ mod tests {
         let mods = parse_stat_line("30% increased Fire Damage");
         assert_eq!(mods.len(), 1);
         assert_eq!(mods[0].stat, "FireDamage");
+    }
+
+    // --- Minion / Aura / Curse tests ---
+
+    #[test]
+    fn test_minion_damage_increased() {
+        let mods = parse_stat_line("30% increased Minion Damage");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "MinionDamage");
+        assert_eq!(mods[0].value, 30.0);
+        assert_eq!(mods[0].mod_type, "increased");
+    }
+
+    #[test]
+    fn test_minions_deal_increased_damage() {
+        let mods = parse_stat_line("Minions deal 25% increased Damage");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "MinionDamage");
+        assert_eq!(mods[0].value, 25.0);
+    }
+
+    #[test]
+    fn test_minion_attack_speed() {
+        let mods = parse_stat_line("10% increased Minion Attack Speed");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "MinionSpeed");
+    }
+
+    #[test]
+    fn test_minion_life() {
+        let mods = parse_stat_line("20% increased Minion Life");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "MinionLife");
+    }
+
+    #[test]
+    fn test_aura_effect() {
+        let mods = parse_stat_line("15% increased effect of Non-Curse Auras");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "AuraEffect");
+        assert_eq!(mods[0].value, 15.0);
+    }
+
+    #[test]
+    fn test_curse_effect_your_curses() {
+        let mods = parse_stat_line("20% increased effect of your Curses");
+        assert!(mods.iter().any(|m| m.stat == "CurseEffect" && m.value == 20.0));
     }
 }
