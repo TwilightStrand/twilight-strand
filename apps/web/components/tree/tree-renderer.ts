@@ -37,6 +37,7 @@ export class TreeRenderer {
   private nodePowerMode: "off" | "dps" | "defence" | "both" = "off";
   private searchResults: Set<string> = new Set();
   private hoveredNode: string | null = null;
+  private animations: Array<{ x: number; y: number; startTime: number; type: "allocate" | "deallocate" }> = [];
 
   constructor(canvas: HTMLCanvasElement, tree: TreeData) {
     this.canvas = canvas;
@@ -129,6 +130,14 @@ export class TreeRenderer {
     this.hoveredNode = nodeId;
   }
 
+  addAnimation(x: number, y: number, type: "allocate" | "deallocate"): void {
+    this.animations.push({ x, y, startTime: performance.now(), type });
+  }
+
+  hasActiveAnimations(): boolean {
+    return this.animations.length > 0;
+  }
+
   resize(): void {
     const rect = this.canvas.getBoundingClientRect();
     this.canvas.width = rect.width * this.dpr;
@@ -152,6 +161,7 @@ export class TreeRenderer {
     this.drawClassStartAreas(ctx, camera, cw, ch);
     this.drawConnections(ctx, camera, cw, ch);
     this.drawNodes(ctx, camera, cw, ch);
+    this.drawAnimations(ctx, camera, cw, ch);
 
     ctx.restore();
   }
@@ -560,6 +570,40 @@ export class TreeRenderer {
     ctx.arc(x, y, glowRadius, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
+  }
+
+  private drawAnimations(
+    ctx: CanvasRenderingContext2D,
+    cam: Camera,
+    cw: number,
+    ch: number
+  ): void {
+    const now = performance.now();
+    const DURATION = 400;
+
+    this.animations = this.animations.filter((anim) => {
+      const elapsed = now - anim.startTime;
+      if (elapsed > DURATION) return false;
+
+      const progress = elapsed / DURATION;
+      const { x: sx, y: sy } = worldToScreen(cam, anim.x, anim.y, cw, ch);
+
+      if (!this.isVisible(sx, sy, 60, cw, ch)) return false;
+
+      const radius = (10 + progress * 30) * cam.zoom;
+      const alpha = 1 - progress;
+
+      ctx.beginPath();
+      ctx.arc(sx, sy, radius, 0, Math.PI * 2);
+      ctx.strokeStyle =
+        anim.type === "allocate"
+          ? `rgba(212, 160, 36, ${alpha * 0.6})`
+          : `rgba(239, 68, 68, ${alpha * 0.4})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      return true;
+    });
   }
 
   destroy(): void {

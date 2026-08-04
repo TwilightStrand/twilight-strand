@@ -61,6 +61,16 @@ const TAB_ICONS: Record<TabId, string> = {
   settings: "☰",
 };
 
+function LastSavedIndicator() {
+  const lastSaved = useBuildStore((s) => s.lastSaved);
+  if (!lastSaved) return null;
+  return (
+    <span className="text-[9px] font-mono text-text-dim/40 hidden xl:inline">
+      saved {new Date(lastSaved).toLocaleTimeString()}
+    </span>
+  );
+}
+
 function EngineStatus() {
   const status = useBuildStore((s) => s.engineStatus);
   const progress = useBuildStore((s) => s.engineProgress);
@@ -293,6 +303,7 @@ export function Header() {
         >
           Import
         </button>
+        <LastSavedIndicator />
       </div>
     </header>
   );

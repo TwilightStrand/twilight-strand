@@ -41,6 +41,8 @@ interface BuildState {
   setCompareBaseline: () => void;
   clearCompare: () => void;
 
+  lastSaved: number | null;
+
   history: Array<{ action: string; timestamp: number }>;
   addHistory: (action: string) => void;
 
@@ -72,6 +74,7 @@ export const useBuildStore = create<BuildState>((set, get) => ({
   notes: "",
   savedBuilds: [],
   compareStats: null,
+  lastSaved: null,
   history: [],
   configOverrides: {},
 
@@ -115,7 +118,7 @@ export const useBuildStore = create<BuildState>((set, get) => ({
       builds.unshift(saved);
     }
 
-    set({ savedBuilds: builds });
+    set({ savedBuilds: builds, lastSaved: Date.now() });
     get().addHistory(`Saved build: ${saved.name}`);
     try {
       localStorage.setItem("tsc-saved-builds", JSON.stringify(builds));
