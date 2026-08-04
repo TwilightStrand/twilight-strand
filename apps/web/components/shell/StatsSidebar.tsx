@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useBuildStore } from "@/stores/build-store";
+import { StatsSkeleton } from "./Skeleton";
 
 function StatSection({
   title,
@@ -81,9 +82,14 @@ function calcDelta(current: number, baseline: number | undefined): number | unde
 
 export function StatsSidebar() {
   const stats = useBuildStore((s) => s.stats);
+  const engineStatus = useBuildStore((s) => s.engineStatus);
   const cmp = useBuildStore((s) => s.compareStats);
   const setCompareBaseline = useBuildStore((s) => s.setCompareBaseline);
   const clearCompare = useBuildStore((s) => s.clearCompare);
+
+  if (engineStatus === "loading" && !stats) {
+    return <StatsSkeleton />;
+  }
 
   const life = stats?.life ?? 60;
   const es = stats?.energy_shield ?? 0;
@@ -119,7 +125,7 @@ export function StatsSidebar() {
   const physRed = stats?.phys_reduction ?? 0;
 
   return (
-    <aside className="w-48 min-w-48 hidden md:block border-r border-border-subtle bg-bg-deep/80 overflow-y-auto p-3">
+    <aside className="w-48 min-w-48 hidden md:block border-r border-border-subtle bg-bg-deep/80 overflow-y-auto p-3" aria-label="Build statistics">
       <div className="mb-3 pb-2 border-b border-border-subtle">
         <div className="flex items-center gap-2">
           <span className="text-life font-mono text-sm font-bold tabular-nums">

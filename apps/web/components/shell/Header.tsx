@@ -83,6 +83,19 @@ export function Header() {
       <nav
         className="hidden md:flex items-center gap-0.5 ml-4"
         role="tablist"
+        aria-label="Build sections"
+        onKeyDown={(e) => {
+          const idx = TABS.indexOf(activeTab);
+          if (e.key === "ArrowRight" && idx < TABS.length - 1) {
+            e.preventDefault();
+            setActiveTab(TABS[idx + 1]);
+            document.getElementById(`tab-${TABS[idx + 1]}`)?.focus();
+          } else if (e.key === "ArrowLeft" && idx > 0) {
+            e.preventDefault();
+            setActiveTab(TABS[idx - 1]);
+            document.getElementById(`tab-${TABS[idx - 1]}`)?.focus();
+          }
+        }}
       >
         {TABS.map((tab) => (
           <button
@@ -90,6 +103,8 @@ export function Header() {
             id={`tab-${tab}`}
             role="tab"
             aria-selected={activeTab === tab}
+            aria-controls={`tabpanel-${tab}`}
+            tabIndex={activeTab === tab ? 0 : -1}
             onClick={() => setActiveTab(tab)}
             className={`
               relative flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-mono transition-colors
