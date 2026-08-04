@@ -562,6 +562,35 @@ export function TreeCanvas() {
                 ))}
               </div>
             )}
+            {!allocatedNodes.has(tooltip.node.id) && treeData && (() => {
+              const nodeId = tooltip.node.id;
+              const adjacent = treeData.connections.some(
+                c => (c.from === nodeId && allocatedNodes.has(c.to)) ||
+                     (c.to === nodeId && allocatedNodes.has(c.from))
+              );
+              if (!adjacent && allocatedNodes.size > 1) {
+                // BFS up to depth 3
+                const visited = new Set([nodeId]);
+                let frontier = [nodeId];
+                for (let depth = 1; depth <= 3; depth++) {
+                  const next: string[] = [];
+                  for (const cur of frontier) {
+                    for (const c of treeData.connections) {
+                      const neighbor = c.from === cur ? c.to : c.to === cur ? c.from : null;
+                      if (!neighbor || visited.has(neighbor)) continue;
+                      if (allocatedNodes.has(neighbor)) {
+                        return <span className="text-[9px] font-mono text-text-dim mt-1 block">{depth} {depth === 1 ? "point" : "points"} away</span>;
+                      }
+                      visited.add(neighbor);
+                      next.push(neighbor);
+                    }
+                  }
+                  frontier = next;
+                }
+                return null;
+              }
+              return adjacent ? <span className="text-[9px] font-mono text-green-400/70 mt-1 block">Click to allocate</span> : null;
+            })()}
           </div>
         </div>
       )}
