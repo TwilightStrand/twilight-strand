@@ -1,6 +1,7 @@
 "use client";
 
 import { useBuildStore } from "@/stores/build-store";
+import { EmptyState } from "@/components/shell/EmptyState";
 import type { SkillGroup, GemData } from "@/engine/types";
 
 function gemColor(gem: GemData): string {
@@ -133,16 +134,10 @@ export function SkillsTab() {
 
   if (skills.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-3 p-6">
-        <p className="text-text-dim font-mono text-sm">No socket groups</p>
-        <p className="text-text-dim/60 text-xs text-center max-w-xs">
-          A socket group holds an active skill gem and the support gems linked
-          to it. Import a build or add one manually.
-        </p>
-        <button className="mt-2 px-4 py-1.5 text-sm font-mono bg-bg-card border border-border-card rounded hover:border-accent/50 text-text-dim hover:text-accent transition-colors">
-          + Add socket group
-        </button>
-      </div>
+      <EmptyState
+        title="No Socket Groups"
+        description="Socket groups hold active skill gems and support gems linked to them. Import a build to see your skills."
+      />
     );
   }
 

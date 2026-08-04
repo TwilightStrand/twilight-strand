@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { useBuildStore } from "@/stores/build-store";
 import { CalcSection } from "./CalcSection";
+import { EmptyState } from "@/components/shell/EmptyState";
 import { CalcRow, CalcSubheader } from "./CalcRow";
 
 const COLOR_OFFENCE = "#cfe0ff";
@@ -201,9 +202,10 @@ export function CalcsTab() {
 
   if (!stats) {
     return (
-      <div className="flex items-center justify-center h-full text-text-dim font-mono text-sm">
-        Import a build to see calculations
-      </div>
+      <EmptyState
+        title="No Calculations"
+        description="Import a build to see detailed DPS, defence, and stat breakdowns."
+      />
     );
   }
 
