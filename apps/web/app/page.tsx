@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Header } from "@/components/shell/Header";
 import { StatsSidebar } from "@/components/shell/StatsSidebar";
 import { TabContent } from "@/components/shell/TabContent";
 import { MobileNav } from "@/components/shell/MobileNav";
 import { ImportDialog } from "@/components/shell/ImportDialog";
 import { KeyboardShortcuts } from "@/components/shell/KeyboardShortcuts";
+import { ErrorBoundary } from "@/components/shell/ErrorBoundary";
 import { useUiStore } from "@/stores/ui-store";
 
 export default function Home() {
   const { importOpen, setImportOpen } = useUiStore();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   useEffect(() => {
     const hash = window.location.hash.slice(1);
@@ -49,8 +51,23 @@ export default function Home() {
       <div className="h-dvh flex flex-col">
         <Header />
         <div className="flex-1 flex overflow-hidden">
-          <StatsSidebar />
-          <TabContent />
+          {sidebarOpen && (
+            <ErrorBoundary name="sidebar">
+              <StatsSidebar />
+            </ErrorBoundary>
+          )}
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="hidden md:flex w-4 items-center justify-center border-r border-border-subtle hover:bg-bg-hover/50 transition-colors shrink-0"
+            aria-label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
+          >
+            <span className="text-text-dim text-[10px]">
+              {sidebarOpen ? "‹" : "›"}
+            </span>
+          </button>
+          <ErrorBoundary name="content">
+            <TabContent />
+          </ErrorBoundary>
         </div>
         <MobileNav />
       </div>
