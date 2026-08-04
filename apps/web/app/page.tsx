@@ -17,6 +17,14 @@ export default function Home() {
         e.preventDefault();
         setImportOpen(true);
       }
+      if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+        e.preventDefault();
+        if (e.shiftKey) {
+          import("@/stores/tree-store").then((m) => m.useTreeStore.getState().redo());
+        } else {
+          import("@/stores/tree-store").then((m) => m.useTreeStore.getState().undo());
+        }
+      }
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);

@@ -114,7 +114,7 @@ export function Header() {
       <div className="flex items-center gap-2">
         <button
           onClick={() => useBuildStore.getState().saveBuild()}
-          disabled={!stats?.code && !useBuildStore.getState().code}
+          disabled={!useBuildStore.getState().code}
           className="text-xs font-mono text-text-dim hover:text-accent transition-colors px-2 py-1 rounded hover:bg-bg-hover disabled:opacity-30 disabled:cursor-not-allowed"
         >
           Save
