@@ -145,6 +145,42 @@ const LUA_SHIMS = `
   if not unpack then unpack = table.unpack end
   if not table.unpack then table.unpack = unpack end
 
+  -- LuaJIT gsub compat: LuaJIT silently allows %X in replacement strings
+  -- where X is not a digit or %. PUC Lua 5.4 raises "invalid use of '%'".
+  -- PoB's TradeHelpers.lua relies on this lenient behavior.
+  do
+    local _orig_gsub = string.gsub
+    local function sanitize_repl(repl)
+      local out = {}
+      local i = 1
+      local len = #repl
+      while i <= len do
+        local c = repl:sub(i, i)
+        if c == "%" and i < len then
+          local nc = repl:sub(i+1, i+1)
+          if nc == "%" or (nc >= "0" and nc <= "9") then
+            out[#out+1] = c
+            out[#out+1] = nc
+            i = i + 2
+          else
+            out[#out+1] = nc
+            i = i + 2
+          end
+        else
+          out[#out+1] = c
+          i = i + 1
+        end
+      end
+      return table.concat(out)
+    end
+    string.gsub = function(s, pattern, repl, ...)
+      if type(repl) == "string" then
+        return _orig_gsub(s, pattern, sanitize_repl(repl), ...)
+      end
+      return _orig_gsub(s, pattern, repl, ...)
+    end
+  end
+
   -- Command-line args stub (PoB's Main.lua reads arg[0])
   arg = arg or { [0] = "/pob/Launch.lua" }
 
