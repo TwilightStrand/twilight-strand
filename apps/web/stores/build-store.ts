@@ -162,6 +162,9 @@ export const useBuildStore = create<BuildState>((set, get) => ({
 
       await bridge.init("poe1");
       set({ engineStatus: "ready", engineProgress: "", engineInitTime: Math.round(performance.now() - initStart) });
+
+      // Also init Rust WASM engine (non-blocking, used for fast node power calcs)
+      import("@/engine/rust-bridge").then(m => m.initRustEngine()).catch(() => {});
     } catch (e) {
       set({
         engineStatus: "error",

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useUiStore } from "@/stores/ui-store";
 import { useBuildStore } from "@/stores/build-store";
 import { NotesPanel } from "@/components/shell/NotesPanel";
@@ -16,6 +17,13 @@ export function SettingsPanel() {
   const history = useBuildStore((s) => s.history);
   const engineInitTime = useBuildStore((s) => s.engineInitTime);
   const engineEvalTime = useBuildStore((s) => s.engineEvalTime);
+
+  const [rustReady, setRustReady] = useState(false);
+  useEffect(() => {
+    import("@/engine/rust-bridge")
+      .then((m) => m.initRustEngine().then(() => setRustReady(m.isRustEngineReady())))
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="h-full overflow-y-auto">
@@ -94,6 +102,12 @@ export function SettingsPanel() {
             <div className="flex justify-between text-xs font-mono">
               <span className="text-text-dim">Eval time</span>
               <span className="text-text-primary">{engineEvalTime ? `${(engineEvalTime / 1000).toFixed(1)}s` : "-"}</span>
+            </div>
+            <div className="flex justify-between text-xs font-mono">
+              <span className="text-text-dim">Rust WASM</span>
+              <span className={rustReady ? "text-green-400" : "text-text-dim/40"}>
+                {rustReady ? "Ready (50k eval/s)" : "Not loaded"}
+              </span>
             </div>
           </div>
         </div>
