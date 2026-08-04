@@ -68,9 +68,9 @@ export function ImportDialog({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="bg-bg-card border border-border-card rounded-lg shadow-2xl w-full max-w-lg mx-4 p-5">
+      <div className="bg-bg-card border border-border-card rounded-lg shadow-2xl w-full max-w-lg mx-4 p-5" role="dialog" aria-modal="true" aria-labelledby="import-dialog-title">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-text-heading font-display text-lg">
+          <h2 id="import-dialog-title" className="text-text-heading font-display text-lg">
             Import Build
           </h2>
           <button
