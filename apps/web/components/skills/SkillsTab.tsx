@@ -4,14 +4,35 @@ import { useBuildStore } from "@/stores/build-store";
 import type { SkillGroup, GemData } from "@/engine/types";
 
 function gemColor(gem: GemData): string {
-  const id = gem.skillId.toLowerCase();
-  if (id.includes("str") || id.includes("melee") || id.includes("slam"))
-    return "var(--color-strength)";
-  if (id.includes("dex") || id.includes("projectile") || id.includes("bow"))
-    return "var(--color-dexterity)";
-  if (id.includes("int") || id.includes("spell") || id.includes("curse"))
-    return "var(--color-intelligence)";
-  if (gem.isSupport) return "var(--color-text-dim)";
+  const name = (gem.name || gem.skillId).toLowerCase();
+
+  if (gem.isSupport) {
+    if (name.includes("melee") || name.includes("ruthless") || name.includes("brutality") || name.includes("pulverise") || name.includes("fortify") || name.includes("rage") || name.includes("fist")) return "#c85c5c";
+    if (name.includes("chain") || name.includes("pierce") || name.includes("fork") || name.includes("mirage") || name.includes("vicious") || name.includes("faster attacks") || name.includes("added cold") || name.includes("barrage")) return "#5cc85c";
+    if (name.includes("spell") || name.includes("arcane") || name.includes("intensify") || name.includes("controlled") || name.includes("elemental focus") || name.includes("concentrated") || name.includes("infused") || name.includes("inspiration") || name.includes("cold penetration") || name.includes("minion")) return "#5c7cc8";
+    return "#8888aa";
+  }
+
+  // Strength (red)
+  if (name.includes("slam") || name.includes("strike") || name.includes("cleave") || name.includes("sunder") ||
+      name.includes("earthquake") || name.includes("warcry") || name.includes("righteous fire") ||
+      name.includes("molten") || name.includes("tectonic") || name.includes("infernal") ||
+      name.includes("shield charge") || name.includes("leap slam") || name.includes("vigilant") ||
+      name.includes("steelskin") || name.includes("enduring cry")) return "#c44";
+  // Dexterity (green)
+  if (name.includes("arrow") || name.includes("shot") || name.includes("rain of") || name.includes("barrage") ||
+      name.includes("tornado") || name.includes("whirling") || name.includes("flicker") ||
+      name.includes("trap") || name.includes("mine") || name.includes("viper") ||
+      (name.includes("blade") && !name.includes("bladefall")) ||
+      name.includes("dash") || name.includes("blink")) return "#4c4";
+  // Intelligence (blue)
+  if (name.includes("orb") || name.includes("bolt") || name.includes("nova") || name.includes("pulse") ||
+      name.includes("storm") || name.includes("arc") || name.includes("spark") ||
+      name.includes("curse") || name.includes("summon") || name.includes("raise") ||
+      name.includes("ice") || name.includes("frost") || name.includes("cold snap") ||
+      name.includes("detonate") || name.includes("desecrate") || name.includes("offering") ||
+      name.includes("golem") || name.includes("flesh and stone") || name.includes("winter")) return "#44c";
+
   return "var(--color-accent)";
 }
 
@@ -23,7 +44,7 @@ function GemSlot({ gem }: { gem: GemData }) {
       }`}
     >
       <span
-        className="w-1.5 h-1.5 rounded-full shrink-0"
+        className="w-2 h-2 rounded-full shrink-0 ring-1 ring-white/10"
         style={{ backgroundColor: gemColor(gem) }}
       />
       <span className="flex-1 min-w-0 truncate text-text-primary">

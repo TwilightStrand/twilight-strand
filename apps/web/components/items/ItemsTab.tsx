@@ -31,6 +31,16 @@ function rarityColor(rarity: string): string {
   return RARITY_COLORS[rarity] ?? RARITY_COLORS.Normal;
 }
 
+function flaskTypeColor(item: ItemData): string | null {
+  if (!item.slot.startsWith("Flask")) return null;
+  const name = (item.name + " " + item.base).toLowerCase();
+  if (item.rarity === "Unique") return "#af6025";
+  if (name.includes("life") || name.includes("eternal") || name.includes("divine") || name.includes("hallowed") || name.includes("sanctified")) return "#c44";
+  if (name.includes("mana")) return "#4488dd";
+  if (name.includes("quicksilver") || name.includes("granite") || name.includes("jade") || name.includes("basalt") || name.includes("quartz") || name.includes("diamond") || name.includes("amethyst") || name.includes("ruby") || name.includes("sapphire") || name.includes("topaz") || name.includes("silver") || name.includes("sulphur") || name.includes("bismuth") || name.includes("gold")) return "#8b8";
+  return "#888";
+}
+
 function SlotRow({
   slot,
   item,
@@ -42,6 +52,8 @@ function SlotRow({
   selected: boolean;
   onClick: () => void;
 }) {
+  const flaskColor = item ? flaskTypeColor(item) : null;
+
   return (
     <button
       onClick={onClick}
@@ -50,7 +62,10 @@ function SlotRow({
         ${selected ? "bg-bg-hover text-text-bright" : "text-text-dim hover:bg-bg-hover/50 hover:text-text-primary"}
       `}
     >
-      <span className="w-24 shrink-0 text-text-dim truncate">{slot}</span>
+      {flaskColor && (
+        <span className="w-1.5 h-4 rounded-sm shrink-0" style={{ backgroundColor: flaskColor }} />
+      )}
+      <span className={`${flaskColor ? "w-16" : "w-24"} shrink-0 text-text-dim truncate`}>{slot}</span>
       {item ? (
         <span className="truncate" style={{ color: rarityColor(item.rarity) }}>
           {item.name || item.base}
