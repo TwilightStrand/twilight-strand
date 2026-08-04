@@ -36,6 +36,7 @@ export class TreeRenderer {
   private nodePower: Map<string, number> = new Map();
   private nodePowerMode: "off" | "dps" | "defence" | "both" = "off";
   private searchResults: Set<string> = new Set();
+  private hoveredNode: string | null = null;
 
   constructor(canvas: HTMLCanvasElement, tree: TreeData) {
     this.canvas = canvas;
@@ -124,6 +125,10 @@ export class TreeRenderer {
     this.nodePowerMode = mode;
   }
 
+  setHoveredNode(nodeId: string | null): void {
+    this.hoveredNode = nodeId;
+  }
+
   resize(): void {
     const rect = this.canvas.getBoundingClientRect();
     this.canvas.width = rect.width * this.dpr;
@@ -202,8 +207,6 @@ export class TreeRenderer {
     cw: number,
     ch: number
   ): void {
-    ctx.lineWidth = Math.max(1, 2 * cam.zoom);
-
     for (const conn of this.tree.connections) {
       const fromNode = this.tree.nodes.get(conn.from);
       const toNode = this.tree.nodes.get(conn.to);
@@ -220,15 +223,27 @@ export class TreeRenderer {
         Math.min(from.y, to.y) > ch + pad
       ) continue;
 
-      const bothAllocated =
-        this.allocatedNodes.has(conn.from) &&
-        this.allocatedNodes.has(conn.to);
+      const fromAlloc = this.allocatedNodes.has(conn.from);
+      const toAlloc = this.allocatedNodes.has(conn.to);
+      const bothAllocated = fromAlloc && toAlloc;
+      const oneAllocated = fromAlloc || toAlloc;
 
       const isAscendancy = !!(fromNode.ascendancyName || toNode.ascendancyName);
-      if (isAscendancy) {
-        ctx.strokeStyle = bothAllocated ? "rgba(212, 160, 36, 0.8)" : "rgba(212, 160, 36, 0.15)";
+      const isHoverConn = this.hoveredNode !== null &&
+        (conn.from === this.hoveredNode || conn.to === this.hoveredNode);
+
+      if (isHoverConn) {
+        ctx.strokeStyle = "rgba(6, 182, 212, 0.8)";
+        ctx.lineWidth = Math.max(2, 2.5 * cam.zoom);
+      } else if (bothAllocated) {
+        ctx.strokeStyle = isAscendancy ? "rgba(212, 160, 36, 0.9)" : COLOR_LINE_ALLOCATED;
+        ctx.lineWidth = Math.max(1.5, 2.5 * cam.zoom);
+      } else if (oneAllocated) {
+        ctx.strokeStyle = isAscendancy ? "rgba(212, 160, 36, 0.3)" : "rgba(200, 180, 100, 0.35)";
+        ctx.lineWidth = Math.max(1, 1.5 * cam.zoom);
       } else {
-        ctx.strokeStyle = bothAllocated ? COLOR_LINE_ALLOCATED : COLOR_LINE;
+        ctx.strokeStyle = isAscendancy ? "rgba(212, 160, 36, 0.12)" : COLOR_LINE;
+        ctx.lineWidth = Math.max(1, 1 * cam.zoom);
       }
       ctx.beginPath();
       ctx.moveTo(from.x, from.y);
@@ -266,7 +281,11 @@ export class TreeRenderer {
         }
       }
 
-      this.drawNodeCircle(ctx, screenPos.x, screenPos.y, radius, node, allocated);
+      if (node.isJewelSocket) {
+        this.drawJewelSocket(ctx, screenPos.x, screenPos.y, radius, allocated);
+      } else {
+        this.drawNodeCircle(ctx, screenPos.x, screenPos.y, radius, node, allocated);
+      }
 
       if (this.searchResults.size > 0 && this.searchResults.has(nid)) {
         ctx.save();
@@ -305,6 +324,38 @@ export class TreeRenderer {
     if (node.isMastery) return NODE_RADIUS_MASTERY;
     if (node.isJewelSocket) return NODE_RADIUS_NOTABLE;
     return NODE_RADIUS_NORMAL;
+  }
+
+  private drawJewelSocket(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    radius: number,
+    allocated: boolean
+  ): void {
+    const size = radius * 0.85;
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(Math.PI / 4);
+
+    if (allocated) {
+      ctx.shadowColor = "rgba(168, 85, 247, 0.5)";
+      ctx.shadowBlur = radius * 0.8;
+      ctx.fillStyle = "#6d28d9";
+      ctx.strokeStyle = "#a78bfa";
+    } else {
+      ctx.fillStyle = "rgba(88, 48, 132, 0.25)";
+      ctx.strokeStyle = "rgba(168, 85, 247, 0.45)";
+    }
+
+    ctx.lineWidth = Math.max(1.5, radius * 0.1);
+    ctx.fillRect(-size / 2, -size / 2, size, size);
+    ctx.strokeRect(-size / 2, -size / 2, size, size);
+
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
+    ctx.restore();
   }
 
   private drawNodeCircle(
