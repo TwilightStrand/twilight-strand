@@ -100,8 +100,7 @@ mod tests {
                 Modifier { stat: "Life".into(), value: 100.0, mod_type: "flat".into() },
             ],
             allocated_keystones: vec![],
-            main_skill_id: String::new(),
-            ascendancy_name: String::new(),
+            ..Default::default()
         }
     }
 

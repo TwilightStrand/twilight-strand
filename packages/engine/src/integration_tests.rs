@@ -12,8 +12,7 @@ mod tests {
             base_int: 14,
             modifiers: vec![],
             allocated_keystones: vec![],
-            main_skill_id: String::new(),
-            ascendancy_name: String::new(),
+            ..Default::default()
         }
     }
 
@@ -26,8 +25,7 @@ mod tests {
             base_int: 32,
             modifiers: vec![],
             allocated_keystones: vec![],
-            main_skill_id: String::new(),
-            ascendancy_name: String::new(),
+            ..Default::default()
         }
     }
 
@@ -252,14 +250,13 @@ mod tests {
 
         let input = BuildInput {
             level: 85,
-            class_id: 2, // Ranger
+            class_id: 2,
             base_str: 14,
             base_dex: 32,
             base_int: 14,
             modifiers: parsed_mods,
             allocated_keystones: vec![],
-            main_skill_id: String::new(),
-            ascendancy_name: String::new(),
+            ..Default::default()
         };
 
         let output = evaluate_build(input);
