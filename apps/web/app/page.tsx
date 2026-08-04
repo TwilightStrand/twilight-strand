@@ -7,6 +7,7 @@ import { TabContent } from "@/components/shell/TabContent";
 import { MobileNav } from "@/components/shell/MobileNav";
 import { ImportDialog } from "@/components/shell/ImportDialog";
 import { KeyboardShortcuts } from "@/components/shell/KeyboardShortcuts";
+import { WelcomeHint } from "@/components/shell/WelcomeHint";
 import { ErrorBoundary } from "@/components/shell/ErrorBoundary";
 import { useUiStore } from "@/stores/ui-store";
 
@@ -73,6 +74,7 @@ export default function Home() {
       </div>
       <ImportDialog open={importOpen} onClose={() => setImportOpen(false)} />
       <KeyboardShortcuts />
+      <WelcomeHint />
     </>
   );
 }
