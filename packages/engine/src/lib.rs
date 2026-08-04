@@ -17,6 +17,8 @@ pub mod supports;
 mod integration_tests;
 pub mod keystones;
 pub mod ascendancy;
+pub mod weapons;
+pub use weapons::{calc_weapon_dps, find_weapon_base, WeaponDps};
 pub use stat_parser::{parse_stat_line, parse_stats};
 pub use supports::get_support_modifiers;
 
