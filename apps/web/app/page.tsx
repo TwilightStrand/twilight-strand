@@ -12,6 +12,15 @@ export default function Home() {
   const { importOpen, setImportOpen } = useUiStore();
 
   useEffect(() => {
+    const hash = window.location.hash.slice(1);
+    if (hash && hash.length > 40) {
+      import("@/stores/build-store").then((m) => {
+        m.useBuildStore.getState().importBuild(hash);
+      });
+    }
+  }, []);
+
+  useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key === "i") {
         e.preventDefault();
