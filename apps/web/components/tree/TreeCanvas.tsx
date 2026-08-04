@@ -49,7 +49,7 @@ function AllocatedKeystones({ treeData }: { treeData: TreeData | null }) {
   );
 }
 
-function PointCounter() {
+function PointCounter({ treeData }: { treeData: import("./tree-data").TreeData | null }) {
   const allocatedNodes = useTreeStore((s) => s.allocatedNodes);
   const level = useBuildStore((s) => s.stats?.level) ?? 1;
   const totalPoints = Math.max(0, level - 1) + 22;
@@ -57,10 +57,33 @@ function PointCounter() {
 
   if (usedPoints === 0 && level <= 1) return null;
 
+  let normal = 0, notable = 0, keystone = 0, jewel = 0;
+  if (treeData) {
+    for (const nodeId of allocatedNodes) {
+      const node = treeData.nodes.get(nodeId);
+      if (!node) continue;
+      if (node.isKeystone) keystone++;
+      else if (node.isNotable) notable++;
+      else if (node.isJewelSocket) jewel++;
+      else normal++;
+    }
+    if (normal > 0) normal--; // subtract class start node
+  }
+
   return (
     <div className="absolute bottom-3 left-3 z-10 bg-bg-card/90 backdrop-blur rounded px-2.5 py-1.5 text-xs font-mono text-text-dim border border-border-subtle">
-      <span className="text-text-primary">{usedPoints}</span>
-      <span className="text-text-dim"> / {totalPoints} pts</span>
+      <div>
+        <span className="text-text-primary">{usedPoints}</span>
+        <span className="text-text-dim"> / {totalPoints} pts</span>
+      </div>
+      {treeData && allocatedNodes.size > 1 && (
+        <div className="flex items-center gap-2 text-[9px] text-text-dim/60 mt-0.5">
+          {normal > 0 && <span>{normal} small</span>}
+          {notable > 0 && <span className="text-accent/60">{notable} notable</span>}
+          {keystone > 0 && <span className="text-amber-400/60">{keystone} keystone</span>}
+          {jewel > 0 && <span className="text-purple-400/60">{jewel} jewel</span>}
+        </div>
+      )}
     </div>
   );
 }
@@ -72,6 +95,8 @@ export function TreeCanvas() {
   const spatialRef = useRef<SpatialGrid | null>(null);
   const treeDataRef = useRef<TreeData | null>(null);
   const rafRef = useRef<number>(0);
+  const cameraTargetRef = useRef<Camera | null>(null);
+  const cameraAnimRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
   const dragDistRef = useRef(0);
   const lastMouseRef = useRef({ x: 0, y: 0 });
@@ -114,6 +139,40 @@ export function TreeCanvas() {
       setCanvasDims({ w: rect.width, h: rect.height });
     }
   }, [allocatedNodes, searchResults, hoveredNode]);
+
+  const animateCameraTo = useCallback((target: Camera) => {
+    cameraTargetRef.current = target;
+    if (cameraAnimRef.current) return;
+
+    const step = () => {
+      const t = cameraTargetRef.current;
+      const cam = cameraRef.current;
+      if (!t || !cam) { cameraAnimRef.current = null; return; }
+
+      const LERP = 0.15;
+      cam.x += (t.x - cam.x) * LERP;
+      cam.y += (t.y - cam.y) * LERP;
+      cam.zoom += (t.zoom - cam.zoom) * LERP;
+
+      if (Math.abs(t.x - cam.x) < 1 && Math.abs(t.y - cam.y) < 1 && Math.abs(t.zoom - cam.zoom) < 0.001) {
+        cam.x = t.x; cam.y = t.y; cam.zoom = t.zoom;
+        cameraTargetRef.current = null;
+        cameraAnimRef.current = null;
+        draw();
+        return;
+      }
+      draw();
+      cameraAnimRef.current = requestAnimationFrame(step);
+    };
+    cameraAnimRef.current = requestAnimationFrame(step);
+  }, [draw]);
+
+  const runAnimationLoop = useCallback(() => {
+    const renderer = rendererRef.current;
+    if (!renderer?.hasActiveAnimations()) return;
+    draw();
+    requestAnimationFrame(runAnimationLoop);
+  }, [draw]);
 
   useEffect(() => {
     draw();
@@ -339,12 +398,17 @@ export function TreeCanvas() {
       const node = spatialRef.current?.findNodeAt(world.x, world.y) ?? null;
 
       if (node && node.name) {
+        const wasAllocated = allocatedNodes.has(node.id);
         toggleNode(node.id);
+        if (rendererRef.current) {
+          rendererRef.current.addAnimation(node.x, node.y, wasAllocated ? "deallocate" : "allocate");
+          requestAnimationFrame(runAnimationLoop);
+        }
         cancelAnimationFrame(rafRef.current);
         rafRef.current = requestAnimationFrame(draw);
       }
     },
-    [toggleNode, draw]
+    [toggleNode, draw, allocatedNodes, runAnimationLoop]
   );
 
   return (
@@ -459,9 +523,7 @@ export function TreeCanvas() {
           if (!tree || !cameraRef.current) return;
           const node = tree.nodes.get(nodeId);
           if (!node) return;
-          cameraRef.current = { ...cameraRef.current, x: node.x, y: node.y, zoom: Math.max(cameraRef.current.zoom, 0.6) };
-          cancelAnimationFrame(rafRef.current);
-          rafRef.current = requestAnimationFrame(draw);
+          animateCameraTo({ x: node.x, y: node.y, zoom: Math.max(cameraRef.current.zoom, 0.6) });
         }}
       />
       <AllocatedKeystones treeData={treeData} />
@@ -512,8 +574,7 @@ export function TreeCanvas() {
             }
             if (!isFinite(minX)) return;
             const rect = canvas.getBoundingClientRect();
-            cameraRef.current = frameBounds({ minX, maxX, minY, maxY }, rect.width, rect.height);
-            draw();
+            animateCameraTo(frameBounds({ minX, maxX, minY, maxY }, rect.width, rect.height));
           }}
           className="text-[10px] font-mono text-text-dim hover:text-accent px-2 py-1 rounded bg-bg-card/90 border border-border-subtle hover:border-accent/30 transition-colors ml-1"
           title="Center on allocated nodes"
@@ -533,7 +594,7 @@ export function TreeCanvas() {
           Reset
         </button>
       </div>
-      <PointCounter />
+      <PointCounter treeData={treeData} />
       <NodePowerControls />
       {tooltip && (
         <div

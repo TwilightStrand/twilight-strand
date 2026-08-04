@@ -192,6 +192,20 @@ function DpsBar({ stats }: { stats: BuildStats }) {
   );
 }
 
+function PoolBar({ life, es }: { life: number; es: number }) {
+  const total = life + es;
+  if (total <= 0) return null;
+  const lifePct = (life / total) * 100;
+  const esPct = (es / total) * 100;
+
+  return (
+    <div className="flex h-1 rounded-full overflow-hidden w-full mt-1 mb-2" title={`Life: ${life} (${Math.round(lifePct)}%) | ES: ${es} (${Math.round(esPct)}%)`}>
+      {life > 0 && <div style={{ width: `${lifePct}%` }} className="bg-life" />}
+      {es > 0 && <div style={{ width: `${esPct}%` }} className="bg-es" />}
+    </div>
+  );
+}
+
 function calcDelta(current: number, baseline: number | undefined): number | undefined {
   if (baseline === undefined) return undefined;
   const d = current - baseline;
@@ -291,6 +305,7 @@ export function StatsSidebar() {
             {compact ? "+" : "-"}
           </button>
         </div>
+        <PoolBar life={life} es={es} />
         {(stats?.total_ehp ?? 0) > 0 && (
           <div className="flex justify-between items-baseline text-xs font-mono mt-1" title="Effective Hit Pool against physical damage">
             <span className="text-text-dim">Total EHP</span>

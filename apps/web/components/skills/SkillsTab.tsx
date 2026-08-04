@@ -78,7 +78,7 @@ function GemSlot({ gem }: { gem: GemData }) {
   );
 }
 
-function SocketGroupCard({ group, index, isMain }: { group: SkillGroup; index: number; isMain: boolean }) {
+function SocketGroupCard({ group, index, isMain, totalDps }: { group: SkillGroup; index: number; isMain: boolean; totalDps: number }) {
   const items = useBuildStore((s) => s.items);
   const equippedItem = items.find((item) => item.slot === group.slot);
   const allGems = group.gems;
@@ -146,9 +146,16 @@ function SocketGroupCard({ group, index, isMain }: { group: SkillGroup; index: n
           </span>
         )}
         {group.dps !== undefined && group.dps > 0 && (
-          <span className="text-[10px] font-mono text-accent tabular-nums">
-            {group.dps >= 1e6 ? `${(group.dps / 1e6).toFixed(1)}M` : group.dps >= 1e3 ? `${Math.round(group.dps / 1e3)}k` : Math.round(group.dps)} DPS
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-mono text-accent tabular-nums">
+              {fmtNum(group.dps)} DPS
+            </span>
+            {totalDps > 0 && (
+              <span className="text-[9px] font-mono text-text-dim/60 tabular-nums">
+                ({Math.round((group.dps / totalDps) * 100)}%)
+              </span>
+            )}
+          </div>
         )}
         {group.slot && (
           <span
@@ -179,6 +186,14 @@ function SocketGroupCard({ group, index, isMain }: { group: SkillGroup; index: n
           </div>
         ))}
       </div>
+      {group.dps !== undefined && group.dps > 0 && totalDps > 0 && (
+        <div className="h-0.5 bg-bg-hover rounded-full mx-2 mb-1.5">
+          <div
+            className="h-full bg-accent/40 rounded-full"
+            style={{ width: `${(group.dps / totalDps) * 100}%` }}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -186,6 +201,7 @@ function SocketGroupCard({ group, index, isMain }: { group: SkillGroup; index: n
 export function SkillsTab() {
   const skills = useBuildStore((s) => s.skills);
   const mainSocketGroup = useBuildStore((s) => s.stats?.main_socket_group ?? 0);
+  const totalDps = skills.reduce((sum, g) => sum + (g.dps || 0), 0);
 
   if (skills.length === 0) {
     return (
@@ -208,7 +224,7 @@ export function SkillsTab() {
       </div>
       <div className="space-y-2 max-w-2xl">
         {skills.map((group, i) => (
-          <SocketGroupCard key={i} group={group} index={i} isMain={i + 1 === mainSocketGroup} />
+          <SocketGroupCard key={i} group={group} index={i} isMain={i + 1 === mainSocketGroup} totalDps={totalDps} />
         ))}
       </div>
     </div>
