@@ -655,6 +655,14 @@ async function handleEvaluate(id: number, xml: string): Promise<void> {
       attack_speed: 1.2,
       hit_chance: 5,
       accuracy: 40,
+      ward: 0,
+      total_dps_with_minions: 0,
+      bleed_dps: 0,
+      poison_dps: 0,
+      ignite_dps: 0,
+      impale_dps: 0,
+      life_leech_rate: 0,
+      es_leech_rate: 0,
       class_name: "Scion",
       ascendancy: "",
       level: 1,
@@ -762,6 +770,14 @@ async function handleEvaluate(id: number, xml: string): Promise<void> {
             result.mana_unreserved = out.ManaUnreserved or out.Mana or 0
             result.life_unreserved = out.LifeUnreserved or out.Life or 0
             result.mana_reserved_percent = out.ManaReservedPercent or 0
+            result.ward = out.Ward or 0
+            result.total_dps_with_minions = out.TotalDPSWithMinions or out.TotalDPS or 0
+            result.bleed_dps = out.BleedDPS or 0
+            result.poison_dps = out.PoisonDPS or 0
+            result.ignite_dps = out.IgniteDPS or 0
+            result.impale_dps = out.ImpaleDPS or 0
+            result.life_leech_rate = out.LifeLeechGainRate or 0
+            result.es_leech_rate = out.EnergyShieldLeechGainRate or 0
             result.has_calcs = true
           else
             result.has_calcs = false

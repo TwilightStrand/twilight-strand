@@ -162,6 +162,14 @@ export function StatsSidebar() {
             {fmtNum(manaUnreserved)}
           </span>
           <span className="text-[10px] text-text-dim uppercase">Mana</span>
+          {(stats?.ward ?? 0) > 0 && (
+            <>
+              <span className="text-purple-400 font-mono text-sm font-bold tabular-nums">
+                {fmtNum(stats?.ward ?? 0)}
+              </span>
+              <span className="text-[10px] text-text-dim uppercase">Ward</span>
+            </>
+          )}
         </div>
         {(stats?.total_ehp ?? 0) > 0 && (
           <div className="flex justify-between items-baseline text-xs font-mono mt-1" title="Effective Hit Pool against physical damage">

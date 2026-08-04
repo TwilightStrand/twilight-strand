@@ -73,6 +73,17 @@ const SECTIONS: SectionDef[] = [
     ],
   },
   {
+    title: "Damage over Time",
+    color: COLOR_OFFENCE,
+    column: "left",
+    rows: [
+      { label: "Bleed DPS", key: "bleed_dps" },
+      { label: "Poison DPS", key: "poison_dps" },
+      { label: "Ignite DPS", key: "ignite_dps" },
+      { label: "Impale DPS", key: "impale_dps" },
+    ],
+  },
+  {
     title: "Speed",
     color: COLOR_OFFENCE,
     column: "left",
@@ -157,10 +168,15 @@ const SECTIONS: SectionDef[] = [
     rows: [{ label: "Total EHP", key: "total_ehp" }],
   },
   {
-    title: "Charges & Rage",
+    title: "Recovery",
     color: COLOR_DEFENCE,
     column: "right",
-    rows: [],
+    rows: [
+      { label: "Life Regen/s", key: "life_regen", color: COLOR_LIFE },
+      { label: "Mana Regen/s", key: "mana_regen", color: COLOR_MANA },
+      { label: "Life Leech/s", key: "life_leech_rate", color: COLOR_LIFE },
+      { label: "ES Leech/s", key: "es_leech_rate", color: COLOR_ES },
+    ],
   },
 ];
 
