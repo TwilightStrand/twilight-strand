@@ -249,6 +249,38 @@ export function Header() {
           Export
         </button>
         <button
+          onClick={async () => {
+            const s = useBuildStore.getState();
+            if (!s.stats) return;
+            const st = s.stats;
+            const lines = [
+              `# ${st.class_name} ${st.ascendancy} (Level ${st.level})`,
+              "",
+              "## Stats",
+              `- **DPS:** ${st.total_dps >= 1e6 ? (st.total_dps / 1e6).toFixed(1) + "M" : st.total_dps >= 1e3 ? Math.round(st.total_dps / 1e3) + "k" : Math.round(st.total_dps)}`,
+              `- **Life:** ${st.life} | **ES:** ${st.energy_shield} | **Mana:** ${st.mana}`,
+              `- **Armour:** ${st.armour} | **Evasion:** ${st.evasion}`,
+              `- **Fire Res:** ${st.fire_res}% | **Cold:** ${st.cold_res}% | **Lightning:** ${st.lightning_res}% | **Chaos:** ${st.chaos_res}%`,
+              "",
+              "## Skills",
+              ...s.skills.filter(sk => sk.enabled).map(sk => {
+                const active = sk.gems.find(g => !g.isSupport);
+                const sups = sk.gems.filter(g => g.isSupport).map(g => g.name).join(", ");
+                return `- **${active?.name || sk.label}** (${sk.slot})${sups ? `: ${sups}` : ""}`;
+              }),
+              "",
+              "## Gear",
+              ...s.items.filter(it => it.slot && it.name).map(it => `- **${it.slot}:** ${it.name} (${it.rarity})`),
+            ];
+            await navigator.clipboard.writeText(lines.join("\n"));
+          }}
+          disabled={!stats}
+          className="text-xs font-mono text-text-dim hover:text-accent transition-colors px-2 py-1 rounded hover:bg-bg-hover disabled:opacity-30 disabled:cursor-not-allowed hidden lg:inline-block"
+          title="Copy build as markdown"
+        >
+          MD
+        </button>
+        <button
           onClick={() => useBuildStore.getState().saveBuild()}
           disabled={!useBuildStore.getState().code}
           className="text-xs font-mono text-text-dim hover:text-accent transition-colors px-2 py-1 rounded hover:bg-bg-hover disabled:opacity-30 disabled:cursor-not-allowed hidden sm:inline-block"
