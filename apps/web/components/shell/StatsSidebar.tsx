@@ -244,6 +244,66 @@ function PoolBar({ life, es }: { life: number; es: number }) {
   );
 }
 
+const AURA_KEYWORDS = ["herald", "purity", "determination", "grace", "discipline", "haste", "hatred", "anger", "wrath", "zealotry", "malevolence", "pride", "defiance", "clarity", "vitality", "precision", "tempest shield", "arctic armour", "flesh and stone", "blood and sand", "petrified blood"];
+
+function ActiveAuras() {
+  const skills = useBuildStore((s) => s.skills);
+  const activeAuras = skills
+    .filter(g => g.enabled)
+    .flatMap(g => g.gems.filter(gem => {
+      if (!gem.enabled || gem.isSupport) return false;
+      const name = gem.name.toLowerCase();
+      return AURA_KEYWORDS.some(kw => name.includes(kw));
+    }))
+    .map(g => g.name);
+
+  if (activeAuras.length === 0) return null;
+
+  return (
+    <div className="mb-2">
+      <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-text-dim">Auras</span>
+      <div className="flex flex-wrap gap-1 mt-0.5">
+        {activeAuras.map((name, i) => (
+          <span key={i} className="text-[9px] font-mono text-accent/70 bg-accent/10 px-1.5 py-0.5 rounded">
+            {name}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DefensiveLayers({ stats }: { stats: BuildStats }) {
+  const layers: string[] = [];
+  if (stats.armour > 1000) layers.push("Armour");
+  if (stats.evasion > 1000) layers.push("Evasion");
+  if (stats.block_chance > 20) layers.push("Block");
+  if (stats.spell_block > 10) layers.push("Spell Block");
+  if (stats.suppression > 50) layers.push("Suppression");
+  if (stats.energy_shield > 500) layers.push("ES");
+  if (stats.phys_reduction > 20) layers.push("Phys Mitigation");
+  if (stats.life > 4000) layers.push("Life Pool");
+  if (stats.life_regen > 100) layers.push("Regen");
+  if (stats.life_leech_rate > 0) layers.push("Leech");
+
+  if (layers.length === 0) return null;
+
+  return (
+    <div className="mt-2 pt-2 border-t border-border-subtle">
+      <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-text-dim">
+        {layers.length} Defensive Layer{layers.length !== 1 ? "s" : ""}
+      </span>
+      <div className="flex flex-wrap gap-1 mt-0.5">
+        {layers.map(l => (
+          <span key={l} className="text-[9px] font-mono text-green-400/60 bg-green-400/5 px-1 rounded">
+            {l}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function calcDelta(current: number, baseline: number | undefined): number | undefined {
   if (baseline === undefined) return undefined;
   const d = current - baseline;
@@ -390,6 +450,7 @@ export function StatsSidebar() {
       )}
 
       <PinnedStats stats={stats} />
+      <ActiveAuras />
 
       {sidebarMode === "bars" && stats && (
         <div className="mb-3">
@@ -463,7 +524,9 @@ export function StatsSidebar() {
         <StatRow label="Spell Block" value={`${fmtNum(spellBlock)}%`} />
         <StatRow label="Suppression" value={`${fmtNum(suppress)}%`} />
         <StatRow label="Phys Reduction" value={`${fmtNum(physRed)}%`} />
-      </StatSection></>)}
+      </StatSection>
+      {stats && <DefensiveLayers stats={stats} />}
+      </>)}
 
       <BuildDiff />
     </aside>
