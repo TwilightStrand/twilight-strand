@@ -188,6 +188,11 @@ function SocketGroupCard({ group, index, isMain, totalDps }: { group: SkillGroup
             off
           </span>
         )}
+        {group.enabled && allGems.length > 0 && !allGems.some(g => !g.isSupport && g.enabled) && (
+          <span className="text-[9px] font-mono text-amber-400/70 bg-amber-400/10 px-1.5 rounded">
+            No active skill
+          </span>
+        )}
       </div>
       <div className="py-1 relative">
         {allGems.length > 1 && (
