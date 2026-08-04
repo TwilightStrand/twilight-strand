@@ -7,6 +7,7 @@ import { useBuildStore } from "@/stores/build-store";
 import { useTreeStore } from "@/stores/tree-store";
 import { BuildCard } from "./BuildCard";
 import { AuthButton } from "./AuthButton";
+import { toast } from "./Toast";
 
 function RecentBuildsDropdown() {
   const [open, setOpen] = useState(false);
@@ -266,6 +267,7 @@ export function Header() {
             if (!code) return;
             const url = `${window.location.origin}#${code}`;
             await navigator.clipboard.writeText(url);
+            toast("Shareable link copied");
             if (cloudBuildId) {
               fetch(`/api/builds/${cloudBuildId}/share`, {
                 method: "POST",
@@ -288,6 +290,7 @@ export function Header() {
             const code = encodePobCode(xml);
             if (code) {
               await navigator.clipboard.writeText(code);
+              toast("PoB code copied to clipboard");
             }
           }}
           disabled={!stats}
@@ -320,6 +323,7 @@ export function Header() {
               ...s.items.filter(it => it.slot && it.name).map(it => `- **${it.slot}:** ${it.name} (${it.rarity})`),
             ];
             await navigator.clipboard.writeText(lines.join("\n"));
+            toast("Markdown copied to clipboard");
           }}
           disabled={!stats}
           className="text-xs font-mono text-text-dim hover:text-accent transition-colors px-2 py-1 rounded hover:bg-bg-hover disabled:opacity-30 disabled:cursor-not-allowed hidden lg:inline-block"
@@ -331,6 +335,7 @@ export function Header() {
           onClick={() => {
             useBuildStore.getState().saveBuild();
             useBuildStore.getState().saveToCloud();
+            toast("Build saved");
           }}
           disabled={!useBuildStore.getState().code}
           className="text-xs font-mono text-text-dim hover:text-accent transition-colors px-2 py-1 rounded hover:bg-bg-hover disabled:opacity-30 disabled:cursor-not-allowed hidden sm:inline-block"
