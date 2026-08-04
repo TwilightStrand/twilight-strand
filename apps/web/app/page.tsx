@@ -8,6 +8,7 @@ import { MobileNav } from "@/components/shell/MobileNav";
 import { ImportDialog } from "@/components/shell/ImportDialog";
 import { KeyboardShortcuts } from "@/components/shell/KeyboardShortcuts";
 import { WelcomeHint } from "@/components/shell/WelcomeHint";
+import { ToastContainer } from "@/components/shell/Toast";
 import { ErrorBoundary } from "@/components/shell/ErrorBoundary";
 import { useUiStore } from "@/stores/ui-store";
 import { useBuildStore } from "@/stores/build-store";
@@ -109,6 +110,7 @@ export default function Home() {
       <ImportDialog open={importOpen} onClose={() => setImportOpen(false)} />
       <KeyboardShortcuts />
       <WelcomeHint />
+      <ToastContainer />
     </>
   );
 }
