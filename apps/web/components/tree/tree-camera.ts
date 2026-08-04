@@ -82,3 +82,17 @@ export function screenToWorld(
     y: cam.y + (screenY - canvasH / 2) / cam.zoom,
   };
 }
+
+export function frameBounds(
+  bounds: { minX: number; maxX: number; minY: number; maxY: number },
+  canvasW: number,
+  canvasH: number,
+  padding = 0.15
+): Camera {
+  const cx = (bounds.minX + bounds.maxX) / 2;
+  const cy = (bounds.minY + bounds.maxY) / 2;
+  const w = (bounds.maxX - bounds.minX) * (1 + padding);
+  const h = (bounds.maxY - bounds.minY) * (1 + padding);
+  const zoom = Math.min(canvasW / Math.max(w, 1), canvasH / Math.max(h, 1));
+  return { x: cx, y: cy, zoom: Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom)) };
+}

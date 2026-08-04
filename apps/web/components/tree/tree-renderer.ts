@@ -177,7 +177,6 @@ export class TreeRenderer {
       const fromNode = this.tree.nodes.get(conn.from);
       const toNode = this.tree.nodes.get(conn.to);
       if (!fromNode || !toNode) continue;
-      if (fromNode.ascendancyName || toNode.ascendancyName) continue;
 
       const from = worldToScreen(cam, fromNode.x, fromNode.y, cw, ch);
       const to = worldToScreen(cam, toNode.x, toNode.y, cw, ch);
@@ -194,7 +193,12 @@ export class TreeRenderer {
         this.allocatedNodes.has(conn.from) &&
         this.allocatedNodes.has(conn.to);
 
-      ctx.strokeStyle = bothAllocated ? COLOR_LINE_ALLOCATED : COLOR_LINE;
+      const isAscendancy = !!(fromNode.ascendancyName || toNode.ascendancyName);
+      if (isAscendancy) {
+        ctx.strokeStyle = bothAllocated ? "rgba(212, 160, 36, 0.8)" : "rgba(212, 160, 36, 0.15)";
+      } else {
+        ctx.strokeStyle = bothAllocated ? COLOR_LINE_ALLOCATED : COLOR_LINE;
+      }
       ctx.beginPath();
       ctx.moveTo(from.x, from.y);
       ctx.lineTo(to.x, to.y);
@@ -298,6 +302,9 @@ export class TreeRenderer {
     } else if (node.classStartIndex !== undefined) {
       fill = COLOR_NODE_CLASS_START;
       border = "rgba(80, 160, 120, 0.5)";
+    } else if (node.ascendancyName) {
+      fill = allocated ? "#4a3a1c" : "#2a2218";
+      border = allocated ? "rgba(212, 160, 36, 0.9)" : "rgba(212, 160, 36, 0.3)";
     } else {
       fill = allocated ? "#3a4a5c" : COLOR_NODE_NORMAL;
       border = COLOR_NODE_BORDER;
