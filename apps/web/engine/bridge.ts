@@ -50,12 +50,15 @@ export class EngineBridge {
     this.ready = true;
   }
 
-  async evaluate(xml: string): Promise<{
+  async evaluate(xml: string, config?: Record<string, string | boolean | number>): Promise<{
     stats: BuildStats;
     items: ItemData[];
     skills: SkillGroup[];
   }> {
-    const resp = await this.send({ type: "evaluate", xml } as Omit<EngineRequest, "id">, 180_000);
+    const msg: Omit<EngineRequest, "id"> = config
+      ? { type: "evaluate", xml, config } as Omit<EngineRequest, "id">
+      : { type: "evaluate", xml } as Omit<EngineRequest, "id">;
+    const resp = await this.send(msg, 180_000);
     if (resp.type === "error") {
       throw new Error(resp.message);
     }
