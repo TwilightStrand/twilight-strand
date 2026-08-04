@@ -1,10 +1,51 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { TABS, TAB_LABELS, useUiStore } from "@/stores/ui-store";
 import type { TabId } from "@/stores/ui-store";
 import { useBuildStore } from "@/stores/build-store";
 import { useTreeStore } from "@/stores/tree-store";
+
+function RecentBuildsDropdown() {
+  const [open, setOpen] = useState(false);
+  const savedBuilds = useBuildStore((s) => s.savedBuilds);
+  const importBuild = useBuildStore((s) => s.importBuild);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = () => setOpen(false);
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, [open]);
+
+  if (savedBuilds.length === 0) return null;
+
+  return (
+    <div className="relative hidden sm:block">
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+        className="text-xs font-mono text-text-dim hover:text-accent transition-colors px-2 py-1 rounded hover:bg-bg-hover"
+        title="Recent builds"
+      >
+        Recent
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 bg-bg-card border border-border-card rounded-lg shadow-xl z-50 min-w-48 py-1">
+          {savedBuilds.slice(0, 5).map((build, i) => (
+            <button
+              key={i}
+              onClick={() => { importBuild(build.code); setOpen(false); }}
+              className="w-full text-left px-3 py-1.5 text-xs font-mono hover:bg-bg-hover transition-colors"
+            >
+              <span className="text-text-primary">{build.name}</span>
+              <span className="text-text-dim ml-1">Lv {build.level}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const TAB_ICONS: Record<TabId, string> = {
   tree: "⬡",
@@ -162,6 +203,18 @@ export function Header() {
       <div className="flex-1" />
 
       <div className="flex items-center gap-2">
+        <button
+          onClick={() => {
+            useBuildStore.getState().clearBuild();
+            useTreeStore.getState().setAllocatedNodes(new Set());
+            window.history.replaceState(null, "", window.location.pathname);
+          }}
+          className="text-xs font-mono text-text-dim hover:text-blood transition-colors px-2 py-1 rounded hover:bg-bg-hover hidden sm:inline-block"
+          title="New build (clear current)"
+        >
+          New
+        </button>
+        <RecentBuildsDropdown />
         <button
           onClick={async () => {
             const code = useBuildStore.getState().code;
