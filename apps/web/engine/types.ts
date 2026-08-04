@@ -43,6 +43,8 @@ export interface BuildStats {
   impale_dps: number;
   life_leech_rate: number;
   es_leech_rate: number;
+  es_regen: number;
+  es_recharge_rate: number;
   class_name: string;
   ascendancy: string;
   level: number;
