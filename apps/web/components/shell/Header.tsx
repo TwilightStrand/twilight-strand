@@ -242,6 +242,12 @@ export function Header() {
       <div className="flex-1" />
 
       <div className="flex items-center gap-2">
+        <a
+          href="/community"
+          className="text-xs font-mono text-text-dim hover:text-accent transition-colors px-2 py-1 rounded hover:bg-bg-hover hidden lg:inline-block"
+        >
+          Community
+        </a>
         <button
           onClick={() => {
             useBuildStore.getState().clearBuild();
