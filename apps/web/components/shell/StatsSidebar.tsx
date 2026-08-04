@@ -93,19 +93,27 @@ export function StatsSidebar() {
 
   return (
     <aside className="w-48 min-w-48 hidden md:block border-r border-border-subtle bg-bg-deep/80 overflow-y-auto p-3">
-      <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border-subtle">
-        <span className="text-life font-mono text-sm font-bold tabular-nums">
-          {fmtNum(life)}
-        </span>
-        <span className="text-[10px] text-text-dim uppercase">Life</span>
-        <span className="text-es font-mono text-sm font-bold tabular-nums">
-          {fmtNum(es)}
-        </span>
-        <span className="text-[10px] text-text-dim uppercase">ES</span>
-        <span className="text-mana font-mono text-sm font-bold tabular-nums">
-          {fmtNum(mana)}
-        </span>
-        <span className="text-[10px] text-text-dim uppercase">Mana</span>
+      <div className="mb-3 pb-2 border-b border-border-subtle">
+        <div className="flex items-center gap-2">
+          <span className="text-life font-mono text-sm font-bold tabular-nums">
+            {fmtNum(life)}
+          </span>
+          <span className="text-[10px] text-text-dim uppercase">Life</span>
+          <span className="text-es font-mono text-sm font-bold tabular-nums">
+            {fmtNum(es)}
+          </span>
+          <span className="text-[10px] text-text-dim uppercase">ES</span>
+          <span className="text-mana font-mono text-sm font-bold tabular-nums">
+            {fmtNum(mana)}
+          </span>
+          <span className="text-[10px] text-text-dim uppercase">Mana</span>
+        </div>
+        {(stats?.total_ehp ?? 0) > 0 && (
+          <div className="flex justify-between items-baseline text-xs font-mono mt-1">
+            <span className="text-text-dim">Total EHP</span>
+            <span className="tabular-nums text-text-primary">{fmtNum(stats?.total_ehp ?? 0)}</span>
+          </div>
+        )}
       </div>
 
       <StatSection title="Offence" color="var(--color-offence)">
