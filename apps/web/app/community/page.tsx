@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { BuildCard } from "@/components/shell/BuildCard";
+import { NinjaBuilds } from "@/components/shell/NinjaBuilds";
 
 const CLASSES = ["All", "Marauder", "Ranger", "Witch", "Duelist", "Templar", "Shadow", "Scion"];
 
@@ -21,6 +22,7 @@ interface LeaderboardBuild {
 }
 
 export default function CommunityPage() {
+  const [view, setView] = useState<"shared" | "ladder">("shared");
   const [builds, setBuilds] = useState<LeaderboardBuild[]>([]);
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState("dps");
@@ -60,7 +62,33 @@ export default function CommunityPage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-6">
-        <h1 className="text-lg font-display text-text-heading mb-4">Leaderboard</h1>
+        <div className="flex items-center gap-2 mb-4">
+          <button
+            onClick={() => setView("shared")}
+            className={`text-sm font-mono px-3 py-1.5 rounded transition-colors ${
+              view === "shared"
+                ? "bg-accent/20 text-accent border border-accent/30"
+                : "text-text-dim hover:text-text-primary border border-transparent"
+            }`}
+          >
+            Community Builds
+          </button>
+          <button
+            onClick={() => setView("ladder")}
+            className={`text-sm font-mono px-3 py-1.5 rounded transition-colors ${
+              view === "ladder"
+                ? "bg-accent/20 text-accent border border-accent/30"
+                : "text-text-dim hover:text-text-primary border border-transparent"
+            }`}
+          >
+            poe.ninja Ladder
+          </button>
+        </div>
+
+        {view === "ladder" && <NinjaBuilds />}
+
+        {view === "shared" && <>
+        <h2 className="text-sm font-mono text-text-dim mb-3">Leaderboard</h2>
 
         <div className="flex items-center gap-2 mb-4 flex-wrap">
           <span className="text-[10px] font-mono text-text-dim mr-1">Sort:</span>
@@ -156,6 +184,7 @@ export default function CommunityPage() {
             ))}
           </div>
         )}
+        </>}
       </main>
     </div>
   );
