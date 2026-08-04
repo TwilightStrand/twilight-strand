@@ -12,6 +12,8 @@ pub mod stat_parser;
 pub mod node_power;
 pub mod pathfinder;
 pub mod supports;
+pub mod keystones;
+pub mod ascendancy;
 pub use stat_parser::{parse_stat_line, parse_stats};
 pub use supports::get_support_modifiers;
 
@@ -87,6 +89,8 @@ pub struct BuildInput {
     pub allocated_keystones: Vec<String>,
     #[serde(default)]
     pub main_skill_id: String,
+    #[serde(default)]
+    pub ascendancy_name: String,
 }
 
 #[derive(Tsify, Serialize, Deserialize, Clone, Debug)]
@@ -225,7 +229,9 @@ fn calc_ehp(
 
 #[wasm_bindgen]
 pub fn evaluate_build(input: BuildInput) -> CalcOutput {
-    let agg = aggregate_mods(&input.modifiers);
+    let mut all_mods = input.modifiers.clone();
+    keystones::apply_keystones(&input, &mut all_mods);
+    let agg = aggregate_mods(&all_mods);
 
     // --- Attributes ----------------------------------------------------------
     let (sf, si, sm) = get_buckets(&agg, "Str");
@@ -249,7 +255,7 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
 
     let (ef, ei, em) = get_buckets(&agg, "Evasion");
     let dex_evasion_bonus = (dexterity / 5.0).floor();
-    let evasion = calc_stat(dex_evasion_bonus, ef, ei, em).round();
+    let evasion = calc_stat(dex_evasion_bonus, ef, ei, em).round().max(0.0);
 
     // --- Resistances (flat only, capped at 90) -------------------------------
     let fire_res = (get_buckets(&agg, "FireRes").0 - 60.0).min(90.0);
@@ -292,7 +298,7 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     let attack_speed = calc_stat(gem_base_speed, spd_flat, spd_inc, spd_more);
 
     let (crit_base_mod, crit_inc, crit_more) = get_buckets(&agg, "CritChance");
-    let base_crit = if crit_base_mod > 0.0 { crit_base_mod } else { gem_base_crit };
+    let base_crit = if crit_base_mod != 0.0 { gem_base_crit + crit_base_mod } else { gem_base_crit };
     let crit_chance = calc_stat(base_crit, 0.0, crit_inc, crit_more).clamp(0.0, 100.0);
 
     let crit_multi = 150.0 + get_buckets(&agg, "CritMultiplier").0;
