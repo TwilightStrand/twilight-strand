@@ -490,6 +490,18 @@ export function TreeCanvas() {
         >
           Center
         </button>
+        <button
+          onClick={() => {
+            if (allocatedNodes.size > 1 && window.confirm("Reset all allocated nodes?")) {
+              useTreeStore.getState().resetTree();
+              draw();
+            }
+          }}
+          className="text-[10px] font-mono text-text-dim hover:text-blood px-2 py-1 rounded bg-bg-card/90 border border-border-subtle hover:border-blood/30 transition-colors"
+          title="Reset tree allocation"
+        >
+          Reset
+        </button>
       </div>
       <PointCounter />
       <NodePowerControls />
