@@ -259,6 +259,7 @@ export function CalcsTab() {
                     value={resolvedValues[row.key] ?? 0}
                     color={row.color}
                     suffix={row.suffix}
+                    filterQuery={filter || undefined}
                   />
                 </div>
               ))}

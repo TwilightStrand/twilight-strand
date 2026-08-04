@@ -423,7 +423,18 @@ export function TreeCanvas() {
           rafRef.current = requestAnimationFrame(draw);
         }}
       />
-      <TreeSearch treeData={treeData} />
+      <TreeSearch
+        treeData={treeData}
+        onNavigateToNode={(nodeId) => {
+          const tree = treeDataRef.current;
+          if (!tree || !cameraRef.current) return;
+          const node = tree.nodes.get(nodeId);
+          if (!node) return;
+          cameraRef.current = { ...cameraRef.current, x: node.x, y: node.y, zoom: Math.max(cameraRef.current.zoom, 0.6) };
+          cancelAnimationFrame(rafRef.current);
+          rafRef.current = requestAnimationFrame(draw);
+        }}
+      />
       <TreeSpecBar />
       <div className="absolute bottom-14 left-3 z-10 flex gap-1">
         <button

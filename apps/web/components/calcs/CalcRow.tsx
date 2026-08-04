@@ -1,15 +1,32 @@
 "use client";
 
+function HighlightText({ text, query }: { text: string; query?: string }) {
+  if (!query) return <>{text}</>;
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark className="bg-accent/30 text-accent rounded px-0.5">
+        {text.slice(idx, idx + query.length)}
+      </mark>
+      {text.slice(idx + query.length)}
+    </>
+  );
+}
+
 export function CalcRow({
   label,
   value,
   color,
   suffix,
+  filterQuery,
 }: {
   label: string;
   value: number | string;
   color?: string;
   suffix?: string;
+  filterQuery?: string;
 }) {
   const formatted =
     typeof value === "number"
@@ -24,7 +41,9 @@ export function CalcRow({
 
   return (
     <div className="flex justify-between items-baseline text-xs font-mono py-0.5">
-      <span className="text-text-dim">{label}</span>
+      <span className="text-text-dim">
+        <HighlightText text={label} query={filterQuery} />
+      </span>
       <span className="tabular-nums" style={color ? { color } : undefined}>
         {formatted}
         {suffix ?? ""}
