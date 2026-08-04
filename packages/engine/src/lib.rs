@@ -3,6 +3,15 @@ use serde::{Deserialize, Serialize};
 use tsify_next::Tsify;
 use std::collections::HashMap;
 
+pub mod damage;
+
+mod gems;
+pub use gems::{lookup_gem, avg_base_damage, GemData, DamageType, GemTag};
+
+pub mod stat_parser;
+pub mod node_power;
+pub use stat_parser::{parse_stat_line, parse_stats};
+
 // ---------------------------------------------------------------------------
 // Public types shared with TypeScript via tsify
 // ---------------------------------------------------------------------------
@@ -73,6 +82,8 @@ pub struct BuildInput {
     pub base_int: u32,
     pub modifiers: Vec<Modifier>,
     pub allocated_keystones: Vec<String>,
+    #[serde(default)]
+    pub main_skill_id: String,
 }
 
 #[derive(Tsify, Serialize, Deserialize, Clone, Debug)]
@@ -252,21 +263,46 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     let hit_chance = calc_hit_chance(accuracy, 600.0);
 
     // --- DPS -----------------------------------------------------------------
+    // Use gem base damage when a skill is specified, otherwise fall back to
+    // raw Damage modifiers.
+    let gem = if !input.main_skill_id.is_empty() {
+        gems::lookup_gem(&input.main_skill_id)
+    } else {
+        None
+    };
+
     let (dmg_flat, dmg_inc, dmg_more) = get_buckets(&agg, "Damage");
     let (spd_flat, spd_inc, spd_more) = get_buckets(&agg, "AttackSpeed");
 
-    let base_damage = calc_stat(0.0, dmg_flat, dmg_inc, dmg_more);
-    let attack_speed = calc_stat(1.0, spd_flat, spd_inc, spd_more);
+    let (gem_base_dmg, gem_base_speed, gem_base_crit, gem_effectiveness) = match gem {
+        Some(g) if !g.is_dot => (
+            gems::avg_base_damage(g),
+            1.0 / g.base_cast_time,      // attacks/casts per second
+            g.base_crit_chance,
+            g.damage_effectiveness,
+        ),
+        _ => (0.0, 1.0, 5.0, 1.0),
+    };
 
-    let (crit_base, crit_inc, crit_more) = get_buckets(&agg, "CritChance");
-    let base_crit = if crit_base > 0.0 { crit_base } else { 5.0 };
+    let added_damage = dmg_flat * gem_effectiveness;
+    let base_damage = calc_stat(gem_base_dmg, added_damage, dmg_inc, dmg_more);
+    let attack_speed = calc_stat(gem_base_speed, spd_flat, spd_inc, spd_more);
+
+    let (crit_base_mod, crit_inc, crit_more) = get_buckets(&agg, "CritChance");
+    let base_crit = if crit_base_mod > 0.0 { crit_base_mod } else { gem_base_crit };
     let crit_chance = calc_stat(base_crit, 0.0, crit_inc, crit_more).clamp(0.0, 100.0);
 
     let crit_multi = 150.0 + get_buckets(&agg, "CritMultiplier").0;
 
     let avg_hit = base_damage
         * (1.0 + (crit_chance / 100.0) * (crit_multi / 100.0 - 1.0));
-    let total_dps = avg_hit * attack_speed * (hit_chance / 100.0);
+    let total_dps = if gem.map_or(false, |g| g.is_dot) {
+        // DoT DPS: base * (1 + inc) * more (no speed/crit/hit)
+        let dot_base = gem.unwrap().dot_base;
+        calc_stat(dot_base, dmg_flat, dmg_inc, dmg_more)
+    } else {
+        avg_hit * attack_speed * (hit_chance / 100.0)
+    };
 
     // --- Derived defences ----------------------------------------------------
     let phys_reduction = phys_reduction_from_armour(armour, 83.0 * 5.0);
@@ -296,6 +332,17 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
         hit_chance,
         total_ehp,
     }
+}
+
+// ---------------------------------------------------------------------------
+// Stat parser – WASM entry point
+// ---------------------------------------------------------------------------
+
+/// Parse a single PoE stat description line into Modifiers (returned as JsValue).
+#[wasm_bindgen]
+pub fn parse_single_stat(line: &str) -> JsValue {
+    let mods = stat_parser::parse_stat_line(line);
+    serde_wasm_bindgen::to_value(&mods).unwrap_or(JsValue::NULL)
 }
 
 // ---------------------------------------------------------------------------
@@ -402,6 +449,7 @@ mod tests {
             base_int: 14,
             modifiers: vec![],
             allocated_keystones: vec![],
+            main_skill_id: String::new(),
         }
     }
 
@@ -660,5 +708,212 @@ mod tests {
         assert_eq!(stats.class_name, "Marauder");
         assert_eq!(stats.ascendancy, "Juggernaut");
         assert_eq!(stats.level, 90.0);
+    }
+
+    // ---- Gem-based DPS tests -----------------------------------------------
+
+    #[test]
+    fn test_ground_slam_dps() {
+        let mut input = default_input();
+        input.main_skill_id = "GroundSlam".into();
+        let out = evaluate_build(input);
+        // Base avg = 250, effectiveness 1.1, speed 1.0, crit 5%
+        assert!(out.total_dps > 100.0, "ground slam dps was {}", out.total_dps);
+    }
+
+    #[test]
+    fn test_winter_orb_uses_cast_time() {
+        let mut input = default_input();
+        input.main_skill_id = "WinterOrb".into();
+        let out = evaluate_build(input);
+        // Cast time 0.72 => ~1.39 casts/s, base avg 125
+        assert!(out.attack_speed > 1.3, "WOrb speed was {}", out.attack_speed);
+        assert!(out.total_dps > 100.0, "WOrb dps was {}", out.total_dps);
+    }
+
+    #[test]
+    fn test_righteous_fire_dot() {
+        let mut input = default_input();
+        input.main_skill_id = "RighteousFire".into();
+        let out = evaluate_build(input);
+        // DoT: base 100, no speed/crit multiplier
+        assert!(out.total_dps >= 100.0, "RF dps was {}", out.total_dps);
+    }
+
+    #[test]
+    fn test_gem_with_added_damage() {
+        let mut input = default_input();
+        input.main_skill_id = "GroundSlam".into();
+        input.modifiers.push(Modifier {
+            stat: "Damage".into(),
+            value: 200.0,
+            mod_type: "flat".into(),
+        });
+        let base = {
+            let mut i = default_input();
+            i.main_skill_id = "GroundSlam".into();
+            evaluate_build(i).total_dps
+        };
+        let with_added = evaluate_build(input).total_dps;
+        // effectiveness = 1.1, so +200 flat becomes +220 effective
+        assert!(with_added > base * 1.5, "added damage didn't scale: base={base}, with={with_added}");
+    }
+
+    #[test]
+    fn test_no_skill_falls_back() {
+        // Without main_skill_id, DPS comes from raw Damage mods
+        let mut input = default_input();
+        input.modifiers.push(Modifier {
+            stat: "Damage".into(),
+            value: 500.0,
+            mod_type: "flat".into(),
+        });
+        let out = evaluate_build(input);
+        assert!(out.total_dps > 0.0);
+    }
+
+    #[test]
+    fn test_fireball_high_effectiveness() {
+        let mut input = default_input();
+        input.main_skill_id = "Fireball".into();
+        input.modifiers.push(Modifier {
+            stat: "Damage".into(),
+            value: 100.0,
+            mod_type: "flat".into(),
+        });
+        let base = {
+            let mut i = default_input();
+            i.main_skill_id = "Fireball".into();
+            evaluate_build(i).total_dps
+        };
+        let with_added = evaluate_build(input).total_dps;
+        // Fireball effectiveness = 2.4, so +100 flat becomes +240
+        assert!(with_added > base * 1.2, "fireball effectiveness not applied");
+    }
+}
+
+#[cfg(test)]
+mod bench_tests {
+    use super::*;
+    use std::time::Instant;
+
+    fn sample_input() -> BuildInput {
+        BuildInput {
+            level: 90,
+            class_id: 1,
+            base_str: 32,
+            base_dex: 14,
+            base_int: 14,
+            modifiers: vec![
+                Modifier { stat: "Life".into(), value: 150.0, mod_type: "flat".into() },
+                Modifier { stat: "Life".into(), value: 80.0, mod_type: "increased".into() },
+                Modifier { stat: "EnergyShield".into(), value: 200.0, mod_type: "flat".into() },
+                Modifier { stat: "Str".into(), value: 100.0, mod_type: "flat".into() },
+                Modifier { stat: "Dex".into(), value: 50.0, mod_type: "flat".into() },
+                Modifier { stat: "Int".into(), value: 80.0, mod_type: "flat".into() },
+                Modifier { stat: "FireRes".into(), value: 135.0, mod_type: "flat".into() },
+                Modifier { stat: "ColdRes".into(), value: 120.0, mod_type: "flat".into() },
+                Modifier { stat: "LightningRes".into(), value: 140.0, mod_type: "flat".into() },
+                Modifier { stat: "ChaosRes".into(), value: 30.0, mod_type: "flat".into() },
+                Modifier { stat: "Damage".into(), value: 500.0, mod_type: "flat".into() },
+                Modifier { stat: "Damage".into(), value: 200.0, mod_type: "increased".into() },
+                Modifier { stat: "AttackSpeed".into(), value: 30.0, mod_type: "increased".into() },
+                Modifier { stat: "CritChance".into(), value: 50.0, mod_type: "flat".into() },
+                Modifier { stat: "CritMultiplier".into(), value: 100.0, mod_type: "flat".into() },
+                Modifier { stat: "Armour".into(), value: 1000.0, mod_type: "flat".into() },
+                Modifier { stat: "Armour".into(), value: 50.0, mod_type: "increased".into() },
+                Modifier { stat: "Evasion".into(), value: 500.0, mod_type: "flat".into() },
+                Modifier { stat: "BlockChance".into(), value: 30.0, mod_type: "flat".into() },
+            ],
+            allocated_keystones: vec![],
+            main_skill_id: String::new(),
+        }
+    }
+
+    #[test]
+    fn bench_single_eval() {
+        let input = sample_input();
+        let iterations = 10_000;
+        // Warm up
+        for _ in 0..100 {
+            let _ = evaluate_build(input.clone());
+        }
+        let start = Instant::now();
+        for _ in 0..iterations {
+            let _ = evaluate_build(input.clone());
+        }
+        let elapsed = start.elapsed();
+        let per_eval_ns = elapsed.as_nanos() as f64 / iterations as f64;
+        println!(
+            "Single eval: {:.0}ns ({:.1}us) - {:.0} evals/sec",
+            per_eval_ns,
+            per_eval_ns / 1000.0,
+            1_000_000_000.0 / per_eval_ns
+        );
+        assert!(per_eval_ns < 1_000_000.0, "Eval too slow: {:.0}ns", per_eval_ns);
+    }
+
+    #[test]
+    fn bench_node_ranking_100() {
+        let input = sample_input();
+        let nodes: Vec<(String, Vec<String>)> = (0..100)
+            .map(|i| {
+                (
+                    format!("node_{}", i),
+                    vec![
+                        format!("+{} to maximum Life", 5 + i % 20),
+                        format!("{}% increased Damage", 3 + i % 10),
+                    ],
+                )
+            })
+            .collect();
+
+        // Warm up
+        let _ = node_power::rank_nodes(&input, &nodes);
+
+        let start = Instant::now();
+        let ranked = node_power::rank_nodes(&input, &nodes);
+        let elapsed = start.elapsed();
+
+        println!(
+            "Rank 100 nodes: {:.2}ms ({:.0}us per node)",
+            elapsed.as_micros() as f64 / 1000.0,
+            elapsed.as_micros() as f64 / 100.0
+        );
+        assert_eq!(ranked.len(), 100);
+        assert!(
+            elapsed.as_millis() < 500,
+            "Ranking too slow: {}ms",
+            elapsed.as_millis()
+        );
+    }
+
+    #[test]
+    fn bench_stat_parsing() {
+        let lines = vec![
+            "+50 to maximum Life".to_string(),
+            "8% increased maximum Life".to_string(),
+            "+30% to Fire Resistance".to_string(),
+            "+10 to all Attributes".to_string(),
+            "25% increased Armour".to_string(),
+            "+25% to Critical Strike Multiplier".to_string(),
+            "10% increased Attack Speed".to_string(),
+            "+200 to Accuracy Rating".to_string(),
+        ];
+
+        let iterations = 10_000;
+        let start = Instant::now();
+        for _ in 0..iterations {
+            let _ = stat_parser::parse_stats(&lines);
+        }
+        let elapsed = start.elapsed();
+        let per_parse_ns = elapsed.as_nanos() as f64 / iterations as f64;
+        println!(
+            "Parse 8 stat lines: {:.0}ns ({:.1}us) - {:.0} parses/sec",
+            per_parse_ns,
+            per_parse_ns / 1000.0,
+            1_000_000_000.0 / per_parse_ns
+        );
+        assert!(per_parse_ns < 1_000_000.0, "Parsing too slow");
     }
 }
