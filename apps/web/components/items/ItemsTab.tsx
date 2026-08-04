@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useBuildStore } from "@/stores/build-store";
 import { EmptyState } from "@/components/shell/EmptyState";
 import { ItemEditor } from "./ItemEditor";
+import { ClusterDisplay } from "./ClusterDisplay";
 import type { ItemData } from "@/engine/types";
 
 const WEAPON_SLOTS_SET1 = ["Weapon 1", "Weapon 2"];
@@ -341,6 +342,8 @@ function ItemDetail({ item, onEdit, onDelete }: { item: ItemData; onEdit?: () =>
           </div>
         </div>
       )}
+
+      <ClusterDisplay item={item} />
     </div>
   );
 }
