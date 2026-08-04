@@ -49,13 +49,12 @@ export function Header() {
   const { activeTab, setActiveTab, setImportOpen } = useUiStore();
   const stats = useBuildStore((s) => s.stats);
   const initEngine = useBuildStore((s) => s.initEngine);
+  const buildName = useBuildStore((s) => s.buildName);
 
   useEffect(() => {
     initEngine();
   }, [initEngine]);
 
-  const className = stats?.class_name ?? "Scion";
-  const ascendancy = stats?.ascendancy || "";
   const level = stats?.level ?? 1;
 
   return (
@@ -74,8 +73,8 @@ export function Header() {
           <span className="bg-bg-card px-1.5 py-0.5 rounded text-text-primary">
             PoE 1
           </span>
-          <span className="text-text-dim">{ascendancy || className}</span>
-          <span className="text-text-dim">Lv {level}</span>
+          <span className="text-text-dim truncate max-w-32">{buildName}</span>
+          <span className="text-text-dim/60 text-[10px]">Lv {level}</span>
         </div>
       </div>
 
@@ -113,6 +112,13 @@ export function Header() {
       <div className="flex-1" />
 
       <div className="flex items-center gap-2">
+        <button
+          onClick={() => useBuildStore.getState().saveBuild()}
+          disabled={!stats?.code && !useBuildStore.getState().code}
+          className="text-xs font-mono text-text-dim hover:text-accent transition-colors px-2 py-1 rounded hover:bg-bg-hover disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          Save
+        </button>
         <button
           onClick={() => setImportOpen(true)}
           className="text-xs font-mono text-text-dim hover:text-accent transition-colors px-2 py-1 rounded hover:bg-bg-hover"
