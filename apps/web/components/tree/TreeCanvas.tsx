@@ -20,6 +20,35 @@ import { TreeSearch } from "./TreeSearch";
 import { TreeSpecBar } from "./TreeSpecBar";
 import { TreeMinimap } from "./TreeMinimap";
 
+function AllocatedKeystones({ treeData }: { treeData: TreeData | null }) {
+  const allocatedNodes = useTreeStore((s) => s.allocatedNodes);
+
+  if (!treeData || allocatedNodes.size === 0) return null;
+
+  const keystones: Array<{ id: string; name: string }> = [];
+  for (const nodeId of allocatedNodes) {
+    const node = treeData.nodes.get(nodeId);
+    if (node && node.isKeystone) {
+      keystones.push({ id: nodeId, name: node.name || nodeId });
+    }
+  }
+
+  if (keystones.length === 0) return null;
+
+  return (
+    <div className="absolute top-14 left-3 z-10 bg-bg-card/90 backdrop-blur border border-border-subtle rounded p-2 max-w-48">
+      <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-amber-400/70">Keystones</span>
+      <div className="mt-1 space-y-0.5">
+        {keystones.map(ks => (
+          <div key={ks.id} className="text-[10px] font-mono text-text-primary truncate">
+            {ks.name}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function PointCounter() {
   const allocatedNodes = useTreeStore((s) => s.allocatedNodes);
   const level = useBuildStore((s) => s.stats?.level) ?? 1;
@@ -435,6 +464,7 @@ export function TreeCanvas() {
           rafRef.current = requestAnimationFrame(draw);
         }}
       />
+      <AllocatedKeystones treeData={treeData} />
       <TreeSpecBar />
       <div className="absolute bottom-14 left-3 z-10 flex items-center gap-1">
         <button
