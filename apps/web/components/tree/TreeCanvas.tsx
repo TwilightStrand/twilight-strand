@@ -14,9 +14,26 @@ import {
 import { TreeRenderer } from "./tree-renderer";
 import { SpatialGrid } from "./tree-spatial";
 import { useTreeStore } from "@/stores/tree-store";
+import { useBuildStore } from "@/stores/build-store";
 import { NodePowerControls, useNodePowerStore } from "./NodePowerControls";
 import { TreeSearch } from "./TreeSearch";
 import { TreeSpecBar } from "./TreeSpecBar";
+
+function PointCounter() {
+  const allocatedNodes = useTreeStore((s) => s.allocatedNodes);
+  const level = useBuildStore((s) => s.stats?.level) ?? 1;
+  const totalPoints = Math.max(0, level - 1) + 22;
+  const usedPoints = allocatedNodes.size > 1 ? allocatedNodes.size - 1 : 0;
+
+  if (usedPoints === 0 && level <= 1) return null;
+
+  return (
+    <div className="absolute bottom-3 left-3 z-10 bg-bg-card/90 backdrop-blur rounded px-2.5 py-1.5 text-xs font-mono text-text-dim border border-border-subtle">
+      <span className="text-text-primary">{usedPoints}</span>
+      <span className="text-text-dim"> / {totalPoints} pts</span>
+    </div>
+  );
+}
 
 export function TreeCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -343,6 +360,7 @@ export function TreeCanvas() {
           Center
         </button>
       </div>
+      <PointCounter />
       <NodePowerControls />
       {tooltip && (
         <div
