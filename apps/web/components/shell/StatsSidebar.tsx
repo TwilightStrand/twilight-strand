@@ -319,6 +319,10 @@ export function StatsSidebar() {
   const scrollRef = useRef<HTMLElement>(null);
   const scrollPositions = useRef<Record<string, number>>({});
   const activeTab = useUiStore((s) => s.activeTab);
+  const compact = useUiStore((s) => s.sidebarCompact);
+  const toggleCompact = useUiStore((s) => s.toggleSidebarCompact);
+  const sidebarMode = useUiStore((s) => s.sidebarMode);
+  const toggleSidebarMode = useUiStore((s) => s.toggleSidebarMode);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -369,11 +373,6 @@ export function StatsSidebar() {
   const spellBlock = stats?.spell_block ?? 0;
   const suppress = stats?.suppression ?? 0;
   const physRed = stats?.phys_reduction ?? 0;
-
-  const compact = useUiStore((s) => s.sidebarCompact);
-  const toggleCompact = useUiStore((s) => s.toggleSidebarCompact);
-  const sidebarMode = useUiStore((s) => s.sidebarMode);
-  const toggleSidebarMode = useUiStore((s) => s.toggleSidebarMode);
 
   return (
     <aside ref={scrollRef} className={`${compact ? "w-36 min-w-36 p-2" : "w-48 min-w-48 p-3"} hidden md:block border-r border-border-subtle bg-bg-deep/80 overflow-y-auto`} aria-label="Build statistics">
