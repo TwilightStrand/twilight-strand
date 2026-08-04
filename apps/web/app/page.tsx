@@ -26,6 +26,16 @@ export default function Home() {
     }
   }, [buildName, stats]);
 
+  const code = useBuildStore((s) => s.code);
+
+  useEffect(() => {
+    if (!stats || !code) return;
+    const timer = setTimeout(() => {
+      useBuildStore.getState().saveBuild();
+    }, 30000);
+    return () => clearTimeout(timer);
+  }, [stats, code]);
+
   useEffect(() => {
     const hash = window.location.hash.slice(1);
     if (hash && hash.length > 40) {
