@@ -82,7 +82,7 @@ export interface GemData {
 
 export type EngineRequest =
   | { id: number; type: "init"; gameId: GameId }
-  | { id: number; type: "evaluate"; xml: string }
+  | { id: number; type: "evaluate"; xml: string; config?: Record<string, string | boolean | number> }
   | { id: number; type: "ping" };
 
 export type EngineResponse =
