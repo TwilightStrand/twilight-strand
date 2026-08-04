@@ -21,6 +21,13 @@ export default function Home() {
   useEffect(() => {
     if (stats && buildName !== "Unnamed Build") {
       document.title = `${buildName} - Twilight Strand`;
+      const meta = document.querySelector('meta[name="description"]');
+      if (meta) {
+        const dps = stats.total_dps >= 1e6 ? `${(stats.total_dps / 1e6).toFixed(1)}M` : stats.total_dps >= 1e3 ? `${Math.round(stats.total_dps / 1e3)}k` : String(Math.round(stats.total_dps));
+        meta.setAttribute("content",
+          `${stats.ascendancy || stats.class_name} Lv ${stats.level} - ${dps} DPS, ${stats.life} Life, ${stats.energy_shield} ES - Twilight Strand Build Planner`
+        );
+      }
     } else {
       document.title = "Twilight Strand - PoE Build Planner";
     }
