@@ -23,6 +23,7 @@ interface TreeState {
   setSearchResults: (results: Set<string>) => void;
   undo: () => void;
   redo: () => void;
+  resetTree: () => void;
   addSpec: (name?: string) => void;
   removeSpec: (index: number) => void;
   switchSpec: (index: number) => void;
@@ -90,6 +91,12 @@ export const useTreeStore = create<TreeState>((set) => ({
         undoStack: [...s.undoStack, s.allocatedNodes],
       };
     }),
+  resetTree: () =>
+    set((s) => ({
+      allocatedNodes: new Set<string>(),
+      undoStack: [...s.undoStack, s.allocatedNodes],
+      redoStack: [],
+    })),
   addSpec: (name) =>
     set((s) => {
       const newSpec: TreeSpec = {
