@@ -117,7 +117,24 @@ export function Header() {
     initEngine();
   }, [initEngine]);
 
+  const className = stats?.class_name ?? "Scion";
+  const ascendancy = stats?.ascendancy || "";
   const level = stats?.level ?? 1;
+
+  const CLASS_COLORS: Record<string, string> = {
+    Marauder: "#c44", Witch: "#44c", Ranger: "#4c4",
+    Duelist: "#c84", Templar: "#cc4", Shadow: "#8c4",
+    Scion: "#ccc",
+  };
+  const ASCENDANCY_COLORS: Record<string, string> = {
+    Juggernaut: "#c44", Berserker: "#c44", Chieftain: "#c44",
+    Necromancer: "#44c", Elementalist: "#44c", Occultist: "#44c",
+    Deadeye: "#4c4", Raider: "#4c4", Pathfinder: "#4c4",
+    Gladiator: "#c84", Champion: "#c84", Slayer: "#c84",
+    Inquisitor: "#cc4", Hierophant: "#cc4", Guardian: "#cc4",
+    Assassin: "#8c4", Trickster: "#8c4", Saboteur: "#8c4",
+    Ascendant: "#ccc",
+  };
 
   function tabBadge(tab: TabId): string | null {
     switch (tab) {
@@ -151,6 +168,10 @@ export function Header() {
           {gameVersion === "poe2" && (
             <span className="text-[9px] font-mono text-amber-400">beta</span>
           )}
+          <span
+            className="w-2 h-2 rounded-full shrink-0"
+            style={{ backgroundColor: ASCENDANCY_COLORS[ascendancy] || CLASS_COLORS[className] || "#888" }}
+          />
           <span className="text-text-dim truncate max-w-32">{buildName}</span>
           <span className="text-text-dim/60 text-[10px]">Lv {level}</span>
         </div>
