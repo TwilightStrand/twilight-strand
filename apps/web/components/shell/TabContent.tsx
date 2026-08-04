@@ -7,7 +7,7 @@ import { ItemsTab } from "@/components/items/ItemsTab";
 import { SkillsTab } from "@/components/skills/SkillsTab";
 import { ConfigTab } from "@/components/config/ConfigTab";
 import { CalcsTab } from "@/components/calcs/CalcsTab";
-import { NotesPanel } from "@/components/shell/NotesPanel";
+import { SettingsPanel } from "@/components/settings/SettingsPanel";
 
 function renderTab(tab: TabId) {
   switch (tab) {
@@ -22,7 +22,7 @@ function renderTab(tab: TabId) {
     case "calcs":
       return <CalcsTab />;
     case "settings":
-      return <NotesPanel />;
+      return <SettingsPanel />;
     default:
       return null;
   }
