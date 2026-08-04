@@ -36,6 +36,30 @@ function StatSection({
   );
 }
 
+function AnimatedValue({ value, color }: { value: string; color?: string }) {
+  const [flash, setFlash] = useState(false);
+  const prevRef = useRef(value);
+
+  useEffect(() => {
+    if (prevRef.current !== value && prevRef.current !== "0" && value !== "0") {
+      setFlash(true);
+      const timer = setTimeout(() => setFlash(false), 600);
+      prevRef.current = value;
+      return () => clearTimeout(timer);
+    }
+    prevRef.current = value;
+  }, [value]);
+
+  return (
+    <span
+      className={`tabular-nums transition-colors duration-300 ${flash ? "!text-accent" : ""}`}
+      style={!flash && color ? { color } : undefined}
+    >
+      {value}
+    </span>
+  );
+}
+
 function StatRow({
   label,
   value,
@@ -61,9 +85,7 @@ function StatRow({
     >
       <span className="text-text-dim">{label}</span>
       <div className="flex items-center gap-1.5">
-        <span className="tabular-nums" style={color ? { color } : undefined}>
-          {value}
-        </span>
+        <AnimatedValue value={value} color={color} />
         {delta !== undefined && delta !== 0 && (
           <span className={`text-[9px] tabular-nums ${delta > 0 ? "text-green-400" : "text-red-400"}`}>
             {delta > 0 ? "+" : ""}{Math.abs(delta) >= 1000 ? fmtNum(delta) : Math.round(delta)}
@@ -192,6 +214,21 @@ function DpsBar({ stats }: { stats: BuildStats }) {
   );
 }
 
+function BarStatRow({ label, value, max, color }: { label: string; value: number; max: number; color?: string }) {
+  const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
+  return (
+    <div className="mb-1.5">
+      <div className="flex justify-between text-[9px] font-mono mb-0.5">
+        <span className="text-text-dim">{label}</span>
+        <span className="tabular-nums text-text-primary">{fmtNum(value)}</span>
+      </div>
+      <div className="h-1 bg-bg-hover rounded-full overflow-hidden">
+        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color || "var(--color-accent)" }} />
+      </div>
+    </div>
+  );
+}
+
 function PoolBar({ life, es }: { life: number; es: number }) {
   const total = life + es;
   if (total <= 0) return null;
@@ -274,6 +311,8 @@ export function StatsSidebar() {
 
   const compact = useUiStore((s) => s.sidebarCompact);
   const toggleCompact = useUiStore((s) => s.toggleSidebarCompact);
+  const sidebarMode = useUiStore((s) => s.sidebarMode);
+  const toggleSidebarMode = useUiStore((s) => s.toggleSidebarMode);
 
   return (
     <aside ref={scrollRef} className={`${compact ? "w-36 min-w-36 p-2" : "w-48 min-w-48 p-3"} hidden md:block border-r border-border-subtle bg-bg-deep/80 overflow-y-auto`} aria-label="Build statistics">
