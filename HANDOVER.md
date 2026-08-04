@@ -184,7 +184,7 @@ packages/
 - `@tsc` npm scope likely claimed; need alternative for publishing
 - Rust WASM engine runs alongside Lua but doesn't replace it yet (Phase 2 of integration plan)
 - Auth requires PostgreSQL and OAuth credentials to function (graceful 503 without them)
-- Cluster jewel optimizer uses heuristic + Rust estimates, not full engine calcs yet
+- Cluster jewel optimizer: Full stack mode (Large + 2 Mediums), 3-notable pick-best-2 model, 8p enchant optimal, DPS/pt ranking, rarity score, real trade API price check. Rust engine evaluates combinations when WASM loaded.
 - Item/skill editors don't re-trigger engine evaluation (requires re-import)
 
 ## Development Commands
@@ -216,7 +216,7 @@ See ROADMAP.md for the full checklist. Key priorities:
 
 1. **Rust engine Phase 2:** Replace Lua engine for real-time recalc (50k evals/sec vs ~8s per eval)
 2. **Full config parity:** Match PoB Desktop's config coverage
-3. **Cluster optimizer with trade prices:** Enumerate notable combinations, rank by value (DPS/chaos)
+3. **Cluster optimizer:** Full stack (Large + 2 Mediums = 6 notables), rarity scoring, trade prices. 3-notable-pick-2 model with 8p enchant optimal (5pt for 2 notables + 2 entrance smalls)
 4. **i18n:** Chinese, Korean, Russian translations
 5. **PoE 2 support:** Full PoE 2 tree and skill system
 6. **Build optimizer AI:** Suggest optimal tree for a given skill

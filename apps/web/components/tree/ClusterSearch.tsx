@@ -20,7 +20,17 @@ interface ClusterResult {
   ehpGain: number;
   dpsPerPoint: number;
   estimatedPrice: number;
+  rarity: number;
   mods: Array<{ stat: string; value: number; mod_type: string }>;
+}
+
+function calcRarity(notableNames: string[]): number {
+  let weightProduct = 1;
+  for (const name of notableNames) {
+    const notable = CLUSTER_NOTABLES[name];
+    weightProduct *= notable?.weight || 100;
+  }
+  return Math.max(1, Math.min(5, Math.round((6 - Math.log10(Math.max(1, weightProduct))) * 10) / 10));
 }
 
 interface StackResult {
@@ -40,7 +50,7 @@ export function ClusterSearch() {
   const [results, setResults] = useState<ClusterResult[]>([]);
   const [stackResults, setStackResults] = useState<StackResult[]>([]);
   const [searching, setSearching] = useState(false);
-  const [sortBy, setSortBy] = useState<"dps_per_point" | "dps" | "price">("dps_per_point");
+  const [sortBy, setSortBy] = useState<"dps_per_point" | "dps" | "rarity">("dps_per_point");
   const [enchantFilter, setEnchantFilter] = useState(8);
   const [typeFilter, setTypeFilter] = useState<"all" | "large" | "medium" | "small">("all");
   const [searchMode, setSearchMode] = useState<"individual" | "stack">("individual");
@@ -196,6 +206,7 @@ export function ClusterSearch() {
                   ehpGain: bestEhp,
                   dpsPerPoint: pointCost > 0 ? bestDps / pointCost : bestDps,
                   estimatedPrice: price,
+                  rarity: calcRarity(bestTaken),
                   mods: bestMods,
                 });
               }
@@ -234,6 +245,7 @@ export function ClusterSearch() {
                 ehpGain: ehp,
                 dpsPerPoint: pointCost > 0 ? dps / pointCost : dps,
                 estimatedPrice: estimatePrice([pool[i], pool[j]]),
+                rarity: calcRarity([pool[i], pool[j]]),
                 mods: allMods,
               });
             }
@@ -265,6 +277,7 @@ export function ClusterSearch() {
               ehpGain: ehp,
               dpsPerPoint: pointCost > 0 ? dps / pointCost : dps,
               estimatedPrice: estimatePrice([name]),
+              rarity: calcRarity([name]),
               mods: allMods,
             });
           }
@@ -273,7 +286,7 @@ export function ClusterSearch() {
 
       allResults.sort((a, b) => {
         if (sortBy === "dps") return b.dpsGain - a.dpsGain;
-        if (sortBy === "price") return a.estimatedPrice - b.estimatedPrice;
+        if (sortBy === "rarity") return b.rarity - a.rarity;
         return b.dpsPerPoint - a.dpsPerPoint;
       });
 
@@ -392,13 +405,13 @@ export function ClusterSearch() {
 
         <div className="flex gap-1">
           <span className="text-[9px] font-mono text-text-dim mr-0.5">Sort:</span>
-          {(["dps_per_point", "dps", "price"] as const).map((s) => (
+          {(["dps_per_point", "dps", "rarity"] as const).map((s) => (
             <button
               key={s}
               onClick={() => setSortBy(s)}
               className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${sortBy === s ? "bg-accent/20 text-accent" : "text-text-dim hover:text-text-primary"}`}
             >
-              {s === "dps_per_point" ? "DPS/pt" : s === "dps" ? "DPS" : "Price"}
+              {s === "dps_per_point" ? "DPS/pt" : s === "dps" ? "DPS" : "Rarity"}
             </button>
           ))}
         </div>
@@ -412,7 +425,7 @@ export function ClusterSearch() {
             <span className="w-16 text-right">DPS</span>
             <span className="w-10 text-right">pts</span>
             <span className="w-14 text-right">DPS/pt</span>
-            <span className="w-10 text-right">~price</span>
+            <span className="w-10 text-right">rarity</span>
           </div>
           {results.map((r, i) => (
             <div
@@ -448,8 +461,8 @@ export function ClusterSearch() {
               >
                 {r.dpsPerPoint > 0 ? `${fmtNum(r.dpsPerPoint)}/pt` : "-"}
               </span>
-              <span className="w-10 text-right tabular-nums text-amber-400/70 shrink-0">
-                ~{r.estimatedPrice}c
+              <span className="w-10 text-right tabular-nums text-purple-400/70 shrink-0" title={`Rarity: ${r.rarity}/5 (higher = rarer)`}>
+                R{r.rarity}
               </span>
             </div>
           ))}
