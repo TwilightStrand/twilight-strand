@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useBuildStore } from "@/stores/build-store";
 
 interface ConfigOption {
   id: string;
@@ -48,6 +49,53 @@ function ConfigSection({
   );
 }
 
+function BuildInfoSection() {
+  const xml = useBuildStore((s) => s.xml);
+  const stats = useBuildStore((s) => s.stats);
+
+  let bandit = "None";
+  let pantheonMajor = "None";
+  let pantheonMinor = "None";
+  if (xml) {
+    const banditMatch = xml.match(/bandit="([^"]+)"/);
+    const majorMatch = xml.match(/pantheonMajorGod="([^"]+)"/);
+    const minorMatch = xml.match(/pantheonMinorGod="([^"]+)"/);
+    if (banditMatch) bandit = banditMatch[1];
+    if (majorMatch) pantheonMajor = majorMatch[1];
+    if (minorMatch) pantheonMinor = minorMatch[1];
+  }
+
+  if (!stats) return null;
+
+  const fmtPantheon = (s: string) =>
+    s === "None" ? "Not selected" : s.replace(/([A-Z])/g, " $1").trim();
+
+  return (
+    <ConfigSection title="Build Info">
+      <div className="flex items-center justify-between py-1">
+        <span className="text-xs font-mono text-text-primary">Class</span>
+        <span className="text-xs font-mono text-text-dim">
+          {stats.ascendancy || stats.class_name} (Lv {stats.level})
+        </span>
+      </div>
+      <div className="flex items-center justify-between py-1">
+        <span className="text-xs font-mono text-text-primary">Bandit</span>
+        <span className="text-xs font-mono text-text-dim">
+          {bandit === "None" ? "Kill All" : bandit}
+        </span>
+      </div>
+      <div className="flex items-center justify-between py-1">
+        <span className="text-xs font-mono text-text-primary">Major Pantheon</span>
+        <span className="text-xs font-mono text-text-dim">{fmtPantheon(pantheonMajor)}</span>
+      </div>
+      <div className="flex items-center justify-between py-1">
+        <span className="text-xs font-mono text-text-primary">Minor Pantheon</span>
+        <span className="text-xs font-mono text-text-dim">{fmtPantheon(pantheonMinor)}</span>
+      </div>
+    </ConfigSection>
+  );
+}
+
 export function ConfigTab() {
   const [config, setConfig] = useState(DEFAULT_CONFIG);
 
@@ -65,6 +113,8 @@ export function ConfigTab() {
         <h2 className="text-text-heading font-display text-lg mb-4">
           Configuration
         </h2>
+
+        <BuildInfoSection />
 
         {categories.map((cat) => (
           <ConfigSection key={cat} title={cat}>
