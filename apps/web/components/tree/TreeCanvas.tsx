@@ -436,7 +436,36 @@ export function TreeCanvas() {
         }}
       />
       <TreeSpecBar />
-      <div className="absolute bottom-14 left-3 z-10 flex gap-1">
+      <div className="absolute bottom-14 left-3 z-10 flex items-center gap-1">
+        <button
+          onClick={() => {
+            const cam = cameraRef.current;
+            if (!cam) return;
+            cameraRef.current = { ...cam, zoom: Math.min(5, cam.zoom * 1.25) };
+            cancelAnimationFrame(rafRef.current);
+            rafRef.current = requestAnimationFrame(draw);
+          }}
+          className="w-7 h-7 flex items-center justify-center bg-bg-card/90 backdrop-blur border border-border-subtle rounded text-text-dim hover:text-accent text-sm font-mono transition-colors"
+          title="Zoom in"
+        >
+          +
+        </button>
+        <span className="text-[10px] font-mono text-text-dim bg-bg-card/90 px-1.5 py-1 rounded border border-border-subtle min-w-[40px] text-center tabular-nums">
+          {cameraState ? `${Math.round(cameraState.zoom * 100)}%` : "..."}
+        </span>
+        <button
+          onClick={() => {
+            const cam = cameraRef.current;
+            if (!cam) return;
+            cameraRef.current = { ...cam, zoom: Math.max(0.1, cam.zoom / 1.25) };
+            cancelAnimationFrame(rafRef.current);
+            rafRef.current = requestAnimationFrame(draw);
+          }}
+          className="w-7 h-7 flex items-center justify-center bg-bg-card/90 backdrop-blur border border-border-subtle rounded text-text-dim hover:text-accent text-sm font-mono transition-colors"
+          title="Zoom out"
+        >
+          -
+        </button>
         <button
           onClick={() => {
             const tree = treeDataRef.current;
@@ -456,7 +485,7 @@ export function TreeCanvas() {
             cameraRef.current = frameBounds({ minX, maxX, minY, maxY }, rect.width, rect.height);
             draw();
           }}
-          className="text-[10px] font-mono text-text-dim hover:text-accent px-2 py-1 rounded bg-bg-card/80 border border-border-subtle hover:border-accent/30 transition-colors"
+          className="text-[10px] font-mono text-text-dim hover:text-accent px-2 py-1 rounded bg-bg-card/90 border border-border-subtle hover:border-accent/30 transition-colors ml-1"
           title="Center on allocated nodes"
         >
           Center
