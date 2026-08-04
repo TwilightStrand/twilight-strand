@@ -102,11 +102,13 @@ function BuildInfoSection() {
 
 export function ConfigTab() {
   const [config, setConfig] = useState(DEFAULT_CONFIG);
+  const setConfigOverride = useBuildStore((s) => s.setConfigOverride);
 
   const updateValue = (id: string, value: boolean | string | number) => {
     setConfig((prev) =>
       prev.map((opt) => (opt.id === id ? { ...opt, value } : opt))
     );
+    setConfigOverride(id, value);
   };
 
   const categories = [...new Set(config.map((c) => c.category))];
