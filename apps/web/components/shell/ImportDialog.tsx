@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect } from "react";
 import { useBuildStore } from "@/stores/build-store";
 import { BuildCard } from "./BuildCard";
+import { GuideViewer } from "@/components/guide/GuideViewer";
+import { ALL_GUIDES } from "@/data/guides";
 
 interface PoECharacter {
   name: string;
@@ -20,7 +22,7 @@ export function ImportDialog({
 }) {
   const [input, setInput] = useState("");
   const [importScope, setImportScope] = useState<"full" | "tree" | "items" | "skills">("full");
-  const [mode, setMode] = useState<"code" | "account">("code");
+  const [mode, setMode] = useState<"code" | "account" | "guide">("code");
   const [accountName, setAccountName] = useState("");
   const [characters, setCharacters] = useState<PoECharacter[]>([]);
   const [fetchingChars, setFetchingChars] = useState(false);
@@ -100,6 +102,14 @@ export function ImportDialog({
           >
             PoE Account
           </button>
+          <button
+            onClick={() => setMode("guide")}
+            className={`text-[10px] font-mono px-2.5 py-1 rounded transition-colors ${
+              mode === "guide" ? "bg-accent/20 text-accent" : "text-text-dim hover:text-text-primary"
+            }`}
+          >
+            Guides
+          </button>
         </div>
 
         {mode === "account" && (
@@ -162,6 +172,26 @@ export function ImportDialog({
             {characters.length === 0 && !fetchingChars && (
               <p className="text-xs font-mono text-text-dim/60 text-center py-4">
                 Enter your PoE account name and click Fetch. Profile must be public.
+              </p>
+            )}
+          </div>
+        )}
+
+        {mode === "guide" && (
+          <div className="max-h-96 overflow-y-auto space-y-4">
+            {ALL_GUIDES.map((guide, i) => (
+              <GuideViewer
+                key={i}
+                guide={guide}
+                onImport={(code) => {
+                  importBuild(code);
+                  onClose();
+                }}
+              />
+            ))}
+            {ALL_GUIDES.length === 0 && (
+              <p className="text-xs font-mono text-text-dim/60 text-center py-6">
+                No guides available yet. Check back soon.
               </p>
             )}
           </div>
