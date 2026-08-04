@@ -41,6 +41,7 @@ interface BuildState {
   setCompareBaseline: () => void;
   clearCompare: () => void;
 
+  cloudBuildId: string | null;
   lastSaved: number | null;
   engineInitTime: number | null;
   engineEvalTime: number | null;
@@ -78,6 +79,7 @@ export const useBuildStore = create<BuildState>((set, get) => ({
   notes: "",
   savedBuilds: [],
   compareStats: null,
+  cloudBuildId: null,
   lastSaved: null,
   engineInitTime: null,
   engineEvalTime: null,
@@ -169,6 +171,10 @@ export const useBuildStore = create<BuildState>((set, get) => ({
         }),
       });
       if (resp.ok) {
+        const data = await resp.json();
+        if (data.build?.id) {
+          set({ cloudBuildId: data.build.id });
+        }
         get().addHistory("Saved to cloud");
       }
     } catch {}
