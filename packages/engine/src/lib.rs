@@ -20,6 +20,7 @@ pub mod ascendancy;
 pub mod weapons;
 pub mod minions;
 pub mod flasks;
+pub mod uniques;
 pub use flasks::{get_flask_mods, charge_mods};
 pub use weapons::{calc_weapon_dps, find_weapon_base, WeaponDps};
 pub use stat_parser::{parse_stat_line, parse_stats};
