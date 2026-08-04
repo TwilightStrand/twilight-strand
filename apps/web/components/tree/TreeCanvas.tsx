@@ -82,6 +82,11 @@ function PointCounter({ treeData }: { treeData: import("./tree-data").TreeData |
           {notable > 0 && <span className="text-accent/60">{notable} notable</span>}
           {keystone > 0 && <span className="text-amber-400/60">{keystone} keystone</span>}
           {jewel > 0 && <span className="text-purple-400/60">{jewel} jewel</span>}
+          {usedPoints > 0 && (notable + keystone) > 0 && (
+            <span className="text-text-dim/40 ml-1" title="Notable+keystone ratio to total points">
+              {Math.round(((notable + keystone * 2) / usedPoints) * 100)}% eff
+            </span>
+          )}
         </div>
       )}
     </div>

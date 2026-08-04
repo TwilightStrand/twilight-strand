@@ -435,10 +435,27 @@ export function StatsSidebar() {
       </StatSection>
 
       <StatSection title="Resistances" color="var(--color-blood)">
+        {(() => {
+          const uncapped = [
+            { name: "Fire", val: fireRes, max: fireMax },
+            { name: "Cold", val: coldRes, max: coldMax },
+            { name: "Lightning", val: lightRes, max: lightMax },
+          ].filter(r => r.val < r.max);
+          return uncapped.length > 0 ? (
+            <div className="text-[9px] font-mono text-blood/80 bg-blood/10 rounded px-2 py-1 mb-1">
+              {uncapped.map(r => `${r.name} ${Math.round(r.max - r.val)}% short`).join(" | ")}
+            </div>
+          ) : null;
+        })()}
         <ResRow label="Fire" current={fireRes} max={fireMax} />
         <ResRow label="Cold" current={coldRes} max={coldMax} />
         <ResRow label="Lightning" current={lightRes} max={lightMax} />
         <ResRow label="Chaos" current={chaosRes} max={chaosMax} />
+        {chaosRes < -40 && (
+          <div className="text-[9px] font-mono text-purple-400/70 bg-purple-400/5 rounded px-1.5 py-0.5 mt-0.5">
+            Low chaos res ({Math.round(chaosRes)}%)
+          </div>
+        )}
       </StatSection>
 
       <StatSection title="Mitigation" color="var(--color-defence)">
