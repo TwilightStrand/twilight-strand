@@ -113,9 +113,24 @@ export function Header() {
 
       <div className="flex items-center gap-2">
         <button
+          onClick={async () => {
+            const xml = useBuildStore.getState().xml;
+            if (!xml) return;
+            const { encodePobCode } = await import("@/engine/pob-codec");
+            const code = encodePobCode(xml);
+            if (code) {
+              await navigator.clipboard.writeText(code);
+            }
+          }}
+          disabled={!stats}
+          className="text-xs font-mono text-text-dim hover:text-accent transition-colors px-2 py-1 rounded hover:bg-bg-hover disabled:opacity-30 disabled:cursor-not-allowed hidden sm:inline-block"
+        >
+          Export
+        </button>
+        <button
           onClick={() => useBuildStore.getState().saveBuild()}
           disabled={!useBuildStore.getState().code}
-          className="text-xs font-mono text-text-dim hover:text-accent transition-colors px-2 py-1 rounded hover:bg-bg-hover disabled:opacity-30 disabled:cursor-not-allowed"
+          className="text-xs font-mono text-text-dim hover:text-accent transition-colors px-2 py-1 rounded hover:bg-bg-hover disabled:opacity-30 disabled:cursor-not-allowed hidden sm:inline-block"
         >
           Save
         </button>
