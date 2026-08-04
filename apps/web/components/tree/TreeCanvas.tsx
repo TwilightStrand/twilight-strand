@@ -129,6 +129,43 @@ export function TreeCanvas() {
   const [treeData, setTreeData] = useState<TreeData | null>(null);
   const [cameraState, setCameraState] = useState<Camera | null>(null);
   const [canvasDims, setCanvasDims] = useState({ w: 0, h: 0 });
+  const [nodeDelta, setNodeDelta] = useState<{ dps: number; life: number; es: number; ehp: number } | null>(null);
+  const stats = useBuildStore((s) => s.stats);
+
+  // Compute node power delta via Rust engine when hovering
+  useEffect(() => {
+    setNodeDelta(null);
+    if (!hoveredNode || !stats || !treeData) return;
+    const node = treeData.nodes.get(hoveredNode);
+    if (!node?.stats?.length || allocatedNodes.has(hoveredNode)) return;
+
+    let cancelled = false;
+    import("@/engine/rust-bridge").then(({ isRustEngineReady, evaluateBuildRust, parseStatLine }) => {
+      if (cancelled || !isRustEngineReady()) return;
+      const baseMods: Array<{ stat: string; value: number; mod_type: string }> = [];
+      const baseInput = {
+        level: stats.level, class_id: 0,
+        base_str: stats.strength, base_dex: stats.dexterity, base_int: stats.intelligence,
+        modifiers: baseMods, allocated_keystones: [] as string[], main_skill_id: "",
+        ascendancy_name: stats.ascendancy || "",
+      };
+      const base = evaluateBuildRust(baseInput);
+      if (!base || cancelled) return;
+
+      const nodeMods = (node.stats || []).flatMap((s: string) => parseStatLine(s));
+      const withInput = { ...baseInput, modifiers: [...baseMods, ...nodeMods] };
+      const withNode = evaluateBuildRust(withInput);
+      if (!withNode || cancelled) return;
+
+      setNodeDelta({
+        dps: withNode.total_dps - base.total_dps,
+        life: withNode.life - base.life,
+        es: withNode.energy_shield - base.energy_shield,
+        ehp: withNode.total_ehp - base.total_ehp,
+      });
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [hoveredNode, stats, treeData, allocatedNodes]);
 
   const draw = useCallback(() => {
     const renderer = rendererRef.current;
@@ -658,6 +695,35 @@ export function TreeCanvas() {
                     {stat}
                   </div>
                 ))}
+              </div>
+            )}
+            {nodeDelta && !allocatedNodes.has(tooltip.node.id) && (nodeDelta.dps !== 0 || nodeDelta.life !== 0 || nodeDelta.es !== 0) && (
+              <div className="border-t border-border-subtle mt-1.5 pt-1.5 space-y-0.5">
+                <span className="text-[8px] font-mono text-text-dim/50 uppercase">Stat Delta (Rust)</span>
+                {nodeDelta.life !== 0 && (
+                  <div className="flex justify-between text-[10px] font-mono">
+                    <span className="text-text-dim">Life</span>
+                    <span className={nodeDelta.life > 0 ? "text-green-400" : "text-red-400"}>
+                      {nodeDelta.life > 0 ? "+" : ""}{Math.round(nodeDelta.life)}
+                    </span>
+                  </div>
+                )}
+                {nodeDelta.es !== 0 && (
+                  <div className="flex justify-between text-[10px] font-mono">
+                    <span className="text-text-dim">ES</span>
+                    <span className={nodeDelta.es > 0 ? "text-green-400" : "text-red-400"}>
+                      {nodeDelta.es > 0 ? "+" : ""}{Math.round(nodeDelta.es)}
+                    </span>
+                  </div>
+                )}
+                {nodeDelta.dps !== 0 && (
+                  <div className="flex justify-between text-[10px] font-mono">
+                    <span className="text-text-dim">DPS</span>
+                    <span className={nodeDelta.dps > 0 ? "text-green-400" : "text-red-400"}>
+                      {nodeDelta.dps > 0 ? "+" : ""}{Math.round(nodeDelta.dps)}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
             {!allocatedNodes.has(tooltip.node.id) && treeData && (() => {
