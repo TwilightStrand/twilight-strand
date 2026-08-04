@@ -20,15 +20,30 @@ interface ClusterResult {
   ehpGain: number;
   dpsPerPoint: number;
   estimatedPrice: number;
+  mods: Array<{ stat: string; value: number; mod_type: string }>;
+}
+
+interface StackResult {
+  large: ClusterResult;
+  medium1: ClusterResult;
+  medium2: ClusterResult;
+  totalDps: number;
+  totalEhp: number;
+  totalPoints: number;
+  dpsPerPoint: number;
+  totalPrice: number;
+  notableCount: number;
 }
 
 export function ClusterSearch() {
   const stats = useBuildStore((s) => s.stats);
   const [results, setResults] = useState<ClusterResult[]>([]);
+  const [stackResults, setStackResults] = useState<StackResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [sortBy, setSortBy] = useState<"dps_per_point" | "dps" | "price">("dps_per_point");
   const [enchantFilter, setEnchantFilter] = useState(8);
   const [typeFilter, setTypeFilter] = useState<"all" | "large" | "medium" | "small">("all");
+  const [searchMode, setSearchMode] = useState<"individual" | "stack">("individual");
 
   const search = async () => {
     if (!stats) return;
@@ -68,7 +83,8 @@ export function ClusterSearch() {
         return statLines.flatMap((s) => {
           try {
             const parsed = parseStatLine(s);
-            return parsed ? JSON.parse(parsed) : [];
+            if (typeof parsed === "string") return JSON.parse(parsed) as Array<{ stat: string; value: number; mod_type: string }>;
+            return Array.isArray(parsed) ? parsed : [];
           } catch {
             return [];
           }
@@ -166,6 +182,9 @@ export function ClusterSearch() {
                 }
 
                 const price = estimatePrice(bestTaken);
+                const n1b = CLUSTER_NOTABLES[bestTaken[0]];
+                const n2b = CLUSTER_NOTABLES[bestTaken[1]];
+                const bestMods = [...parseMods(n1b.stats), ...parseMods(n2b.stats), ...smallMods, ...smallMods];
 
                 allResults.push({
                   base,
@@ -177,6 +196,7 @@ export function ClusterSearch() {
                   ehpGain: bestEhp,
                   dpsPerPoint: pointCost > 0 ? bestDps / pointCost : bestDps,
                   estimatedPrice: price,
+                  mods: bestMods,
                 });
               }
             }
@@ -214,6 +234,7 @@ export function ClusterSearch() {
                 ehpGain: ehp,
                 dpsPerPoint: pointCost > 0 ? dps / pointCost : dps,
                 estimatedPrice: estimatePrice([pool[i], pool[j]]),
+                mods: allMods,
               });
             }
           }
@@ -244,6 +265,7 @@ export function ClusterSearch() {
               ehpGain: ehp,
               dpsPerPoint: pointCost > 0 ? dps / pointCost : dps,
               estimatedPrice: estimatePrice([name]),
+              mods: allMods,
             });
           }
         }
@@ -256,6 +278,54 @@ export function ClusterSearch() {
       });
 
       setResults(allResults.slice(0, 20));
+
+      // Build full stacks: Large + 2 Mediums
+      if (searchMode === "stack") {
+        const larges = allResults.filter((r) => r.base.type === "large").slice(0, 8);
+        const mediums = allResults.filter((r) => r.base.type === "medium").slice(0, 8);
+
+        const stacks: StackResult[] = [];
+        for (const large of larges) {
+          for (let m1 = 0; m1 < mediums.length; m1++) {
+            for (let m2 = m1 + 1; m2 < mediums.length; m2++) {
+              const med1 = mediums[m1];
+              const med2 = mediums[m2];
+              const combinedMods = [...large.mods, ...med1.mods, ...med2.mods];
+
+              let totalDps = 0;
+              let totalEhp = 0;
+              if (useRust && baseInput && baseOutput && combinedMods.length > 0) {
+                const result = evalMods(combinedMods);
+                totalDps = result.dps;
+                totalEhp = result.ehp;
+              } else {
+                totalDps = large.dpsGain + med1.dpsGain + med2.dpsGain;
+                totalEhp = large.ehpGain + med1.ehpGain + med2.ehpGain;
+              }
+
+              const totalPoints = large.pointCost + med1.pointCost + med2.pointCost;
+              const totalPrice = large.estimatedPrice + med1.estimatedPrice + med2.estimatedPrice;
+
+              stacks.push({
+                large,
+                medium1: med1,
+                medium2: med2,
+                totalDps,
+                totalEhp,
+                totalPoints,
+                dpsPerPoint: totalPoints > 0 ? totalDps / totalPoints : totalDps,
+                totalPrice,
+                notableCount: large.taken.length + med1.taken.length + med2.taken.length,
+              });
+            }
+          }
+        }
+
+        stacks.sort((a, b) => b.dpsPerPoint - a.dpsPerPoint);
+        setStackResults(stacks.slice(0, 10));
+      } else {
+        setStackResults([]);
+      }
     } catch (e) {
       console.warn("Cluster search error:", e);
     } finally {
@@ -281,6 +351,19 @@ export function ClusterSearch() {
       </div>
 
       <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <div className="flex gap-1">
+          <span className="text-[9px] font-mono text-text-dim mr-0.5">Mode:</span>
+          {(["individual", "stack"] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => setSearchMode(m)}
+              className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${searchMode === m ? "bg-accent/20 text-accent" : "text-text-dim hover:text-text-primary"}`}
+            >
+              {m === "individual" ? "Individual" : "Full Stack"}
+            </button>
+          ))}
+        </div>
+
         <div className="flex gap-1">
           <span className="text-[9px] font-mono text-text-dim mr-0.5">Type:</span>
           {(["all", "large", "medium", "small"] as const).map((t) => (
@@ -373,7 +456,97 @@ export function ClusterSearch() {
         </div>
       )}
 
-      {results.length === 0 && !searching && (
+      {searchMode === "stack" && stackResults.length > 0 && (
+        <div className="space-y-2 max-w-3xl mt-3">
+          <div className="text-[9px] font-mono font-bold uppercase tracking-widest text-accent/70 mb-1">
+            Full Stacks (Large + 2 Mediums = 6 notables)
+          </div>
+          {stackResults.map((s, i) => (
+            <div
+              key={i}
+              className="px-3 py-2.5 bg-bg-card border border-border-card rounded text-xs font-mono"
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-text-dim/40">#{i + 1}</span>
+                <span className="text-accent tabular-nums">
+                  +{fmtNum(s.totalDps)} DPS
+                </span>
+                <span className="text-[9px] text-accent/60 tabular-nums">
+                  {Math.round(s.dpsPerPoint)}/pt
+                </span>
+                <span className="text-text-dim tabular-nums">
+                  {s.totalPoints}pt ({s.notableCount} notables)
+                </span>
+                <span className="text-amber-400 tabular-nums">
+                  ~{s.totalPrice}c
+                </span>
+                <button
+                  onClick={async () => {
+                    const { priceCheckClusterJewel } = await import(
+                      "@/lib/trade"
+                    );
+                    const [p1, p2, p3] = await Promise.all([
+                      priceCheckClusterJewel(s.large.taken, 8),
+                      priceCheckClusterJewel(s.medium1.taken, 4),
+                      priceCheckClusterJewel(s.medium2.taken, 4),
+                    ]);
+                    const total =
+                      (p1?.median || 0) + (p2?.median || 0) + (p3?.median || 0);
+                    const { useToastStore } = await import(
+                      "@/components/shell/Toast"
+                    );
+                    useToastStore
+                      .getState()
+                      .addToast(
+                        `Real price: ~${total}c (L:${p1?.median || "?"}c + M:${p2?.median || "?"}c + M:${p3?.median || "?"}c)`,
+                        "info"
+                      );
+                  }}
+                  className="text-[9px] text-amber-400/60 hover:text-amber-400 transition-colors"
+                >
+                  Check $
+                </button>
+              </div>
+              <div className="space-y-0.5 text-[10px]">
+                <div className="text-text-dim/80">
+                  <span className="text-amber-400/60 font-bold mr-1">L</span>
+                  <span className="text-text-dim/50 mr-1">
+                    {s.large.base.name}:
+                  </span>
+                  <span className="text-text-primary">
+                    {s.large.taken.join(" + ")}
+                  </span>
+                  {s.large.skipped && (
+                    <span className="text-text-dim/30 ml-1">
+                      (skip {s.large.skipped})
+                    </span>
+                  )}
+                </div>
+                <div className="text-text-dim/80">
+                  <span className="text-accent/60 font-bold mr-1">M</span>
+                  <span className="text-text-dim/50 mr-1">
+                    {s.medium1.base.name}:
+                  </span>
+                  <span className="text-text-primary">
+                    {s.medium1.taken.join(" + ")}
+                  </span>
+                </div>
+                <div className="text-text-dim/80">
+                  <span className="text-accent/60 font-bold mr-1">M</span>
+                  <span className="text-text-dim/50 mr-1">
+                    {s.medium2.base.name}:
+                  </span>
+                  <span className="text-text-primary">
+                    {s.medium2.taken.join(" + ")}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {results.length === 0 && stackResults.length === 0 && !searching && (
         <p className="text-xs font-mono text-text-dim/60 text-center py-6">
           Click Search to find the best cluster jewels for your build.
           <br />
