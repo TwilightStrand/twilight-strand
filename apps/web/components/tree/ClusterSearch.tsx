@@ -17,71 +17,106 @@ export function ClusterSearch() {
   const [searching, setSearching] = useState(false);
   const [sortBy, setSortBy] = useState<"dps" | "value" | "ehp">("value");
 
-  const search = () => {
+  const search = async () => {
     if (!stats) return;
     setSearching(true);
 
-    const notableResults: ClusterSearchResult[] = [];
+    try {
+      const { isRustEngineReady, evaluateBuildRust, parseStatLine } =
+        await import("@/engine/rust-bridge");
 
-    for (const [name, notable] of Object.entries(CLUSTER_NOTABLES)) {
-      let dpsGain = 0;
-      let ehpGain = 0;
+      const useRust = isRustEngineReady();
 
-      for (const stat of notable.stats) {
-        const lower = stat.toLowerCase();
-        const numMatch = stat.match(/(\d+)/);
-        const num = numMatch ? parseInt(numMatch[1]) : 0;
+      const baseInput = useRust
+        ? {
+            level: stats.level,
+            class_id: 0,
+            base_str: 20,
+            base_dex: 20,
+            base_int: 20,
+            modifiers: [] as Array<{ stat: string; value: number; mod_type: string }>,
+            allocated_keystones: [] as string[],
+            main_skill_id: "",
+          }
+        : null;
 
-        if (lower.includes("damage") && lower.includes("increased"))
-          dpsGain += num * stats.total_dps * 0.01;
-        if (lower.includes("attack speed") || lower.includes("cast speed"))
-          dpsGain += num * stats.total_dps * 0.01;
-        if (lower.includes("critical strike chance"))
-          dpsGain += num * stats.total_dps * 0.005;
-        if (lower.includes("critical strike multiplier"))
-          dpsGain += num * stats.total_dps * 0.008;
-        if (lower.includes("resistance") && lower.includes("-"))
-          dpsGain += num * stats.total_dps * 0.012;
-        if (lower.includes("maximum life")) ehpGain += num * 15;
-        if (lower.includes("increased maximum life"))
-          ehpGain += num * stats.life * 0.01;
-        if (lower.includes("energy shield"))
-          ehpGain += num * 2;
-        if (lower.includes("resistance") && !lower.includes("-"))
-          ehpGain += num * 8;
-        if (lower.includes("aura") && lower.includes("effect"))
-          dpsGain += num * stats.total_dps * 0.005;
+      const baseOutput = baseInput ? evaluateBuildRust(baseInput) : null;
+      const baseDps = stats.total_dps || 0;
+
+      const notableResults: ClusterSearchResult[] = [];
+
+      for (const [name, notable] of Object.entries(CLUSTER_NOTABLES)) {
+        let dpsGain = 0;
+        let ehpGain = 0;
+
+        if (useRust && baseInput && baseOutput) {
+          const notableMods = notable.stats.flatMap((s) => parseStatLine(s));
+
+          const withNotable = evaluateBuildRust({
+            ...baseInput,
+            modifiers: [...baseInput.modifiers, ...notableMods],
+          });
+
+          if (withNotable) {
+            dpsGain = withNotable.total_dps - baseOutput.total_dps;
+            ehpGain = withNotable.total_ehp - baseOutput.total_ehp;
+          }
+        } else {
+          for (const stat of notable.stats) {
+            const lower = stat.toLowerCase();
+            const numMatch = stat.match(/(\d+)/);
+            const num = numMatch ? parseInt(numMatch[1]) : 0;
+
+            if (lower.includes("damage") && lower.includes("increased"))
+              dpsGain += num * baseDps * 0.01;
+            if (lower.includes("attack speed") || lower.includes("cast speed"))
+              dpsGain += num * baseDps * 0.01;
+            if (lower.includes("critical strike chance"))
+              dpsGain += num * baseDps * 0.005;
+            if (lower.includes("critical strike multiplier"))
+              dpsGain += num * baseDps * 0.008;
+            if (lower.includes("maximum life")) ehpGain += num * 15;
+            if (lower.includes("increased maximum life"))
+              ehpGain += num * stats.life * 0.01;
+            if (lower.includes("energy shield")) ehpGain += num * 2;
+            if (lower.includes("resistance") && !lower.includes("-"))
+              ehpGain += num * 8;
+          }
+        }
+
+        const estimatedPrice = Math.max(1, Math.round((50 / notable.weight) * 100));
+        const valueScore =
+          estimatedPrice > 0 ? (dpsGain + ehpGain) / estimatedPrice : 0;
+
+        notableResults.push({
+          jewel: {
+            name,
+            type: "medium",
+            enchant: "",
+            passiveCount: 4,
+            notables: [name],
+            smallPassiveType: "",
+          },
+          notables: [notable],
+          estimatedPrice,
+          dpsGain,
+          ehpGain,
+          valueScore,
+        });
       }
 
-      const estimatedPrice = Math.max(1, Math.round((50 / notable.weight) * 100));
-      const valueScore =
-        estimatedPrice > 0 ? (dpsGain + ehpGain) / estimatedPrice : 0;
-
-      notableResults.push({
-        jewel: {
-          name,
-          type: "medium",
-          enchant: "",
-          passiveCount: 4,
-          notables: [name],
-          smallPassiveType: "",
-        },
-        notables: [notable],
-        estimatedPrice,
-        dpsGain,
-        ehpGain,
-        valueScore,
+      notableResults.sort((a, b) => {
+        if (sortBy === "dps") return b.dpsGain - a.dpsGain;
+        if (sortBy === "ehp") return b.ehpGain - a.ehpGain;
+        return b.valueScore - a.valueScore;
       });
+
+      setResults(notableResults);
+    } catch (e) {
+      console.warn("Cluster search error:", e);
+    } finally {
+      setSearching(false);
     }
-
-    notableResults.sort((a, b) => {
-      if (sortBy === "dps") return b.dpsGain - a.dpsGain;
-      if (sortBy === "ehp") return b.ehpGain - a.ehpGain;
-      return b.valueScore - a.valueScore;
-    });
-
-    setResults(notableResults);
-    setSearching(false);
   };
 
   if (!stats || stats.total_dps === 0) return null;
@@ -156,6 +191,29 @@ export function ClusterSearch() {
                 <span className="text-amber-400 tabular-nums">
                   ~{r.estimatedPrice}c
                 </span>
+                <PriceCheckButton
+                  name={r.jewel.name}
+                  onPrice={(price) => {
+                    setResults((prev) => {
+                      const updated = [...prev];
+                      const idx = updated.findIndex(
+                        (u) => u.jewel.name === r.jewel.name
+                      );
+                      if (idx >= 0) {
+                        updated[idx] = {
+                          ...updated[idx],
+                          estimatedPrice: price,
+                          valueScore:
+                            price > 0
+                              ? (updated[idx].dpsGain + updated[idx].ehpGain) /
+                                price
+                              : 0,
+                        };
+                      }
+                      return updated;
+                    });
+                  }}
+                />
               </div>
             </div>
           ))}
@@ -169,5 +227,37 @@ export function ClusterSearch() {
         </p>
       )}
     </div>
+  );
+}
+
+function PriceCheckButton({
+  name,
+  onPrice,
+}: {
+  name: string;
+  onPrice: (price: number) => void;
+}) {
+  const [loading, setLoading] = useState(false);
+
+  return (
+    <button
+      onClick={async () => {
+        setLoading(true);
+        try {
+          const { priceCheckClusterNotable } = await import("@/lib/trade");
+          const price = await priceCheckClusterNotable(name);
+          if (price) onPrice(price.median);
+        } catch {
+          // ignore
+        } finally {
+          setLoading(false);
+        }
+      }}
+      disabled={loading}
+      className="text-[9px] font-mono text-amber-400/60 hover:text-amber-400 disabled:opacity-40 transition-colors"
+      title="Check real trade price"
+    >
+      {loading ? "..." : "$"}
+    </button>
   );
 }
