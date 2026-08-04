@@ -144,6 +144,7 @@ export class TreeRenderer {
     ctx.fillStyle = COLOR_BG;
     ctx.fillRect(0, 0, cw, ch);
 
+    this.drawClassStartAreas(ctx, camera, cw, ch);
     this.drawConnections(ctx, camera, cw, ch);
     this.drawNodes(ctx, camera, cw, ch);
 
@@ -163,6 +164,36 @@ export class TreeRenderer {
       sy + radius > 0 &&
       sy - radius < ch
     );
+  }
+
+  private drawClassStartAreas(
+    ctx: CanvasRenderingContext2D,
+    cam: Camera,
+    cw: number,
+    ch: number
+  ): void {
+    for (const [, nodeId] of this.tree.classStartNodes) {
+      const node = this.tree.nodes.get(nodeId);
+      if (!node) continue;
+      const [sx, sy] = worldToScreen(node.x, node.y, cam, cw, ch);
+      const radius = 120 * cam.zoom;
+      if (!this.isVisible(sx, sy, radius, cw, ch)) continue;
+
+      const gradient = ctx.createRadialGradient(sx, sy, 0, sx, sy, radius);
+      const isAlloc = this.allocatedNodes.has(nodeId);
+      if (isAlloc) {
+        gradient.addColorStop(0, "rgba(212, 160, 36, 0.08)");
+        gradient.addColorStop(1, "rgba(212, 160, 36, 0)");
+      } else {
+        gradient.addColorStop(0, "rgba(100, 130, 180, 0.05)");
+        gradient.addColorStop(1, "rgba(100, 130, 180, 0)");
+      }
+
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(sx, sy, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   private drawConnections(

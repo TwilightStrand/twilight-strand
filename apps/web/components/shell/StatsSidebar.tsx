@@ -36,14 +36,16 @@ function StatRow({
   value,
   color,
   delta,
+  title,
 }: {
   label: string;
   value: string;
   color?: string;
   delta?: number;
+  title?: string;
 }) {
   return (
-    <div className="flex justify-between items-baseline text-xs font-mono">
+    <div className="flex justify-between items-baseline text-xs font-mono" title={title}>
       <span className="text-text-dim">{label}</span>
       <div className="flex items-center gap-1.5">
         <span className="tabular-nums" style={color ? { color } : undefined}>
@@ -134,7 +136,7 @@ export function StatsSidebar() {
           <span className="text-[10px] text-text-dim uppercase">Mana</span>
         </div>
         {(stats?.total_ehp ?? 0) > 0 && (
-          <div className="flex justify-between items-baseline text-xs font-mono mt-1">
+          <div className="flex justify-between items-baseline text-xs font-mono mt-1" title="Effective Hit Pool against physical damage">
             <span className="text-text-dim">Total EHP</span>
             <span className="tabular-nums text-text-primary">{fmtNum(stats?.total_ehp ?? 0)}</span>
           </div>
@@ -155,7 +157,7 @@ export function StatsSidebar() {
       )}
 
       <StatSection title="Offence" color="var(--color-offence)">
-        <StatRow label="Skill DPS" value={fmtNum(dps)} delta={cmp ? calcDelta(dps, cmp.combined_dps ?? cmp.total_dps) : undefined} />
+        <StatRow label="Skill DPS" value={fmtNum(dps)} delta={cmp ? calcDelta(dps, cmp.combined_dps ?? cmp.total_dps) : undefined} title={`Total DPS: ${fmtNum(stats?.total_dps ?? 0)} | Combined: ${fmtNum(stats?.combined_dps ?? 0)}`} />
         <StatRow label="Crit Chance" value={`${fmtNum(critChance, 1)}%`} delta={cmp ? calcDelta(critChance, cmp.crit_chance) : undefined} />
         <StatRow label="Crit Multi" value={`${fmtNum(critMulti)}%`} delta={cmp ? calcDelta(critMulti, cmp.crit_multiplier) : undefined} />
         <StatRow label="Attack Speed" value={`${fmtNum(atkSpd, 2)}/s`} delta={cmp ? calcDelta(atkSpd, cmp.attack_speed) : undefined} />
