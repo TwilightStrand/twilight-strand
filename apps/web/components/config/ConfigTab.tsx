@@ -92,6 +92,10 @@ function BuildInfoSection() {
         <span className="text-xs font-mono text-text-primary">Minor Pantheon</span>
         <span className="text-xs font-mono text-text-dim">{fmtPantheon(pantheonMinor)}</span>
       </div>
+      <div className="flex items-center justify-between py-1">
+        <span className="text-xs font-mono text-text-primary">Tree Version</span>
+        <span className="text-xs font-mono text-text-dim">{stats.tree_version || "3_29"}</span>
+      </div>
     </ConfigSection>
   );
 }

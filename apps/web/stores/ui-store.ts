@@ -27,12 +27,14 @@ interface UiState {
   theme: "dark" | "light";
   numberFormat: "us" | "eu";
   performanceMode: boolean;
+  gameVersion: "poe1" | "poe2";
   setActiveTab: (tab: TabId) => void;
   toggleSidebar: () => void;
   setImportOpen: (open: boolean) => void;
   setTheme: (theme: "dark" | "light") => void;
   setNumberFormat: (format: "us" | "eu") => void;
   setPerformanceMode: (enabled: boolean) => void;
+  setGameVersion: (version: "poe1" | "poe2") => void;
 }
 
 export const useUiStore = create<UiState>((set) => ({
@@ -42,6 +44,7 @@ export const useUiStore = create<UiState>((set) => ({
   theme: "dark",
   numberFormat: "us",
   performanceMode: false,
+  gameVersion: "poe1",
   setActiveTab: (tab) => set({ activeTab: tab }),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   setImportOpen: (open) => set({ importOpen: open }),
@@ -63,5 +66,9 @@ export const useUiStore = create<UiState>((set) => ({
       document.documentElement.classList.toggle("perf-mode", enabled);
     }
     try { localStorage.setItem("tsc-perf", String(enabled)); } catch {}
+  },
+  setGameVersion: (version) => {
+    set({ gameVersion: version });
+    try { localStorage.setItem("tsc-game", version); } catch {}
   },
 }));

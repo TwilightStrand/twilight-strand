@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useBuildStore } from "@/stores/build-store";
 import { StatsSkeleton } from "./Skeleton";
+import { BuildDiff } from "./BuildDiff";
 
 function StatSection({
   title,
@@ -220,6 +221,8 @@ export function StatsSidebar() {
         <StatRow label="Suppression" value={`${fmtNum(suppress)}%`} />
         <StatRow label="Phys Reduction" value={`${fmtNum(physRed)}%`} />
       </StatSection>
+
+      <BuildDiff />
     </aside>
   );
 }
