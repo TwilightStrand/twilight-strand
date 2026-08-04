@@ -250,7 +250,7 @@ mod tests {
             .flat_map(|n| parse_stat_line(n))
             .collect();
 
-        let mut input = BuildInput {
+        let input = BuildInput {
             level: 85,
             class_id: 2, // Ranger
             base_str: 14,
