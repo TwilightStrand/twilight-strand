@@ -315,7 +315,10 @@ export function Header() {
           MD
         </button>
         <button
-          onClick={() => useBuildStore.getState().saveBuild()}
+          onClick={() => {
+            useBuildStore.getState().saveBuild();
+            useBuildStore.getState().saveToCloud();
+          }}
           disabled={!useBuildStore.getState().code}
           className="text-xs font-mono text-text-dim hover:text-accent transition-colors px-2 py-1 rounded hover:bg-bg-hover disabled:opacity-30 disabled:cursor-not-allowed hidden sm:inline-block"
         >
