@@ -1,8 +1,8 @@
 # Session Handover - Twilight Strand Collective Build Planner
 
 **Date:** 2026-08-04
-**Repo:** 90+ commits, 130+ features, 112+ tests (32 TS + 80 Rust)
-**Status:** Production-ready MVP with Rust WASM engine, auth, and community features
+**Repo:** 120+ commits, 170+ features, 207+ tests (32 TS + 156 Rust + 19 E2E)
+**Status:** Production-ready build planner with dual Lua/Rust engines, auth, community, trade integration
 
 ## Architecture
 
@@ -16,18 +16,25 @@ apps/web/                    Next.js 15 (App Router, Turbopack, Tailwind 4)
       character/route.ts     PoE account character API proxy
       trade/route.ts         PoE trade API proxy for price checking
       builds/route.ts        Cloud build save/load (authenticated)
+      builds/shared/         Shared builds listing
+      builds/leaderboard/    Ranked builds with sort/filter
+      builds/[id]/share/     Toggle build sharing
+      ninja/route.ts         poe.ninja ladder proxy
+      og/route.tsx           OG image generation (Edge runtime)
   components/
     shell/         Header, StatsSidebar, TabContent, MobileNav, ImportDialog,
                    KeyboardShortcuts, WelcomeHint, ErrorBoundary, EmptyState,
-                   NotesPanel, BuildDiff, BuildCard, Skeleton, AuthButton
+                   NotesPanel, BuildDiff, BuildCard, Skeleton, AuthButton,
+                   Toast, MobileStats
     tree/          TreeCanvas, TreeSearch, TreeSpecBar, TreeMinimap, TreeOptimizer,
                    tree-renderer, tree-camera, tree-spatial, tree-data,
                    NodePowerControls, ClusterSearch
-    items/         ItemsTab (SocketVisual, flask toggles, weapon swap, influence, price check)
-    skills/        SkillsTab (gem links, DPS contribution, main skill indicator)
-    calcs/         CalcsTab, CalcSection, CalcRow (with filter highlighting)
+    items/         ItemsTab, ItemEditor (SocketVisual, flask toggles, weapon swap, influence, price check, grid view)
+    skills/        SkillsTab, SkillEditor (gem links, DPS contribution, main skill indicator)
+    calcs/         CalcsTab, CalcSection, CalcRow, StatBreakdown (with filter highlighting, DPS chart)
     config/        ConfigTab (interactive, presets, bandit/pantheon)
     settings/      SettingsPanel, Changelog, EngineComparison
+    guide/         GuideViewer, LevelScrubber
   engine/
     worker.ts          Web Worker (wasmoon + PoB Lua + LuaJIT compat shims)
     bridge.ts          Main thread <> Worker messaging with progress callbacks
@@ -45,22 +52,33 @@ apps/web/                    Next.js 15 (App Router, Turbopack, Tailwind 4)
     trade.ts           Trade price check utilities
     stat-explanations.ts  Stat tooltip text
     build-score.ts     Build score/grade calculator
+    stat-sources.ts    Stat source tracking for breakdown tooltips
+    markdown.tsx       Lightweight markdown renderer
+    character-converter.ts  PoE API character data -> PoB XML converter
   data/
     cluster-notables.ts  Cluster jewel notable database (18 entries)
+    guides/              Build guide data (RF Juggernaut)
+      index.ts           Guide index
   stores/
     build-store.ts     Build state, two-phase eval, saves, compare, history, config
     tree-store.ts      Tree allocation, specs, undo/redo, search, reset
     ui-store.ts        Tab, sidebar, theme, perf mode, number format, pinned stats
 
 packages/
-  engine/              Rust WASM calc engine (1,500+ lines, 80 tests)
+  engine/              Rust WASM calc engine (4,000+ lines, 156 tests)
     src/
       lib.rs           Core stat calculator, WASM entry points
       stat_parser.rs   PoE stat line parser (20+ patterns)
       damage.rs        Damage conversion chain, DoT mechanics
       gems.rs          Skill gem base data (11 gems)
       node_power.rs    Fast node power evaluator (50k evals/sec)
+      supports.rs      25 support gems with level-20 modifiers
+      keystones.rs     15 keystone implementations (CI, EO, RT, VP, etc.)
+      ascendancy.rs    7 classes + 18 ascendancies with bonuses
+      weapons.rs       12 weapon bases, phys/ele DPS calculator
+      minions.rs       9 minion types with DPS calculation
       pathfinder.rs    BFS shortest path, optimal target pathing
+      integration_tests.rs  Real build simulations, bulk perf tests
     build.sh           wasm-pack build script
     INTEGRATION.md     5-phase Lua replacement plan
   pob-codec/           Publishable npm package (@tsc/pob-codec)
@@ -81,19 +99,29 @@ packages/
 
 **Config/Calcs (9):** Interactive checkboxes, config presets (Mapping/Bossing/Default), bandit/pantheon display, expanded calcs, filter highlighting, copy stats text, JSON export, DoT/recovery sections, cluster jewel search.
 
-**UI/UX (35+):** Ascendancy + build rename, save/export/share/new/recent, local saves, build comparison + diff view, dark/light theme, performance mode, number format (US/EU), settings panel, notes panel, keyboard shortcuts (?), collapsible sidebar, sidebar toggle, compact mode, bar-graph mode, loading skeleton, empty states, error boundaries, tab badges, stat tooltips, DPS composition bar, life/ES pool bar, welcome hint, dynamic title, escape handling, pinnable stats (double-click), sidebar scroll memory, stat change animations, auto-save (30s), build score (S-F grade), build edit history, resistance warnings, chaos res warning, defensive layers summary, active auras list, class color dot, build metadata badges, changelog, config change indicator, print styles, smooth camera transitions, node allocation ripple animation, engine timing display, build summary cards, dynamic meta tags, recent builds dropdown.
+**UI/UX (40+):** Ascendancy + build rename, save/export/share/new/recent, local saves, build comparison + diff view, dark/light theme, performance mode, number format (US/EU), settings panel, notes with markdown preview, keyboard shortcuts (?), collapsible sidebar, sidebar toggle, compact mode, bar-graph mode, loading skeleton, empty states, error boundaries, tab badges, stat tooltips, DPS composition bar, life/ES pool bar, welcome hint, dynamic title, escape handling, pinnable stats (double-click), sidebar scroll memory, stat change animations, auto-save (30s), build score (S-F grade), build edit history, resistance warnings, chaos res warning, defensive layers summary, active auras list, class color dot, build metadata badges, changelog, config change indicator, print styles, smooth camera transitions, node allocation ripple animation, engine timing display, build summary cards, dynamic OG meta tags, recent builds dropdown, toast notifications with auto-dismiss, DPS breakdown chart, equipment grid (paper-doll) view, stat source breakdown tooltips, OG image generation API.
 
-**Mobile (3):** Import in bottom nav, touch pinch-zoom, long-press to allocate.
+**Mobile (4):** Import in bottom nav, touch pinch-zoom, long-press to allocate, mobile stats bottom sheet.
 
-### Rust WASM Engine (1,500+ lines, 80 tests)
+**Editors (2):** Item editor (create/edit/delete with slot/rarity/mods), skill/gem editor (add/edit/delete with autocomplete).
 
-- **lib.rs** - Core stat calculator with PoE formulas (life/ES/mana/attributes/res/DPS/EHP), modifier aggregation (flat/increased/more), WASM entry points
-- **stat_parser.rs** - Parses 20+ PoE stat text patterns into typed Modifiers (280 lines, 18 tests)
-- **damage.rs** - Damage type enum, conversion chain (Phys->Lightning->Cold->Fire->Chaos), hit DPS, Bleed/Poison/Ignite DoT (505 lines, 16 tests)
+**Guides (1):** Build guide system with level scrubber, RF Juggernaut guide with 5 leveling steps.
+
+### Rust WASM Engine (4,000+ lines, 156 tests)
+
+- **lib.rs** - Core stat calculator with PoE formulas, modifier aggregation (flat/increased/more), enemy config, boss resistances, resistance penetration, WASM entry points
+- **stat_parser.rs** - Parses 30+ PoE stat text patterns into typed Modifiers including per-damage-type, added damage ranges, minion mods, aura/curse effect
+- **damage.rs** - Damage type enum, conversion chain (Phys->Lightning->Cold->Fire->Chaos), hit DPS with penetration, Bleed/Poison/Ignite DoT
 - **gems.rs** - 11 skill gems with base damage, crit, cast time, effectiveness
+- **supports.rs** - 25 support gems with level-20 modifiers
+- **keystones.rs** - 15 keystones (CI, EO, RT, MoM, VP, Blood Magic, Unwavering Stance, etc.)
+- **ascendancy.rs** - 7 base classes + 18 ascendancies with stat bonuses
+- **weapons.rs** - 12 weapon base types, phys/ele DPS calculator
+- **minions.rs** - 9 minion types (SRS, Zombie, Spectre, Skeletons, 5 Golems) with DPS calc
 - **node_power.rs** - Fast node power evaluator: 50,000 evals/sec, 100 nodes ranked in 6ms
-- **pathfinder.rs** - BFS shortest path, optimal path to target notables (7 tests)
-- **build.sh** - wasm-pack build pipeline, outputs 140KB WASM binary
+- **pathfinder.rs** - BFS shortest path, optimal path to target notables
+- **integration_tests.rs** - Real build simulations (Marauder life, CI Occultist, EO), bulk perf tests
+- **build.sh** - wasm-pack build pipeline, outputs 154KB WASM binary
 
 ### Backend
 
@@ -106,11 +134,18 @@ packages/
 ### Infrastructure
 
 - Dockerfile (multi-stage) + docker-compose (with PostgreSQL)
-- GitHub Actions CI (typecheck + test + build, 3 jobs)
-- 112+ tests (32 TypeScript + 80 Rust)
+- GitHub Actions CI (typecheck + test + build + e2e, 4 jobs)
+- 207+ tests (32 TypeScript + 156 Rust + 19 E2E assertions)
 - PWA with offline caching (service worker v2)
-- README.md with setup instructions
+- README.md, ROADMAP.md, CONTRIBUTING.md
 - .env.example for auth/database config
+- Issue templates (feature request, bug report)
+- Competitor analysis (7 tools, 289 lines)
+- Community page with poe.ninja ladder integration
+- Shared builds with leaderboard and class filters
+- OG image generation for social sharing
+- Build page with server-side metadata for SEO
+- Sitemap.xml + robots.txt
 
 ## LuaJIT Compatibility Shims
 
@@ -134,7 +169,7 @@ packages/
 | Rust single eval | 20us (49,255 evals/sec) |
 | Rust rank 100 nodes | 5.95ms |
 | Rust stat parsing | 61us for 8 lines |
-| WASM binary size | 140KB |
+| WASM binary size | 154KB |
 | Worker bundle | 234KB |
 
 ## Tested With
@@ -144,13 +179,13 @@ packages/
 ## Known Issues
 
 - CalcDefence.lua:2987 format edge case (non-blocking)
-- PoE account import lists characters but doesn't convert to PoB XML yet
 - Scoped import (tree/items/skills only) is UI-only placeholder
-- Config changes don't re-trigger engine evaluation yet
 - PoE 2 support is a UI stub only
 - `@tsc` npm scope likely claimed; need alternative for publishing
 - Rust WASM engine runs alongside Lua but doesn't replace it yet (Phase 2 of integration plan)
-- Auth requires PostgreSQL and OAuth credentials to function
+- Auth requires PostgreSQL and OAuth credentials to function (graceful 503 without them)
+- Cluster jewel optimizer uses heuristic + Rust estimates, not full engine calcs yet
+- Item/skill editors don't re-trigger engine evaluation (requires re-import)
 
 ## Development Commands
 
@@ -162,7 +197,8 @@ node apps/web/scripts/build-worker.mjs         # Rebuild Lua engine worker
 node apps/web/scripts/convert-tree-lua.mjs     # Convert tree data to JSON
 pnpm test                                      # Run TypeScript tests (32)
 pnpm typecheck                                 # Type check
-cd packages/engine && cargo test               # Run Rust tests (80)
+node apps/web/scripts/e2e-test.mjs             # E2E integration test (19 assertions)
+cd packages/engine && cargo test               # Run Rust tests (156)
 cd packages/engine && bash build.sh            # Build Rust WASM (requires wasm-pack)
 docker compose up --build                      # Full deployment with PostgreSQL
 ```
@@ -176,12 +212,14 @@ docker compose up --build                      # Full deployment with PostgreSQL
 
 ## Future Roadmap
 
-1. **Rust engine Phase 2:** Wire WASM evaluate into the hot path, run both engines, compare
-2. **Rust engine Phase 3:** Parse tree/item modifiers in Rust, drop Lua dependency
-3. **Cluster jewel optimizer:** Enumerate notable combinations, rank by DPS gain / price
-4. **Community builds:** Shared build database with search and filtering
-5. **Build guides:** Step-by-step leveling guides with gear progression
-6. **PoE 2 support:** Full PoE 2 tree and skill system
+See ROADMAP.md for the full checklist. Key priorities:
+
+1. **Rust engine Phase 2:** Replace Lua engine for real-time recalc (50k evals/sec vs ~8s per eval)
+2. **Full config parity:** Match PoB Desktop's config coverage
+3. **Cluster optimizer with trade prices:** Enumerate notable combinations, rank by value (DPS/chaos)
+4. **i18n:** Chinese, Korean, Russian translations
+5. **PoE 2 support:** Full PoE 2 tree and skill system
+6. **Build optimizer AI:** Suggest optimal tree for a given skill
 
 ## Research Reference
 
