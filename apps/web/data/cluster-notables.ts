@@ -3,22 +3,113 @@ import type { ClusterNotable } from "@/engine/cluster-types";
 export interface ClusterBase {
   name: string;
   type: "large" | "medium" | "small";
-  pointCost: number;
+  notableSlots: number;
+  optimalPassives: number;
+  pointCostByEnchant: Record<number, number>;
   smallPassiveStat: string;
   notablePool: string[];
 }
 
 export const CLUSTER_BASES: ClusterBase[] = [
-  { name: "Cold Damage", type: "large", pointCost: 7, smallPassiveStat: "12% increased Cold Damage", notablePool: ["Blanketed Snow", "Prismatic Heart", "Widespread Destruction", "Doryani's Lesson", "Corrosive Elements"] },
-  { name: "Spell Damage", type: "large", pointCost: 7, smallPassiveStat: "12% increased Spell Damage", notablePool: ["Prismatic Heart", "Widespread Destruction", "Supercharge", "Corrosive Elements"] },
-  { name: "Elemental Damage", type: "large", pointCost: 7, smallPassiveStat: "10% increased Elemental Damage", notablePool: ["Prismatic Heart", "Widespread Destruction", "Doryani's Lesson", "Corrosive Elements"] },
-  { name: "Physical Damage", type: "large", pointCost: 7, smallPassiveStat: "12% increased Physical Damage", notablePool: ["Force Multiplier", "Master the Fundamentals", "Vengeful Commander"] },
-  { name: "Aura Effect", type: "large", pointCost: 7, smallPassiveStat: "6% increased Effect of Non-Curse Auras from your Skills", notablePool: ["Vengeful Commander", "Replenishing Presence"] },
-  { name: "Minion Damage", type: "large", pointCost: 7, smallPassiveStat: "10% increased Minion Damage", notablePool: ["Renewal", "Vicious Bite"] },
-  { name: "Critical Chance", type: "medium", pointCost: 5, smallPassiveStat: "10% increased Critical Strike Chance", notablePool: ["Precise Commander", "Quick Getaway"] },
-  { name: "Damage over Time", type: "medium", pointCost: 5, smallPassiveStat: "10% increased Damage over Time", notablePool: ["Wasting Affliction", "Brush with Death"] },
-  { name: "Life", type: "small", pointCost: 3, smallPassiveStat: "4% increased maximum Life", notablePool: ["Fettle"] },
-  { name: "Energy Shield", type: "small", pointCost: 3, smallPassiveStat: "6% increased maximum Energy Shield", notablePool: ["Energy From Naught"] },
+  {
+    name: "Cold Damage",
+    type: "large",
+    notableSlots: 3,
+    optimalPassives: 8,
+    pointCostByEnchant: { 8: 5, 10: 6, 11: 7, 12: 7 },
+    smallPassiveStat: "12% increased Cold Damage",
+    notablePool: ["Blanketed Snow", "Prismatic Heart", "Widespread Destruction", "Doryani's Lesson", "Corrosive Elements", "Disorienting Display", "Snowstorm"],
+  },
+  {
+    name: "Spell Damage",
+    type: "large",
+    notableSlots: 3,
+    optimalPassives: 8,
+    pointCostByEnchant: { 8: 5, 10: 6, 11: 7, 12: 7 },
+    smallPassiveStat: "12% increased Spell Damage",
+    notablePool: ["Prismatic Heart", "Widespread Destruction", "Supercharge", "Corrosive Elements", "Conjured Wall", "Sap Psyche"],
+  },
+  {
+    name: "Elemental Damage",
+    type: "large",
+    notableSlots: 3,
+    optimalPassives: 8,
+    pointCostByEnchant: { 8: 5, 10: 6, 11: 7, 12: 7 },
+    smallPassiveStat: "10% increased Elemental Damage",
+    notablePool: ["Prismatic Heart", "Widespread Destruction", "Doryani's Lesson", "Corrosive Elements", "Disorienting Display"],
+  },
+  {
+    name: "Physical Damage",
+    type: "large",
+    notableSlots: 3,
+    optimalPassives: 8,
+    pointCostByEnchant: { 8: 5, 10: 6, 11: 7, 12: 7 },
+    smallPassiveStat: "12% increased Physical Damage",
+    notablePool: ["Force Multiplier", "Master the Fundamentals", "Vengeful Commander", "Iron Breaker", "Battle-Hardened"],
+  },
+  {
+    name: "Aura Effect",
+    type: "large",
+    notableSlots: 3,
+    optimalPassives: 8,
+    pointCostByEnchant: { 8: 5, 10: 6, 11: 7, 12: 7 },
+    smallPassiveStat: "6% increased Effect of Non-Curse Auras from your Skills",
+    notablePool: ["Vengeful Commander", "Replenishing Presence"],
+  },
+  {
+    name: "Minion Damage",
+    type: "large",
+    notableSlots: 3,
+    optimalPassives: 8,
+    pointCostByEnchant: { 8: 5, 10: 6, 11: 7, 12: 7 },
+    smallPassiveStat: "10% increased Minion Damage",
+    notablePool: ["Renewal", "Vicious Bite"],
+  },
+  {
+    name: "Critical Chance",
+    type: "medium",
+    notableSlots: 2,
+    optimalPassives: 4,
+    pointCostByEnchant: { 4: 3, 5: 4 },
+    smallPassiveStat: "10% increased Critical Strike Chance",
+    notablePool: ["Precise Commander", "Quick Getaway", "Basics of Pain", "Pressure Points"],
+  },
+  {
+    name: "Damage over Time",
+    type: "medium",
+    notableSlots: 2,
+    optimalPassives: 4,
+    pointCostByEnchant: { 4: 3, 5: 4 },
+    smallPassiveStat: "10% increased Damage over Time",
+    notablePool: ["Wasting Affliction", "Brush with Death", "Flow of Life"],
+  },
+  {
+    name: "Spell Crit",
+    type: "medium",
+    notableSlots: 2,
+    optimalPassives: 4,
+    pointCostByEnchant: { 4: 3, 5: 4 },
+    smallPassiveStat: "10% increased Critical Strike Chance for Spells",
+    notablePool: ["Precise Commander", "Quick Getaway"],
+  },
+  {
+    name: "Life",
+    type: "small",
+    notableSlots: 1,
+    optimalPassives: 2,
+    pointCostByEnchant: { 2: 3, 3: 3 },
+    smallPassiveStat: "4% increased maximum Life",
+    notablePool: ["Fettle"],
+  },
+  {
+    name: "Energy Shield",
+    type: "small",
+    notableSlots: 1,
+    optimalPassives: 2,
+    pointCostByEnchant: { 2: 3, 3: 3 },
+    smallPassiveStat: "6% increased maximum Energy Shield",
+    notablePool: ["Energy From Naught"],
+  },
 ];
 
 export const CLUSTER_NOTABLES: Record<string, ClusterNotable> = {
@@ -111,5 +202,15 @@ export const CLUSTER_NOTABLES: Record<string, ClusterNotable> = {
     name: "Renewal",
     stats: ["Minions Regenerate 1% of Life per second", "Minions deal 20% increased Damage"],
     weight: 150,
+  },
+  "Disorienting Display": {
+    name: "Disorienting Display",
+    stats: ["25% increased Elemental Damage", "10% chance to Blind nearby Enemies on Kill"],
+    weight: 150,
+  },
+  "Snowstorm": {
+    name: "Snowstorm",
+    stats: ["10% of Cold Damage taken as Lightning Damage", "35% increased Cold Damage"],
+    weight: 100,
   },
 };

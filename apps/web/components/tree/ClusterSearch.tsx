@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { useBuildStore } from "@/stores/build-store";
-import { CLUSTER_NOTABLES, CLUSTER_BASES } from "@/data/cluster-notables";
-import type { ClusterSearchResult } from "@/engine/cluster-types";
+import { CLUSTER_NOTABLES, CLUSTER_BASES, type ClusterBase } from "@/data/cluster-notables";
 
 function fmtNum(n: number): string {
   if (Math.abs(n) >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
@@ -11,29 +10,25 @@ function fmtNum(n: number): string {
   return String(Math.round(n));
 }
 
-interface PairResult {
-  names: string[];
-  baseName: string;
-  baseType: string;
+interface ClusterResult {
+  base: ClusterBase;
+  rolled: string[];
+  taken: string[];
+  skipped: string;
   pointCost: number;
   dpsGain: number;
   ehpGain: number;
   dpsPerPoint: number;
   estimatedPrice: number;
-  valueScore: number;
-}
-
-function findBase(notableName: string) {
-  return CLUSTER_BASES.find((b) => b.notablePool.includes(notableName));
 }
 
 export function ClusterSearch() {
   const stats = useBuildStore((s) => s.stats);
-  const [results, setResults] = useState<ClusterSearchResult[]>([]);
-  const [pairs, setPairs] = useState<PairResult[]>([]);
+  const [results, setResults] = useState<ClusterResult[]>([]);
   const [searching, setSearching] = useState(false);
-  const [sortBy, setSortBy] = useState<"dps" | "value" | "dps_per_point">("dps_per_point");
-  const [searchMode, setSearchMode] = useState<"single" | "pairs">("pairs");
+  const [sortBy, setSortBy] = useState<"dps_per_point" | "dps" | "price">("dps_per_point");
+  const [enchantFilter, setEnchantFilter] = useState(8);
+  const [typeFilter, setTypeFilter] = useState<"all" | "large" | "medium" | "small">("all");
 
   const search = async () => {
     if (!stats) return;
@@ -56,153 +51,211 @@ export function ClusterSearch() {
             modifiers: [] as Array<{ stat: string; value: number; mod_type: string }>,
             allocated_keystones: [] as string[],
             main_skill_id: "",
+            ascendancy_name: stats.ascendancy || "",
+            enemy_level: 83,
+            enemy_fire_res: 0,
+            enemy_cold_res: 0,
+            enemy_lightning_res: 0,
+            enemy_chaos_res: 0,
+            enemy_is_boss: false,
           }
         : null;
 
       const baseOutput = baseInput ? evaluateBuildRust(baseInput) : null;
 
-      // Parse small passive mods for each cluster base (cached)
-      const smallModCache = new Map<string, Array<{ stat: string; value: number; mod_type: string }>>();
-      for (const base of CLUSTER_BASES) {
-        if (useRust) {
-          const parsed = parseStatLine(base.smallPassiveStat);
-          smallModCache.set(base.name, parsed);
-        }
-      }
-
-      // --- Singles ---
-      const notableResults: ClusterSearchResult[] = [];
-
-      for (const [name, notable] of Object.entries(CLUSTER_NOTABLES)) {
-        let dpsGain = 0;
-        let ehpGain = 0;
-        const base = findBase(name);
-        const pointCost = base?.pointCost ?? 5;
-
-        if (useRust && baseInput && baseOutput) {
-          const notableMods = notable.stats.flatMap((s) => parseStatLine(s));
-          // Include 2 entrance small passives
-          const smallMods = base ? (smallModCache.get(base.name) ?? []) : [];
-          const allMods = [...notableMods, ...smallMods, ...smallMods]; // 2x small passives
-
-          const withCluster = evaluateBuildRust({
-            ...baseInput,
-            modifiers: [...baseInput.modifiers, ...allMods],
-          });
-
-          if (withCluster) {
-            dpsGain = withCluster.total_dps - baseOutput.total_dps;
-            ehpGain = withCluster.total_ehp - baseOutput.total_ehp;
+      function parseMods(statLines: string[]): Array<{ stat: string; value: number; mod_type: string }> {
+        if (!useRust) return [];
+        return statLines.flatMap((s) => {
+          try {
+            const parsed = parseStatLine(s);
+            return parsed ? JSON.parse(parsed) : [];
+          } catch {
+            return [];
           }
-        } else {
-          for (const stat of notable.stats) {
-            const lower = stat.toLowerCase();
-            const numMatch = stat.match(/(\d+)/);
-            const num = numMatch ? parseInt(numMatch[1]) : 0;
-            if (lower.includes("damage") && lower.includes("increased")) dpsGain += num * baseDps * 0.01;
-            if (lower.includes("attack speed") || lower.includes("cast speed")) dpsGain += num * baseDps * 0.01;
-            if (lower.includes("critical strike chance")) dpsGain += num * baseDps * 0.005;
-            if (lower.includes("critical strike multiplier")) dpsGain += num * baseDps * 0.008;
-            if (lower.includes("maximum life")) ehpGain += num * 15;
-            if (lower.includes("energy shield")) ehpGain += num * 2;
-            if (lower.includes("resistance") && !lower.includes("-")) ehpGain += num * 8;
-          }
-        }
-
-        const estimatedPrice = Math.max(1, Math.round((50 / notable.weight) * 100));
-        const dpsPerPoint = pointCost > 0 ? dpsGain / pointCost : dpsGain;
-
-        notableResults.push({
-          jewel: {
-            name,
-            type: base?.type ?? "medium",
-            enchant: base ? `${base.name} cluster` : "",
-            passiveCount: pointCost,
-            notables: [name],
-            smallPassiveType: base?.smallPassiveStat ?? "",
-          },
-          notables: [notable],
-          estimatedPrice,
-          dpsGain,
-          ehpGain,
-          valueScore: dpsPerPoint,
         });
       }
 
-      sortResults(notableResults, sortBy);
-      setResults(notableResults);
+      function evalMods(mods: Array<{ stat: string; value: number; mod_type: string }>): { dps: number; ehp: number } {
+        if (!useRust || !baseInput || !baseOutput) {
+          return { dps: 0, ehp: 0 };
+        }
+        const result = evaluateBuildRust({
+          ...baseInput,
+          modifiers: [...baseInput.modifiers, ...mods],
+        });
+        if (!result) return { dps: 0, ehp: 0 };
+        return {
+          dps: result.total_dps - baseOutput.total_dps,
+          ehp: result.total_ehp - baseOutput.total_ehp,
+        };
+      }
 
-      // --- Pairs: evaluate all 2-notable combos on the same cluster base ---
-      if (searchMode === "pairs") {
-        const pairResults: PairResult[] = [];
+      function heuristicDps(statLines: string[]): number {
+        let gain = 0;
+        for (const stat of statLines) {
+          const lower = stat.toLowerCase();
+          const numMatch = stat.match(/(\d+)/);
+          const num = numMatch ? parseInt(numMatch[1]) : 0;
+          if (lower.includes("damage") && lower.includes("increased")) gain += num * baseDps * 0.01;
+          if (lower.includes("cast speed") || lower.includes("attack speed")) gain += num * baseDps * 0.01;
+          if (lower.includes("critical strike chance")) gain += num * baseDps * 0.005;
+          if (lower.includes("critical strike multiplier")) gain += num * baseDps * 0.008;
+          if (lower.includes("cold resistance") && lower.includes("enemies")) gain += num * baseDps * 0.01;
+          if (lower.includes("elemental resistances") && lower.includes("enemies")) gain += num * baseDps * 0.008 * 3;
+        }
+        return gain;
+      }
 
-        for (const base of CLUSTER_BASES) {
-          const pool = base.notablePool.filter((n) => n in CLUSTER_NOTABLES);
-          if (pool.length < 2) continue;
+      const allResults: ClusterResult[] = [];
+      const filteredBases = CLUSTER_BASES.filter(
+        (b) => typeFilter === "all" || b.type === typeFilter
+      );
 
-          const smallMods = smallModCache.get(base.name) ?? [];
+      for (const base of filteredBases) {
+        const pool = base.notablePool.filter((n) => n in CLUSTER_NOTABLES);
+        const pointCost = base.pointCostByEnchant[enchantFilter] ?? base.pointCostByEnchant[base.optimalPassives] ?? 5;
+        const smallMods = parseMods([base.smallPassiveStat]);
 
+        if (base.type === "large" && base.notableSlots === 3) {
+          // Large clusters: roll 3 notables, pick best 2
+          // Generate all C(pool, 3) rolls
+          for (let i = 0; i < pool.length; i++) {
+            for (let j = i + 1; j < pool.length; j++) {
+              for (let k = j + 1; k < pool.length; k++) {
+                const rolled = [pool[i], pool[j], pool[k]];
+                const pairs: [string, string, string][] = [
+                  [pool[i], pool[j], pool[k]],
+                  [pool[i], pool[k], pool[j]],
+                  [pool[j], pool[k], pool[i]],
+                ];
+
+                let bestTaken: string[] = [pool[i], pool[j]];
+                let bestSkipped = pool[k];
+                let bestDps = -Infinity;
+                let bestEhp = 0;
+
+                for (const [a, b, skip] of pairs) {
+                  const n1 = CLUSTER_NOTABLES[a];
+                  const n2 = CLUSTER_NOTABLES[b];
+                  const allStats = [...n1.stats, ...n2.stats];
+                  // 2 entrance small passives + 2 notables
+                  const allMods = [
+                    ...parseMods(n1.stats),
+                    ...parseMods(n2.stats),
+                    ...smallMods,
+                    ...smallMods,
+                  ];
+
+                  let dps: number;
+                  let ehp: number;
+                  if (useRust && allMods.length > 0) {
+                    const result = evalMods(allMods);
+                    dps = result.dps;
+                    ehp = result.ehp;
+                  } else {
+                    dps = heuristicDps([...allStats, base.smallPassiveStat, base.smallPassiveStat]);
+                    ehp = 0;
+                  }
+
+                  if (dps > bestDps) {
+                    bestDps = dps;
+                    bestEhp = ehp;
+                    bestTaken = [a, b];
+                    bestSkipped = skip;
+                  }
+                }
+
+                const price = estimatePrice(bestTaken);
+
+                allResults.push({
+                  base,
+                  rolled,
+                  taken: bestTaken,
+                  skipped: bestSkipped,
+                  pointCost,
+                  dpsGain: bestDps,
+                  ehpGain: bestEhp,
+                  dpsPerPoint: pointCost > 0 ? bestDps / pointCost : bestDps,
+                  estimatedPrice: price,
+                });
+              }
+            }
+          }
+        } else if (base.type === "medium" && base.notableSlots === 2) {
+          // Medium clusters: roll 2 notables, take both
           for (let i = 0; i < pool.length; i++) {
             for (let j = i + 1; j < pool.length; j++) {
               const n1 = CLUSTER_NOTABLES[pool[i]];
               const n2 = CLUSTER_NOTABLES[pool[j]];
-              let dpsGain = 0;
-              let ehpGain = 0;
+              const allMods = [
+                ...parseMods(n1.stats),
+                ...parseMods(n2.stats),
+                ...smallMods,
+              ];
 
-              if (useRust && baseInput && baseOutput) {
-                const combinedMods = [
-                  ...n1.stats.flatMap((s) => parseStatLine(s)),
-                  ...n2.stats.flatMap((s) => parseStatLine(s)),
-                  ...smallMods, ...smallMods, // 2 entrance small passives
-                ];
-
-                const withBoth = evaluateBuildRust({
-                  ...baseInput,
-                  modifiers: [...baseInput.modifiers, ...combinedMods],
-                });
-
-                if (withBoth) {
-                  dpsGain = withBoth.total_dps - baseOutput.total_dps;
-                  ehpGain = withBoth.total_ehp - baseOutput.total_ehp;
-                }
+              let dps: number;
+              let ehp: number;
+              if (useRust && allMods.length > 0) {
+                const result = evalMods(allMods);
+                dps = result.dps;
+                ehp = result.ehp;
               } else {
-                // Heuristic fallback
-                for (const stat of [...n1.stats, ...n2.stats]) {
-                  const lower = stat.toLowerCase();
-                  const numMatch = stat.match(/(\d+)/);
-                  const num = numMatch ? parseInt(numMatch[1]) : 0;
-                  if (lower.includes("damage") && lower.includes("increased")) dpsGain += num * baseDps * 0.01;
-                  if (lower.includes("cast speed") || lower.includes("attack speed")) dpsGain += num * baseDps * 0.01;
-                  if (lower.includes("critical strike chance")) dpsGain += num * baseDps * 0.005;
-                  if (lower.includes("critical strike multiplier")) dpsGain += num * baseDps * 0.008;
-                }
+                dps = heuristicDps([...n1.stats, ...n2.stats, base.smallPassiveStat]);
+                ehp = 0;
               }
 
-              const price = Math.max(5, Math.round((50 / n1.weight + 50 / n2.weight) * 100));
-
-              pairResults.push({
-                names: [pool[i], pool[j]],
-                baseName: base.name,
-                baseType: base.type,
-                pointCost: base.pointCost,
-                dpsGain,
-                ehpGain,
-                dpsPerPoint: base.pointCost > 0 ? dpsGain / base.pointCost : dpsGain,
-                estimatedPrice: price,
-                valueScore: price > 0 ? (dpsGain + ehpGain) / price : 0,
+              allResults.push({
+                base,
+                rolled: [pool[i], pool[j]],
+                taken: [pool[i], pool[j]],
+                skipped: "",
+                pointCost,
+                dpsGain: dps,
+                ehpGain: ehp,
+                dpsPerPoint: pointCost > 0 ? dps / pointCost : dps,
+                estimatedPrice: estimatePrice([pool[i], pool[j]]),
               });
             }
           }
+        } else if (base.type === "small") {
+          // Small clusters: 1 notable
+          for (const name of pool) {
+            const notable = CLUSTER_NOTABLES[name];
+            const allMods = [...parseMods(notable.stats), ...smallMods, ...smallMods];
+
+            let dps: number;
+            let ehp: number;
+            if (useRust && allMods.length > 0) {
+              const result = evalMods(allMods);
+              dps = result.dps;
+              ehp = result.ehp;
+            } else {
+              dps = heuristicDps([...notable.stats, base.smallPassiveStat, base.smallPassiveStat]);
+              ehp = 0;
+            }
+
+            allResults.push({
+              base,
+              rolled: [name],
+              taken: [name],
+              skipped: "",
+              pointCost,
+              dpsGain: dps,
+              ehpGain: ehp,
+              dpsPerPoint: pointCost > 0 ? dps / pointCost : dps,
+              estimatedPrice: estimatePrice([name]),
+            });
+          }
         }
-
-        pairResults.sort((a, b) => {
-          if (sortBy === "dps") return b.dpsGain - a.dpsGain;
-          if (sortBy === "dps_per_point") return b.dpsPerPoint - a.dpsPerPoint;
-          return b.valueScore - a.valueScore;
-        });
-
-        setPairs(pairResults.slice(0, 15));
       }
+
+      allResults.sort((a, b) => {
+        if (sortBy === "dps") return b.dpsGain - a.dpsGain;
+        if (sortBy === "price") return a.estimatedPrice - b.estimatedPrice;
+        return b.dpsPerPoint - a.dpsPerPoint;
+      });
+
+      setResults(allResults.slice(0, 20));
     } catch (e) {
       console.warn("Cluster search error:", e);
     } finally {
@@ -214,185 +267,132 @@ export function ClusterSearch() {
 
   return (
     <div className="p-4">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-2">
         <h2 className="text-xs font-mono uppercase tracking-widest text-text-dim">
           Cluster Jewel Search
         </h2>
-        <div className="flex gap-1 flex-wrap">
-          <button
-            onClick={() => setSearchMode("single")}
-            className={`text-[10px] font-mono px-2 py-0.5 rounded ${searchMode === "single" ? "bg-accent/20 text-accent" : "text-text-dim"}`}
-          >
-            Singles
-          </button>
-          <button
-            onClick={() => setSearchMode("pairs")}
-            className={`text-[10px] font-mono px-2 py-0.5 rounded ${searchMode === "pairs" ? "bg-accent/20 text-accent" : "text-text-dim"}`}
-          >
-            Pairs
-          </button>
-          <span className="text-text-dim/20 mx-0.5">|</span>
-          {(["dps_per_point", "dps", "value"] as const).map((s) => (
+        <button
+          onClick={search}
+          disabled={searching}
+          className="text-[10px] font-mono px-3 py-0.5 rounded bg-accent/20 text-accent border border-accent/30 hover:bg-accent/30 disabled:opacity-40 transition-colors"
+        >
+          {searching ? "Computing..." : "Search"}
+        </button>
+      </div>
+
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <div className="flex gap-1">
+          <span className="text-[9px] font-mono text-text-dim mr-0.5">Type:</span>
+          {(["all", "large", "medium", "small"] as const).map((t) => (
             <button
-              key={s}
-              onClick={() => {
-                setSortBy(s);
-                setResults((prev) => {
-                  const sorted = [...prev];
-                  sortResults(sorted, s);
-                  return sorted;
-                });
-              }}
-              className={`text-[10px] font-mono px-2 py-0.5 rounded ${sortBy === s ? "bg-accent/20 text-accent" : "text-text-dim"}`}
+              key={t}
+              onClick={() => setTypeFilter(t)}
+              className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${typeFilter === t ? "bg-accent/20 text-accent" : "text-text-dim hover:text-text-primary"}`}
             >
-              {s === "dps_per_point" ? "DPS/pt" : s === "dps" ? "DPS" : "Value"}
+              {t === "all" ? "All" : t.charAt(0).toUpperCase() + t.slice(1)}
             </button>
           ))}
-          <button
-            onClick={search}
-            disabled={searching}
-            className="text-[10px] font-mono px-3 py-0.5 rounded bg-accent/20 text-accent border border-accent/30 hover:bg-accent/30 disabled:opacity-40 ml-2 transition-colors"
-          >
-            {searching ? "..." : "Search"}
-          </button>
+        </div>
+
+        <div className="flex gap-1">
+          <span className="text-[9px] font-mono text-text-dim mr-0.5">Enchant:</span>
+          {[8, 10, 12].map((n) => (
+            <button
+              key={n}
+              onClick={() => setEnchantFilter(n)}
+              className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${enchantFilter === n ? "bg-accent/20 text-accent" : "text-text-dim hover:text-text-primary"}`}
+            >
+              {n}p
+            </button>
+          ))}
+        </div>
+
+        <div className="flex gap-1">
+          <span className="text-[9px] font-mono text-text-dim mr-0.5">Sort:</span>
+          {(["dps_per_point", "dps", "price"] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => setSortBy(s)}
+              className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${sortBy === s ? "bg-accent/20 text-accent" : "text-text-dim hover:text-text-primary"}`}
+            >
+              {s === "dps_per_point" ? "DPS/pt" : s === "dps" ? "DPS" : "Price"}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Singles */}
-      {searchMode === "single" && results.length > 0 && (
-        <div className="space-y-1 max-w-2xl">
+      {results.length > 0 && (
+        <div className="space-y-1 max-w-3xl">
           <div className="flex text-[9px] font-mono text-text-dim/50 px-3 mb-0.5">
             <span className="w-5">#</span>
-            <span className="flex-1">Notable</span>
-            <span className="w-14 text-right">DPS</span>
+            <span className="flex-1">Cluster (take 2, skip 1 on large)</span>
+            <span className="w-16 text-right">DPS</span>
             <span className="w-10 text-right">pts</span>
             <span className="w-14 text-right">DPS/pt</span>
-            <span className="w-10 text-right">price</span>
-            <span className="w-4" />
+            <span className="w-10 text-right">~price</span>
           </div>
-          {results.slice(0, 15).map((r, i) => (
-            <div key={i} className="flex items-center gap-1 px-3 py-1.5 bg-bg-card border border-border-card rounded text-[10px] font-mono">
-              <span className="w-5 text-text-dim/40 tabular-nums shrink-0">{i + 1}</span>
+          {results.map((r, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-1 px-3 py-2 bg-bg-card border border-border-card rounded text-[10px] font-mono"
+            >
+              <span className="w-5 text-text-dim/40 tabular-nums shrink-0">
+                {i + 1}
+              </span>
               <div className="flex-1 min-w-0">
-                <span className="text-text-primary truncate block">{r.jewel.name}</span>
-                <span className="text-[8px] text-text-dim/40">{r.jewel.enchant}</span>
+                <div className="text-text-primary truncate">
+                  {r.taken.join(" + ")}
+                </div>
+                <div className="text-[8px] text-text-dim/50">
+                  {r.base.name} {r.base.type} ({enchantFilter}p, {r.pointCost}pt)
+                  {r.skipped && (
+                    <span className="text-text-dim/30 ml-1">
+                      skip: {r.skipped}
+                    </span>
+                  )}
+                </div>
               </div>
-              <span className={`w-14 text-right tabular-nums shrink-0 ${r.dpsGain > 0 ? "text-accent" : "text-text-dim/40"}`}>
+              <span
+                className={`w-16 text-right tabular-nums shrink-0 ${r.dpsGain > 0 ? "text-accent" : "text-text-dim/40"}`}
+              >
                 {r.dpsGain > 0 ? `+${fmtNum(r.dpsGain)}` : "-"}
               </span>
               <span className="w-10 text-right tabular-nums text-text-dim shrink-0">
-                {r.jewel.passiveCount}pt
+                {r.pointCost}pt
               </span>
-              <span className={`w-14 text-right tabular-nums shrink-0 ${r.valueScore > 0 ? "text-amber-400" : "text-text-dim/40"}`}>
-                {r.valueScore > 0 ? `${fmtNum(r.valueScore)}/pt` : "-"}
+              <span
+                className={`w-14 text-right tabular-nums shrink-0 ${r.dpsPerPoint > 0 ? "text-amber-400" : "text-text-dim/40"}`}
+              >
+                {r.dpsPerPoint > 0 ? `${fmtNum(r.dpsPerPoint)}/pt` : "-"}
               </span>
               <span className="w-10 text-right tabular-nums text-amber-400/70 shrink-0">
                 ~{r.estimatedPrice}c
               </span>
-              <PriceCheckButton
-                name={r.jewel.name}
-                onPrice={(price) => {
-                  setResults((prev) => {
-                    const updated = [...prev];
-                    const idx = updated.findIndex((u) => u.jewel.name === r.jewel.name);
-                    if (idx >= 0) {
-                      updated[idx] = { ...updated[idx], estimatedPrice: price };
-                    }
-                    return updated;
-                  });
-                }}
-              />
             </div>
           ))}
         </div>
       )}
 
-      {/* Pairs */}
-      {searchMode === "pairs" && pairs.length > 0 && (
-        <div className="space-y-1 max-w-2xl">
-          <div className="flex text-[9px] font-mono text-text-dim/50 px-3 mb-0.5">
-            <span className="w-5">#</span>
-            <span className="flex-1">Notables (on same cluster)</span>
-            <span className="w-14 text-right">DPS</span>
-            <span className="w-10 text-right">pts</span>
-            <span className="w-14 text-right">DPS/pt</span>
-            <span className="w-10 text-right">price</span>
-          </div>
-          {pairs.map((p, i) => (
-            <div key={i} className="flex items-center gap-1 px-3 py-1.5 bg-bg-card border border-border-card rounded text-[10px] font-mono">
-              <span className="w-5 text-text-dim/40 tabular-nums shrink-0">{i + 1}</span>
-              <div className="flex-1 min-w-0">
-                <span className="text-text-primary truncate block">
-                  {p.names.join(" + ")}
-                </span>
-                <span className="text-[8px] text-text-dim/40">
-                  {p.baseName} {p.baseType} cluster (incl. 2 small passives)
-                </span>
-              </div>
-              <span className={`w-14 text-right tabular-nums shrink-0 ${p.dpsGain > 0 ? "text-accent" : "text-text-dim/40"}`}>
-                {p.dpsGain > 0 ? `+${fmtNum(p.dpsGain)}` : "-"}
-              </span>
-              <span className="w-10 text-right tabular-nums text-text-dim shrink-0">
-                {p.pointCost}pt
-              </span>
-              <span className={`w-14 text-right tabular-nums shrink-0 ${p.dpsPerPoint > 0 ? "text-amber-400" : "text-text-dim/40"}`}>
-                {p.dpsPerPoint > 0 ? `${fmtNum(p.dpsPerPoint)}/pt` : "-"}
-              </span>
-              <span className="w-10 text-right tabular-nums text-amber-400/70 shrink-0">
-                ~{p.estimatedPrice}c
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {results.length === 0 && pairs.length === 0 && !searching && (
+      {results.length === 0 && !searching && (
         <p className="text-xs font-mono text-text-dim/60 text-center py-6">
           Click Search to find the best cluster jewels for your build.
-          Includes 2 entrance small passives in calculations.
-          {searchMode === "pairs" ? " Tests all notable combinations per cluster base." : ""}
+          <br />
+          Large clusters roll 3 notables; you path to the best 2 (cheapest on 8-passive).
+          <br />
+          Includes 2 entrance small passives in DPS calculation.
         </p>
       )}
     </div>
   );
 }
 
-function sortResults(arr: ClusterSearchResult[], by: "dps" | "value" | "dps_per_point") {
-  arr.sort((a, b) => {
-    if (by === "dps") return b.dpsGain - a.dpsGain;
-    if (by === "dps_per_point") return b.valueScore - a.valueScore; // valueScore holds dpsPerPoint for singles
-    return b.valueScore - a.valueScore;
-  });
-}
-
-function PriceCheckButton({
-  name,
-  onPrice,
-}: {
-  name: string;
-  onPrice: (price: number) => void;
-}) {
-  const [loading, setLoading] = useState(false);
-
-  return (
-    <button
-      onClick={async () => {
-        setLoading(true);
-        try {
-          const { priceCheckClusterNotable } = await import("@/lib/trade");
-          const price = await priceCheckClusterNotable(name);
-          if (price) onPrice(price.median);
-        } catch {
-          // ignore
-        } finally {
-          setLoading(false);
-        }
-      }}
-      disabled={loading}
-      className="w-4 text-[9px] font-mono text-amber-400/60 hover:text-amber-400 disabled:opacity-40 transition-colors shrink-0"
-      title="Check real trade price"
-    >
-      {loading ? "." : "$"}
-    </button>
-  );
+function estimatePrice(notables: string[]): number {
+  let total = 0;
+  for (const name of notables) {
+    const notable = CLUSTER_NOTABLES[name];
+    if (notable) {
+      total += Math.round((50 / notable.weight) * 100);
+    }
+  }
+  return Math.max(5, total);
 }
