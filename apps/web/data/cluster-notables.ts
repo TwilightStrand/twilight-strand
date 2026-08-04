@@ -1,5 +1,26 @@
 import type { ClusterNotable } from "@/engine/cluster-types";
 
+export interface ClusterBase {
+  name: string;
+  type: "large" | "medium" | "small";
+  pointCost: number;
+  smallPassiveStat: string;
+  notablePool: string[];
+}
+
+export const CLUSTER_BASES: ClusterBase[] = [
+  { name: "Cold Damage", type: "large", pointCost: 7, smallPassiveStat: "12% increased Cold Damage", notablePool: ["Blanketed Snow", "Prismatic Heart", "Widespread Destruction", "Doryani's Lesson", "Corrosive Elements"] },
+  { name: "Spell Damage", type: "large", pointCost: 7, smallPassiveStat: "12% increased Spell Damage", notablePool: ["Prismatic Heart", "Widespread Destruction", "Supercharge", "Corrosive Elements"] },
+  { name: "Elemental Damage", type: "large", pointCost: 7, smallPassiveStat: "10% increased Elemental Damage", notablePool: ["Prismatic Heart", "Widespread Destruction", "Doryani's Lesson", "Corrosive Elements"] },
+  { name: "Physical Damage", type: "large", pointCost: 7, smallPassiveStat: "12% increased Physical Damage", notablePool: ["Force Multiplier", "Master the Fundamentals", "Vengeful Commander"] },
+  { name: "Aura Effect", type: "large", pointCost: 7, smallPassiveStat: "6% increased Effect of Non-Curse Auras from your Skills", notablePool: ["Vengeful Commander", "Replenishing Presence"] },
+  { name: "Minion Damage", type: "large", pointCost: 7, smallPassiveStat: "10% increased Minion Damage", notablePool: ["Renewal", "Vicious Bite"] },
+  { name: "Critical Chance", type: "medium", pointCost: 5, smallPassiveStat: "10% increased Critical Strike Chance", notablePool: ["Precise Commander", "Quick Getaway"] },
+  { name: "Damage over Time", type: "medium", pointCost: 5, smallPassiveStat: "10% increased Damage over Time", notablePool: ["Wasting Affliction", "Brush with Death"] },
+  { name: "Life", type: "small", pointCost: 3, smallPassiveStat: "4% increased maximum Life", notablePool: ["Fettle"] },
+  { name: "Energy Shield", type: "small", pointCost: 3, smallPassiveStat: "6% increased maximum Energy Shield", notablePool: ["Energy From Naught"] },
+];
+
 export const CLUSTER_NOTABLES: Record<string, ClusterNotable> = {
   "Prismatic Heart": {
     name: "Prismatic Heart",
