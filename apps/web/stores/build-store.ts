@@ -170,6 +170,13 @@ async function evaluateWithEngine(xml: string) {
       skills: result.skills.length > 0 ? result.skills : getState().skills,
       evaluating: false,
     });
+
+    if (merged.allocated_nodes.length > 0) {
+      const { useTreeStore } = await import("@/stores/tree-store");
+      useTreeStore.getState().setAllocatedNodes(
+        new Set(merged.allocated_nodes.map(String))
+      );
+    }
   } catch (e) {
     console.warn("Engine evaluation failed, keeping XML-parsed results:", e);
     setState({ evaluating: false });
