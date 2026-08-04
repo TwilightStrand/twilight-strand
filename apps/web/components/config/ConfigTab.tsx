@@ -55,6 +55,59 @@ const DEFAULT_CONFIG: ConfigOption[] = [
   { id: "conditionEnemyIntimidated", label: "Is the enemy Intimidated?", type: "check", value: false, category: "Enemy" },
   // Flasks
   { id: "flaskEffect", label: "Flask Effect Active", type: "check", value: false, category: "Flasks" },
+  // Skill Options
+  { id: "conditionChannelling", label: "Are you Channelling?", type: "check", value: false, category: "Skill Options" },
+  { id: "conditionAttacking", label: "Are you Attacking?", type: "check", value: false, category: "Skill Options" },
+  { id: "conditionCasting", label: "Are you Casting?", type: "check", value: false, category: "Skill Options" },
+  { id: "conditionUsedSkillRecently", label: "Used a Skill Recently?", type: "check", value: false, category: "Skill Options" },
+  { id: "conditionKilledRecently", label: "Killed Recently?", type: "check", value: false, category: "Skill Options" },
+  { id: "conditionKilledAffectedByDoT", label: "Killed DoT enemy Recently?", type: "check", value: false, category: "Skill Options" },
+  { id: "conditionCritRecently", label: "Crit Recently?", type: "check", value: false, category: "Skill Options" },
+  { id: "conditionNonCritRecently", label: "Non-Crit Recently?", type: "check", value: false, category: "Skill Options" },
+  { id: "conditionBlockedRecently", label: "Blocked Recently?", type: "check", value: false, category: "Skill Options" },
+  { id: "conditionTakenHitRecently", label: "Taken Hit Recently?", type: "check", value: false, category: "Skill Options" },
+  { id: "conditionHitByFireRecently", label: "Hit by Fire Recently?", type: "check", value: false, category: "Skill Options" },
+  { id: "conditionHitByColdRecently", label: "Hit by Cold Recently?", type: "check", value: false, category: "Skill Options" },
+  { id: "conditionHitByLightningRecently", label: "Hit by Lightning Recently?", type: "check", value: false, category: "Skill Options" },
+  // More Buffs
+  { id: "buffTailwind", label: "Tailwind", type: "check", value: false, category: "Buffs" },
+  { id: "conditionAdrenaline", label: "Adrenaline", type: "check", value: false, category: "Buffs" },
+  { id: "conditionArcaneSurge", label: "Arcane Surge", type: "check", value: false, category: "Buffs" },
+  { id: "conditionRage", label: "Rage Active", type: "check", value: false, category: "Buffs" },
+  { id: "rageCount", label: "Rage Stacks", type: "number", value: 0, category: "Buffs" },
+  { id: "conditionInspiration", label: "Inspiration Charges", type: "check", value: false, category: "Buffs" },
+  { id: "conditionBrittle", label: "Enemy has Brittle", type: "check", value: false, category: "Buffs" },
+  { id: "conditionSapped", label: "Enemy is Sapped", type: "check", value: false, category: "Buffs" },
+  { id: "conditionScorched", label: "Enemy is Scorched", type: "check", value: false, category: "Buffs" },
+  // Defences
+  { id: "conditionUsedGuardRecently", label: "Used Guard Skill Recently?", type: "check", value: false, category: "Defences" },
+  { id: "conditionHavePhysAegis", label: "Physical Aegis Active?", type: "check", value: false, category: "Defences" },
+  { id: "conditionHaveEleAegis", label: "Elemental Aegis Active?", type: "check", value: false, category: "Defences" },
+  { id: "conditionLeechingLife", label: "Leeching Life?", type: "check", value: false, category: "Defences" },
+  { id: "conditionLeechingES", label: "Leeching Energy Shield?", type: "check", value: false, category: "Defences" },
+  { id: "conditionOnBurningGround", label: "On Burning Ground?", type: "check", value: false, category: "Defences" },
+  { id: "conditionOnChilledGround", label: "On Chilled Ground?", type: "check", value: false, category: "Defences" },
+  { id: "conditionOnShockedGround", label: "On Shocked Ground?", type: "check", value: false, category: "Defences" },
+  // Map Mods
+  { id: "mapModPlayerDamagePenalty", label: "Players deal X% less Damage", type: "number", value: 0, category: "Map Mods" },
+  { id: "mapModEnemyExtraDamage", label: "Monsters deal X% extra Damage", type: "number", value: 0, category: "Map Mods" },
+  { id: "mapModEnemySpeed", label: "Monsters have X% inc. Speed", type: "number", value: 0, category: "Map Mods" },
+  { id: "mapModEnemyCritChance", label: "Monsters have X% inc. Crit", type: "number", value: 0, category: "Map Mods" },
+  { id: "mapModNoLeech", label: "Cannot Leech", type: "check", value: false, category: "Map Mods" },
+  { id: "mapModNoRegen", label: "No Regeneration", type: "check", value: false, category: "Map Mods" },
+  { id: "mapModLessRecovery", label: "60% Less Recovery", type: "check", value: false, category: "Map Mods" },
+  { id: "mapModReflectPhys", label: "Phys Reflect", type: "check", value: false, category: "Map Mods" },
+  { id: "mapModReflectEle", label: "Ele Reflect", type: "check", value: false, category: "Map Mods" },
+  { id: "mapModNoFlasks", label: "Players cannot use Flasks", type: "check", value: false, category: "Map Mods" },
+  { id: "mapModAvoidAilments", label: "Monsters avoid Ailments", type: "check", value: false, category: "Map Mods" },
+  { id: "mapModEnemyExtraFire", label: "Extra Fire Damage", type: "check", value: false, category: "Map Mods" },
+  { id: "mapModEnemyExtraCold", label: "Extra Cold Damage", type: "check", value: false, category: "Map Mods" },
+  { id: "mapModEnemyExtraLightning", label: "Extra Lightning Damage", type: "check", value: false, category: "Map Mods" },
+  // Minions
+  { id: "conditionMinionFullLife", label: "Minions on Full Life?", type: "check", value: false, category: "Minions" },
+  { id: "conditionMinionKilledRecently", label: "Minion Killed Recently?", type: "check", value: false, category: "Minions" },
+  { id: "conditionHaveMinionSkill", label: "Using Minion Skill?", type: "check", value: false, category: "Minions" },
+  { id: "minionCount", label: "Number of Minions", type: "number", value: 0, category: "Minions" },
 ];
 
 function ConfigSection({
@@ -133,6 +186,7 @@ const PRESETS: { name: string; config: Record<string, boolean | string | number>
       useFrenzyCharges: true,
       conditionMoving: true,
       conditionOnslaught: true,
+      conditionKilledRecently: true,
       enemyIsBoss: "None",
     },
   },
@@ -147,14 +201,34 @@ const PRESETS: { name: string; config: Record<string, boolean | string | number>
     },
   },
   {
+    name: "Uber Boss",
+    config: {
+      usePowerCharges: true,
+      conditionStationary: true,
+      conditionFocused: true,
+      enemyIsBoss: "Uber Pinnacle Boss",
+      conditionEnemyCursed: true,
+    },
+  },
+  {
     name: "Default",
     config: {},
   },
 ];
 
+const MAP_PRESETS: { name: string; config: Record<string, boolean | string | number> }[] = [
+  { name: "Alch & Go", config: {} },
+  { name: "Juiced", config: { mapModEnemyExtraDamage: 30, mapModEnemySpeed: 20 } },
+  { name: "No Regen", config: { mapModNoRegen: true } },
+  { name: "Less Recovery", config: { mapModLessRecovery: true } },
+  { name: "Phys Reflect", config: { mapModReflectPhys: true } },
+  { name: "Ele Reflect", config: { mapModReflectEle: true } },
+];
+
 export function ConfigTab() {
   const [config, setConfig] = useState(DEFAULT_CONFIG);
   const [configDirty, setConfigDirty] = useState(false);
+  const [customMods, setCustomMods] = useState("");
   const setConfigOverride = useBuildStore((s) => s.setConfigOverride);
   const reEvaluate = useBuildStore((s) => s.reEvaluate);
   const evaluating = useBuildStore((s) => s.evaluating);
@@ -283,6 +357,43 @@ export function ConfigTab() {
               ))}
           </ConfigSection>
         ))}
+
+        {categories.includes("Map Mods") && (
+          <div className="flex items-center gap-1 mb-2">
+            <span className="text-[10px] font-mono text-text-dim mr-1">Map Presets:</span>
+            {MAP_PRESETS.map((preset) => (
+              <button
+                key={preset.name}
+                onClick={() => {
+                  for (const [key, value] of Object.entries(preset.config)) {
+                    updateValue(key, value);
+                  }
+                }}
+                className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-bg-card border border-border-subtle text-text-dim hover:text-accent hover:border-accent/30 transition-colors"
+              >
+                {preset.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <ConfigSection title="Custom Modifiers">
+          <textarea
+            value={customMods}
+            onChange={(e) => {
+              setCustomMods(e.target.value);
+              const lines = e.target.value.split("\n").filter((l: string) => l.trim());
+              setConfigOverride("customMods", lines.join("|"));
+              setConfigDirty(true);
+            }}
+            placeholder={"Enter one modifier per line:\n+100 to maximum Life\n20% increased Damage\n+30% to Fire Resistance"}
+            rows={4}
+            className="w-full bg-bg-inset border border-border-subtle rounded px-2 py-1.5 text-xs font-mono text-text-primary placeholder:text-text-dim/30 resize-none focus:outline-none focus:border-accent"
+          />
+          <p className="text-[9px] font-mono text-text-dim/50 mt-1">
+            Modifiers applied on recalculate. Same format as tree node stats.
+          </p>
+        </ConfigSection>
 
         <p className="text-text-dim text-[10px] font-mono mt-6">
           Config changes will trigger re-evaluation when the engine is connected.
