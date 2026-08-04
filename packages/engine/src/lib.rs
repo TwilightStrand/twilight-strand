@@ -82,7 +82,7 @@ pub struct Modifier {
     pub mod_type: String, // "flat", "increased", "more"
 }
 
-#[derive(Tsify, Serialize, Deserialize, Clone, Debug)]
+#[derive(Tsify, Serialize, Deserialize, Clone, Debug, Default)]
 #[tsify(into_wasm_abi, from_wasm_abi)]
 pub struct BuildInput {
     pub level: u32,
@@ -96,6 +96,37 @@ pub struct BuildInput {
     pub main_skill_id: String,
     #[serde(default)]
     pub ascendancy_name: String,
+    #[serde(default = "default_enemy_level")]
+    pub enemy_level: u32,
+    #[serde(default)]
+    pub enemy_fire_res: f64,
+    #[serde(default)]
+    pub enemy_cold_res: f64,
+    #[serde(default)]
+    pub enemy_lightning_res: f64,
+    #[serde(default)]
+    pub enemy_chaos_res: f64,
+    #[serde(default)]
+    pub enemy_is_boss: bool,
+}
+
+fn default_enemy_level() -> u32 { 83 }
+
+/// Returns (fire, cold, lightning, chaos) resistances for boss types
+pub fn boss_resistances(boss_type: &str) -> (f64, f64, f64, f64) {
+    match boss_type {
+        "pinnacle" | "Pinnacle Boss" => (40.0, 40.0, 40.0, 25.0),
+        "uber" | "Uber Pinnacle Boss" => (50.0, 50.0, 50.0, 30.0),
+        "shaper" | "Shaper/Elder" => (40.0, 40.0, 40.0, 25.0),
+        "sirus" | "Sirus" => (40.0, 40.0, 40.0, 25.0),
+        _ => (0.0, 0.0, 0.0, 0.0),
+    }
+}
+
+/// Apply enemy resistance and penetration to get effective damage multiplier
+pub fn apply_resistance(enemy_res: f64, penetration: f64) -> f64 {
+    let effective_res = (enemy_res - penetration).clamp(-100.0, 90.0);
+    1.0 - effective_res / 100.0
 }
 
 #[derive(Tsify, Serialize, Deserialize, Clone, Debug)]
@@ -320,14 +351,32 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
 
     let crit_multi = 150.0 + get_buckets(&agg, "CritMultiplier").0;
 
+    // --- Penetration & enemy resistance ----------------------------------------
+    let fire_pen = get_buckets(&agg, "FirePenetration").0;
+    let cold_pen = get_buckets(&agg, "ColdPenetration").0;
+    let lightning_pen = get_buckets(&agg, "LightningPenetration").0;
+    let chaos_pen = get_buckets(&agg, "ChaosPenetration").0;
+
+    let (e_fire, e_cold, e_light, e_chaos) = if input.enemy_is_boss {
+        (input.enemy_fire_res.max(40.0), input.enemy_cold_res.max(40.0),
+         input.enemy_lightning_res.max(40.0), input.enemy_chaos_res.max(25.0))
+    } else {
+        (input.enemy_fire_res, input.enemy_cold_res,
+         input.enemy_lightning_res, input.enemy_chaos_res)
+    };
+
+    // Average resistance multiplier (simplified: assumes generic elemental damage)
+    let avg_pen = (fire_pen + cold_pen + lightning_pen) / 3.0;
+    let avg_enemy_ele_res = (e_fire + e_cold + e_light) / 3.0;
+    let res_mult = apply_resistance(avg_enemy_ele_res, avg_pen);
+
     let avg_hit = base_damage
         * (1.0 + (crit_chance / 100.0) * (crit_multi / 100.0 - 1.0));
     let total_dps = if gem.map_or(false, |g| g.is_dot) {
-        // DoT DPS: base * (1 + inc) * more (no speed/crit/hit)
         let dot_base = gem.unwrap().dot_base;
-        calc_stat(dot_base, dmg_flat, dmg_inc, dmg_more)
+        calc_stat(dot_base, dmg_flat, dmg_inc, dmg_more) * res_mult
     } else {
-        avg_hit * attack_speed * (hit_chance / 100.0)
+        avg_hit * attack_speed * (hit_chance / 100.0) * res_mult
     };
 
     // --- Derived defences ----------------------------------------------------
@@ -469,14 +518,13 @@ mod tests {
     fn default_input() -> BuildInput {
         BuildInput {
             level: 90,
-            class_id: 1, // Marauder
+            class_id: 1,
             base_str: 32,
             base_dex: 14,
             base_int: 14,
             modifiers: vec![],
             allocated_keystones: vec![],
-            main_skill_id: String::new(),
-            ascendancy_name: String::new(),
+            ..Default::default()
         }
     }
 
@@ -817,6 +865,66 @@ mod tests {
         // Fireball effectiveness = 2.4, so +100 flat becomes +240
         assert!(with_added > base * 1.2, "fireball effectiveness not applied");
     }
+
+    #[test]
+    fn test_apply_resistance() {
+        // No resistance = full damage
+        assert!((apply_resistance(0.0, 0.0) - 1.0).abs() < 0.001);
+        // 40% resistance = 60% damage
+        assert!((apply_resistance(40.0, 0.0) - 0.6).abs() < 0.001);
+        // 40% res with 40% pen = full damage
+        assert!((apply_resistance(40.0, 40.0) - 1.0).abs() < 0.001);
+        // Negative res = bonus damage
+        assert!(apply_resistance(-50.0, 0.0) > 1.0);
+        // Capped at 90%
+        assert!((apply_resistance(95.0, 0.0) - 0.1).abs() < 0.001);
+        // Capped at -100%
+        assert!((apply_resistance(-200.0, 0.0) - 2.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_boss_resistances() {
+        let (f, c, l, ch) = boss_resistances("pinnacle");
+        assert_eq!(f, 40.0);
+        assert_eq!(ch, 25.0);
+        let (f2, _, _, _) = boss_resistances("unknown");
+        assert_eq!(f2, 0.0);
+    }
+
+    #[test]
+    fn test_penetration_increases_dps() {
+        let mut input = default_input();
+        input.modifiers.push(Modifier { stat: "Damage".into(), value: 500.0, mod_type: "flat".into() });
+        input.enemy_fire_res = 40.0;
+        input.enemy_cold_res = 40.0;
+        input.enemy_lightning_res = 40.0;
+        input.enemy_is_boss = true;
+
+        let no_pen = evaluate_build(input.clone()).total_dps;
+
+        input.modifiers.push(Modifier { stat: "FirePenetration".into(), value: 37.0, mod_type: "flat".into() });
+        input.modifiers.push(Modifier { stat: "ColdPenetration".into(), value: 37.0, mod_type: "flat".into() });
+        input.modifiers.push(Modifier { stat: "LightningPenetration".into(), value: 37.0, mod_type: "flat".into() });
+
+        let with_pen = evaluate_build(input).total_dps;
+        assert!(with_pen > no_pen, "penetration should increase DPS: {} vs {}", with_pen, no_pen);
+    }
+
+    #[test]
+    fn test_boss_reduces_dps() {
+        let mut input = default_input();
+        input.modifiers.push(Modifier { stat: "Damage".into(), value: 500.0, mod_type: "flat".into() });
+
+        let normal = evaluate_build(input.clone()).total_dps;
+
+        input.enemy_is_boss = true;
+        input.enemy_fire_res = 40.0;
+        input.enemy_cold_res = 40.0;
+        input.enemy_lightning_res = 40.0;
+
+        let boss = evaluate_build(input).total_dps;
+        assert!(boss < normal, "boss should reduce DPS: {} vs {}", boss, normal);
+    }
 }
 
 #[cfg(test)]
@@ -853,8 +961,7 @@ mod bench_tests {
                 Modifier { stat: "BlockChance".into(), value: 30.0, mod_type: "flat".into() },
             ],
             allocated_keystones: vec![],
-            main_skill_id: String::new(),
-            ascendancy_name: String::new(),
+            ..Default::default()
         }
     }
 

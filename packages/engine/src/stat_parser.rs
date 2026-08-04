@@ -229,6 +229,37 @@ pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
         mods.push(flat("SpellSuppression", val));
     }
 
+    // --- Penetration --------------------------------------------------------
+    {
+        let lower = line.to_lowercase();
+        if lower.contains("penetrat") {
+            if let Some(val) = extract_pct_value(line, "fire resistance") {
+                if lower.contains("penetrat") { mods.push(flat("FirePenetration", val)); }
+            }
+            if let Some(val) = extract_pct_value(line, "cold resistance") {
+                if lower.contains("penetrat") { mods.push(flat("ColdPenetration", val)); }
+            }
+            if let Some(val) = extract_pct_value(line, "lightning resistance") {
+                if lower.contains("penetrat") { mods.push(flat("LightningPenetration", val)); }
+            }
+            if let Some(val) = extract_pct_value(line, "chaos resistance") {
+                if lower.contains("penetrat") { mods.push(flat("ChaosPenetration", val)); }
+            }
+            if let Some(val) = extract_pct_value(line, "elemental resistance") {
+                if lower.contains("penetrat") {
+                    mods.push(flat("FirePenetration", val));
+                    mods.push(flat("ColdPenetration", val));
+                    mods.push(flat("LightningPenetration", val));
+                }
+            }
+        }
+    }
+
+    // --- Curse effect -------------------------------------------------------
+    if let Some(val) = extract_pct(line, "increased effect of curses") {
+        mods.push(increased("CurseEffect", val));
+    }
+
     mods
 }
 
