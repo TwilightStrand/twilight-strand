@@ -175,7 +175,7 @@ export class TreeRenderer {
     for (const [, nodeId] of this.tree.classStartNodes) {
       const node = this.tree.nodes.get(nodeId);
       if (!node) continue;
-      const [sx, sy] = worldToScreen(node.x, node.y, cam, cw, ch);
+      const { x: sx, y: sy } = worldToScreen(cam, node.x, node.y, cw, ch);
       const radius = 120 * cam.zoom;
       if (!this.isVisible(sx, sy, radius, cw, ch)) continue;
 
