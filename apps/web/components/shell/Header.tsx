@@ -5,6 +5,7 @@ import { TABS, TAB_LABELS, useUiStore } from "@/stores/ui-store";
 import type { TabId } from "@/stores/ui-store";
 import { useBuildStore } from "@/stores/build-store";
 import { useTreeStore } from "@/stores/tree-store";
+import { BuildCard } from "./BuildCard";
 
 function RecentBuildsDropdown() {
   const [open, setOpen] = useState(false);
@@ -37,14 +38,15 @@ function RecentBuildsDropdown() {
       {open && (
         <div className="absolute right-0 top-full mt-1 bg-bg-card border border-border-card rounded-lg shadow-xl z-50 min-w-48 py-1">
           {savedBuilds.slice(0, 5).map((build, i) => (
-            <button
+            <BuildCard
               key={i}
+              name={build.name}
+              className={build.className}
+              ascendancy={build.ascendancy}
+              level={build.level}
+              compact
               onClick={() => { importBuild(build.code); setOpen(false); }}
-              className="w-full text-left px-3 py-1.5 text-xs font-mono hover:bg-bg-hover transition-colors"
-            >
-              <span className="text-text-primary">{build.name}</span>
-              <span className="text-text-dim ml-1">Lv {build.level}</span>
-            </button>
+            />
           ))}
         </div>
       )}

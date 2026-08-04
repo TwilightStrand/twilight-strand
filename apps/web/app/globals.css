@@ -78,3 +78,25 @@ body {
   animation-duration: 0s !important;
   transition-duration: 0s !important;
 }
+
+@media print {
+  nav, canvas, .minimap,
+  button:not(.print-show),
+  [role="tablist"],
+  [role="dialog"],
+  .no-print { display: none !important; }
+
+  aside {
+    width: 100% !important;
+    min-width: 0 !important;
+    border: none !important;
+    page-break-inside: avoid;
+  }
+
+  body { background: white !important; color: #222 !important; }
+  header { border-bottom: 2px solid #333 !important; padding-bottom: 8px !important; margin-bottom: 16px !important; }
+  .text-text-dim, .text-text-primary, .text-text-heading { color: #333 !important; }
+  .text-accent { color: #0891b2 !important; }
+  .text-life { color: #c00 !important; }
+  .text-es { color: #0077aa !important; }
+}
