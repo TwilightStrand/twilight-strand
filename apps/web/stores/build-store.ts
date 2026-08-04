@@ -44,6 +44,9 @@ interface BuildState {
   history: Array<{ action: string; timestamp: number }>;
   addHistory: (action: string) => void;
 
+  configOverrides: Record<string, string | boolean | number>;
+  setConfigOverride: (key: string, value: string | boolean | number) => void;
+
   initEngine: () => Promise<void>;
   importBuild: (input: string) => Promise<void>;
   clearBuild: () => void;
@@ -70,6 +73,11 @@ export const useBuildStore = create<BuildState>((set, get) => ({
   savedBuilds: [],
   compareStats: null,
   history: [],
+  configOverrides: {},
+
+  setConfigOverride(key: string, value: string | boolean | number) {
+    set((s) => ({ configOverrides: { ...s.configOverrides, [key]: value } }));
+  },
 
   addHistory(action: string) {
     set((s) => ({
