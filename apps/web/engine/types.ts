@@ -54,6 +54,7 @@ export interface SkillGroup {
   enabled: boolean;
   gems: GemData[];
   label: string;
+  dps?: number;
 }
 
 export interface GemData {
