@@ -1,5 +1,7 @@
 "use client";
 
+import { StatBreakdown } from "./StatBreakdown";
+
 function HighlightText({ text, query }: { text: string; query?: string }) {
   if (!query) return <>{text}</>;
   const idx = text.toLowerCase().indexOf(query.toLowerCase());
@@ -21,12 +23,14 @@ export function CalcRow({
   color,
   suffix,
   filterQuery,
+  statKey,
 }: {
   label: string;
   value: number | string;
   color?: string;
   suffix?: string;
   filterQuery?: string;
+  statKey?: string;
 }) {
   const formatted =
     typeof value === "number"
@@ -41,9 +45,12 @@ export function CalcRow({
 
   return (
     <div className="flex justify-between items-baseline text-xs font-mono py-0.5">
-      <span className="text-text-dim">
-        <HighlightText text={label} query={filterQuery} />
-      </span>
+      <div className="flex items-center gap-1">
+        <span className="text-text-dim">
+          <HighlightText text={label} query={filterQuery} />
+        </span>
+        {statKey && <StatBreakdown statKey={statKey} label={label} />}
+      </div>
       <span className="tabular-nums" style={color ? { color } : undefined}>
         {formatted}
         {suffix ?? ""}
