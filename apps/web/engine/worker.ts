@@ -805,11 +805,19 @@ async function handleEvaluate(id: number, xml: string): Promise<void> {
                   }
                 end
               end
+              local groupDps = 0
+              if group.displaySkillList and group.mainActiveSkill then
+                local activeSkill = group.displaySkillList[group.mainActiveSkill]
+                if activeSkill and activeSkill.output then
+                  groupDps = activeSkill.output.TotalDPS or activeSkill.output.CombinedDPS or 0
+                end
+              end
               _tsc_eval_skills[i] = {
                 slot = group.slot or "",
                 enabled = group.enabled ~= false,
                 gems = gems,
                 label = group.displayLabel or group.slot or "Group " .. i,
+                dps = groupDps,
               }
             end
           end
@@ -895,6 +903,7 @@ async function handleEvaluate(id: number, xml: string): Promise<void> {
             enabled: group.enabled !== false,
             gems,
             label: String(group.label ?? ""),
+            dps: typeof group.dps === "number" ? group.dps : undefined,
           });
         }
       }

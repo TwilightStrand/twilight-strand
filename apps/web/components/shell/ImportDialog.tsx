@@ -239,19 +239,24 @@ export function ImportDialog({
             </span>
             <div className="mt-1.5 grid grid-cols-1 gap-1.5">
               {[
-                { name: "RF Juggernaut", desc: "Tanky regen tank", cls: "Marauder" },
-                { name: "LA Deadeye", desc: "Fast bow mapper", cls: "Ranger" },
-                { name: "DD Elementalist", desc: "Ignite corpse build", cls: "Witch" },
+                { name: "RF Juggernaut", desc: "Tanky regen tank", code: "eJytU9tOwzAM_ZUoH8DKEEiTuk4MNgQaF63AKzKtV6KlyUicwf4eN1uhQ4IXeEninONzLMdJR--1Fmt0XlkzlIcHiRxl6R3Qy-1iHJQulamyNJ6ExjXqoRwkUhC4CumxTTt64rtCg_c3UONQXoODUKKTAnyBpjz7gq5CVaEzEEiKGpTJbbFEunA2rNheirXCt2tbMvN-PplIrkXDBl1OQMLzMpQztUDmgQ5MOjlOEtnL0l4sMUvzpdLaCyhIrTEGOVIjvIM4EqrsXMQiTr_osQg08KyRaeQCe3ltWWNsy404dbUNjpMvsG4b0ueM1wBa0YYD7oRvhC45fa6qF0Ib_FQ51jHcgXyFRQcQW2TfsLcvn_wkn4fVyjoaB2f4mc6hhmrPZQeILSJ29D-6TTTWaAj01BbBd-0-ERGhf_I7s4ZHiBwQlpPFAgvqenZRsYV_8e3FJ253noX26LP03iG2cxOl44jwSRAjnVHvDxh4mM84d7s2JN4agSy9JKx9Y_XtD30A5aYoUg==" },
+                { name: "LA Deadeye", desc: "Fast bow mapper", code: "eJytU8tOwzAQ_BXLH0BLOVVKU6UPVZXKQ02BIzLxklj1I9hOSv-ejZvQFAkucIl3d2Znssk6mn4oSWqwThg9oddXQzqNowfmi_u3WSUkFzqPoxARCTXICR0PKfHM5uCfurabF6xlkjl3xxRM6JbpHCwlzGWg-fwMLIBxOAIligmdmmwPfmVNVaIzJbWAw63hSNttl0s6iKN0L6R0hGVe1BCSFHzDbSHMiOC9QtBNzvSgC5q9SkCatxVaO2lQY2b4kSRWmcpi8wpUN94IO94rJoU_YoJzuUZoje0bkRde4wdJrDUHSjSOlJaQ9RDSQpeWg0uD4U8GaVWWxvp5gUP05UOBtOgfxRPOgc-N5AumWA59mwCRBiMn8J8slxIUaM_kSfVZ-CLxnmV713f_YnXmB-SRlvjLmwzCj-5O3IgudHG0swDd9gSTsCgYEY9Ib31HYwQetxvsPT0bEh6NQBytPSjXWH27F58gcBiT" },
+                { name: "SRS Necromancer", desc: "Minion summoner", code: "eJytU9tOAjEQ_ZVJP0AQn0iWJaCEkAgaFvTR1O4IDb2sbXeRv3f2JouJvuhLOzPnzJxOO43GH1pBgc5La0bs-qrPxnH0yMP-4W2aS5VKs4ujygKFBaoRG_YZBO52GJ7atJsXignFvV9xjSP2LIPYM-BeoElvz_EVCmc1NwIdA82lSaw4YJg7m2ckzqCQeFzalKib9WzGenGUHKRSHrgIssDKSTCU3AYiD2TaCVR1J2d6VRcNf1VItOByZOCVpRpTm55g4rTNHSXPUbcdDijjPedKhhM51JovCy0oPcm1tmbNd3QtSSadDAwMtZZkKFoUahha_FK7d6nU_1kpy6wLS2nohu-45jvsStVxqAFoyH_U2hqF3O-7Mk3onwRmCjWawFV9bJqS_SQELg6-q_nFabs7Eg8a4i8n6VXP3e40F63p42jjENsZqkSqcSELAiGdOR4MCdiu7ym3XksSbWWBOFoE1L6U-vZBPgEODB07" },
               ].map((build) => (
                 <button
                   key={build.name}
-                  className="flex items-center gap-2 px-3 py-2 text-left rounded border border-border-subtle transition-colors opacity-40 cursor-not-allowed"
-                  disabled
-                  title="Example builds coming soon"
+                  onClick={() => {
+                    importBuild(build.code).then(() => {
+                      if (!useBuildStore.getState().error) {
+                        setInput("");
+                        onClose();
+                      }
+                    });
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 text-left rounded border border-border-subtle hover:border-accent/30 hover:bg-bg-hover/50 transition-colors"
                 >
                   <span className="text-xs font-mono text-text-primary">{build.name}</span>
                   <span className="text-[10px] font-mono text-text-dim flex-1">{build.desc}</span>
-                  <span className="text-[9px] font-mono text-text-dim/40 shrink-0">soon</span>
                 </button>
               ))}
             </div>
