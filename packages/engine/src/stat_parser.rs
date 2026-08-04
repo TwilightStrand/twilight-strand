@@ -84,25 +84,112 @@ pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
         mods.push(increased("Evasion", val));
     }
 
-    // --- Damage (only match global, not "Minions deal X% increased Damage") --
+    // --- Per-type damage ----------------------------------------------------
+    // Order matters: check specific types before generic "increased damage"
     {
         let lower = line.to_lowercase();
-        let is_global_damage = (lower.contains("increased damage") || lower.contains("more damage"))
-            && !lower.contains("minions")
-            && !lower.contains("allies")
-            && !lower.contains("enemies");
-        if is_global_damage {
-            if let Some(val) = extract_pct(line, "increased damage") {
-                mods.push(increased("Damage", val));
+        let is_minion = lower.contains("minions") || lower.contains("allies") || lower.contains("enemies");
+
+        // Elemental damage (fire + cold + lightning)
+        if !is_minion {
+            if let Some(val) = extract_pct(line, "increased elemental damage") {
+                mods.push(increased("FireDamage", val));
+                mods.push(increased("ColdDamage", val));
+                mods.push(increased("LightningDamage", val));
             }
-            if let Some(val) = extract_pct(line, "more damage") {
-                mods.push(Modifier {
-                    stat: "Damage".into(),
-                    value: val,
-                    mod_type: "more".into(),
-                });
+            if let Some(val) = extract_pct(line, "more elemental damage") {
+                mods.push(more("FireDamage", val));
+                mods.push(more("ColdDamage", val));
+                mods.push(more("LightningDamage", val));
             }
         }
+
+        // Individual damage types
+        if !is_minion {
+            if let Some(val) = extract_pct(line, "increased physical damage") {
+                mods.push(increased("PhysicalDamage", val));
+            }
+            if let Some(val) = extract_pct(line, "more physical damage") {
+                mods.push(more("PhysicalDamage", val));
+            }
+            if let Some(val) = extract_pct(line, "increased fire damage") {
+                mods.push(increased("FireDamage", val));
+            }
+            if let Some(val) = extract_pct(line, "more fire damage") {
+                mods.push(more("FireDamage", val));
+            }
+            if let Some(val) = extract_pct(line, "increased cold damage") {
+                mods.push(increased("ColdDamage", val));
+            }
+            if let Some(val) = extract_pct(line, "more cold damage") {
+                mods.push(more("ColdDamage", val));
+            }
+            if let Some(val) = extract_pct(line, "increased lightning damage") {
+                mods.push(increased("LightningDamage", val));
+            }
+            if let Some(val) = extract_pct(line, "increased chaos damage") {
+                mods.push(increased("ChaosDamage", val));
+            }
+
+            // Spell / Attack damage
+            if let Some(val) = extract_pct(line, "increased spell damage") {
+                mods.push(increased("SpellDamage", val));
+            }
+            if let Some(val) = extract_pct(line, "more spell damage") {
+                mods.push(more("SpellDamage", val));
+            }
+            if let Some(val) = extract_pct(line, "increased attack damage") {
+                mods.push(increased("AttackDamage", val));
+            }
+
+            // Damage over time
+            if let Some(val) = extract_pct(line, "increased damage over time") {
+                mods.push(increased("DamageOverTime", val));
+            }
+            if let Some(val) = extract_pct(line, "more damage over time") {
+                mods.push(more("DamageOverTime", val));
+            }
+        }
+
+        // Global damage (generic, after specific types)
+        if !is_minion {
+            // Only match generic "increased damage" when no type keyword is present
+            let has_type_keyword = lower.contains("physical") || lower.contains("fire")
+                || lower.contains("cold") || lower.contains("lightning")
+                || lower.contains("chaos") || lower.contains("elemental")
+                || lower.contains("spell") || lower.contains("attack")
+                || lower.contains("over time");
+            if !has_type_keyword {
+                if let Some(val) = extract_pct(line, "increased damage") {
+                    mods.push(increased("Damage", val));
+                }
+                if let Some(val) = extract_pct(line, "more damage") {
+                    mods.push(more("Damage", val));
+                }
+            }
+        }
+    }
+
+    // --- Added flat damage ranges -------------------------------------------
+    if let Some((min, max)) = extract_damage_range(line, "physical damage") {
+        mods.push(flat("AddedPhysMin", min));
+        mods.push(flat("AddedPhysMax", max));
+    }
+    if let Some((min, max)) = extract_damage_range(line, "fire damage") {
+        mods.push(flat("AddedFireMin", min));
+        mods.push(flat("AddedFireMax", max));
+    }
+    if let Some((min, max)) = extract_damage_range(line, "cold damage") {
+        mods.push(flat("AddedColdMin", min));
+        mods.push(flat("AddedColdMax", max));
+    }
+    if let Some((min, max)) = extract_damage_range(line, "lightning damage") {
+        mods.push(flat("AddedLightningMin", min));
+        mods.push(flat("AddedLightningMax", max));
+    }
+    if let Some((min, max)) = extract_damage_range(line, "chaos damage") {
+        mods.push(flat("AddedChaosMin", min));
+        mods.push(flat("AddedChaosMax", max));
     }
 
     // --- Speed --------------------------------------------------------------
@@ -167,6 +254,38 @@ fn increased(stat: &str, value: f64) -> Modifier {
         stat: stat.into(),
         value,
         mod_type: "increased".into(),
+    }
+}
+
+fn more(stat: &str, value: f64) -> Modifier {
+    Modifier {
+        stat: stat.into(),
+        value,
+        mod_type: "more".into(),
+    }
+}
+
+/// Extract "Adds X to Y <type> damage" ranges
+fn extract_damage_range(line: &str, damage_suffix: &str) -> Option<(f64, f64)> {
+    let lower = line.to_lowercase();
+    if !lower.contains("adds") || !lower.contains(&damage_suffix.to_lowercase()) {
+        return None;
+    }
+    // Pattern: "Adds X to Y <type> damage"
+    let suffix_idx = lower.find(&damage_suffix.to_lowercase())?;
+    let before = &line[..suffix_idx];
+    // Find two numbers separated by "to"
+    let parts: Vec<&str> = before.split_whitespace().collect();
+    let mut nums = Vec::new();
+    for part in &parts {
+        if let Ok(n) = part.parse::<f64>() {
+            nums.push(n);
+        }
+    }
+    if nums.len() >= 2 {
+        Some((nums[nums.len() - 2], nums[nums.len() - 1]))
+    } else {
+        None
     }
 }
 
@@ -375,5 +494,94 @@ mod tests {
         let mods = parse_stat_line("+10 to Strength");
         assert_eq!(mods.len(), 1);
         assert_eq!(mods[0].stat, "Str");
+    }
+
+    // --- Per-type damage tests ---
+
+    #[test]
+    fn test_increased_fire_damage() {
+        let mods = parse_stat_line("30% increased Fire Damage");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "FireDamage");
+        assert_eq!(mods[0].value, 30.0);
+        assert_eq!(mods[0].mod_type, "increased");
+    }
+
+    #[test]
+    fn test_increased_elemental_damage() {
+        let mods = parse_stat_line("20% increased Elemental Damage");
+        assert_eq!(mods.len(), 3);
+        let stats: Vec<_> = mods.iter().map(|m| m.stat.as_str()).collect();
+        assert!(stats.contains(&"FireDamage"));
+        assert!(stats.contains(&"ColdDamage"));
+        assert!(stats.contains(&"LightningDamage"));
+    }
+
+    #[test]
+    fn test_increased_spell_damage() {
+        let mods = parse_stat_line("40% increased Spell Damage");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "SpellDamage");
+        assert_eq!(mods[0].mod_type, "increased");
+    }
+
+    #[test]
+    fn test_more_physical_damage() {
+        let mods = parse_stat_line("49% more Physical Damage");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "PhysicalDamage");
+        assert_eq!(mods[0].mod_type, "more");
+    }
+
+    #[test]
+    fn test_increased_damage_over_time() {
+        let mods = parse_stat_line("20% increased Damage over Time");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "DamageOverTime");
+        assert_eq!(mods[0].mod_type, "increased");
+    }
+
+    // --- Added damage range tests ---
+
+    #[test]
+    fn test_adds_physical_damage() {
+        let mods = parse_stat_line("Adds 10 to 20 Physical Damage");
+        assert_eq!(mods.len(), 2);
+        assert_eq!(mods[0].stat, "AddedPhysMin");
+        assert_eq!(mods[0].value, 10.0);
+        assert_eq!(mods[1].stat, "AddedPhysMax");
+        assert_eq!(mods[1].value, 20.0);
+    }
+
+    #[test]
+    fn test_adds_fire_damage() {
+        let mods = parse_stat_line("Adds 50 to 80 Fire Damage");
+        assert_eq!(mods.len(), 2);
+        assert_eq!(mods[0].stat, "AddedFireMin");
+        assert_eq!(mods[0].value, 50.0);
+        assert_eq!(mods[1].stat, "AddedFireMax");
+        assert_eq!(mods[1].value, 80.0);
+    }
+
+    #[test]
+    fn test_adds_cold_damage() {
+        let mods = parse_stat_line("Adds 30 to 60 Cold Damage");
+        assert_eq!(mods.len(), 2);
+        assert_eq!(mods[0].stat, "AddedColdMin");
+        assert_eq!(mods[0].value, 30.0);
+    }
+
+    #[test]
+    fn test_minion_damage_not_matched() {
+        let mods = parse_stat_line("Minions deal 30% increased Damage");
+        assert!(mods.is_empty());
+    }
+
+    #[test]
+    fn test_generic_damage_not_matched_when_typed() {
+        // "increased Fire Damage" should produce FireDamage, NOT also generic Damage
+        let mods = parse_stat_line("30% increased Fire Damage");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "FireDamage");
     }
 }
