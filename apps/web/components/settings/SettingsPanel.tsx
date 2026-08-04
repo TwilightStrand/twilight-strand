@@ -12,6 +12,8 @@ export function SettingsPanel() {
   const performanceMode = useUiStore((s) => s.performanceMode);
   const setPerformanceMode = useUiStore((s) => s.setPerformanceMode);
   const history = useBuildStore((s) => s.history);
+  const engineInitTime = useBuildStore((s) => s.engineInitTime);
+  const engineEvalTime = useBuildStore((s) => s.engineEvalTime);
 
   return (
     <div className="h-full overflow-y-auto">
@@ -74,6 +76,22 @@ export function SettingsPanel() {
               >
                 {performanceMode ? "On" : "Off"}
               </button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-xs font-mono font-bold uppercase tracking-widest text-text-dim mb-2">
+            Engine
+          </h3>
+          <div className="bg-bg-card border border-border-card rounded-lg p-3 space-y-1">
+            <div className="flex justify-between text-xs font-mono">
+              <span className="text-text-dim">Init time</span>
+              <span className="text-text-primary">{engineInitTime ? `${(engineInitTime / 1000).toFixed(1)}s` : "-"}</span>
+            </div>
+            <div className="flex justify-between text-xs font-mono">
+              <span className="text-text-dim">Eval time</span>
+              <span className="text-text-primary">{engineEvalTime ? `${(engineEvalTime / 1000).toFixed(1)}s` : "-"}</span>
             </div>
           </div>
         </div>

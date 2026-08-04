@@ -275,6 +275,16 @@ export function CalcsTab() {
         >
           Copy Stats
         </button>
+        <button
+          onClick={async () => {
+            if (!stats) return;
+            await navigator.clipboard.writeText(JSON.stringify(stats, null, 2));
+          }}
+          disabled={!stats}
+          className="text-[10px] font-mono text-text-dim hover:text-accent transition-colors shrink-0"
+        >
+          JSON
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
