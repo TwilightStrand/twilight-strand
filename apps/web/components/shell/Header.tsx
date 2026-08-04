@@ -114,6 +114,19 @@ export function Header() {
       <div className="flex items-center gap-2">
         <button
           onClick={async () => {
+            const code = useBuildStore.getState().code;
+            if (!code) return;
+            const url = `${window.location.origin}#${code}`;
+            await navigator.clipboard.writeText(url);
+          }}
+          disabled={!stats}
+          className="text-xs font-mono text-text-dim hover:text-accent transition-colors px-2 py-1 rounded hover:bg-bg-hover disabled:opacity-30 disabled:cursor-not-allowed hidden sm:inline-block"
+          title="Copy shareable link"
+        >
+          Share
+        </button>
+        <button
+          onClick={async () => {
             const xml = useBuildStore.getState().xml;
             if (!xml) return;
             const { encodePobCode } = await import("@/engine/pob-codec");
