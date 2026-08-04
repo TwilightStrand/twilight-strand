@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useBuildStore } from "@/stores/build-store";
+import { BuildCard } from "./BuildCard";
 
 interface PoECharacter {
   name: string;
@@ -268,30 +269,25 @@ export function ImportDialog({
             <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-text-dim">
               Saved Builds
             </span>
-            <div className="mt-1.5 space-y-1 max-h-32 overflow-y-auto">
+            <div className="mt-1.5 space-y-1 max-h-40 overflow-y-auto">
               {savedBuilds.map((build, i) => (
-                <div key={i} className="flex items-center gap-2 text-xs font-mono">
-                  <button
-                    onClick={() => {
-                      importBuild(build.code).then(() => {
-                        if (!useBuildStore.getState().error) {
-                          setInput("");
-                          onClose();
-                        }
-                      });
-                    }}
-                    className="flex-1 text-left text-text-primary hover:text-accent transition-colors truncate"
-                  >
-                    {build.name}{" "}
-                    <span className="text-text-dim">Lv {build.level}</span>
-                  </button>
-                  <button
-                    onClick={() => deleteSavedBuild(i)}
-                    className="text-text-dim hover:text-blood transition-colors shrink-0 px-1"
-                  >
-                    x
-                  </button>
-                </div>
+                <BuildCard
+                  key={i}
+                  name={build.name}
+                  className={build.className}
+                  ascendancy={build.ascendancy}
+                  level={build.level}
+                  compact
+                  onClick={() => {
+                    importBuild(build.code).then(() => {
+                      if (!useBuildStore.getState().error) {
+                        setInput("");
+                        onClose();
+                      }
+                    });
+                  }}
+                  onDelete={() => deleteSavedBuild(i)}
+                />
               ))}
             </div>
           </div>
