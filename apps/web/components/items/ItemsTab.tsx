@@ -260,6 +260,20 @@ function ItemDetail({ item }: { item: ItemData }) {
           })}
         </div>
       )}
+
+      {keyStats.length > 0 && (
+        <div className="border-t border-border-subtle pt-2 mt-2">
+          <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-text-dim">Provides</span>
+          <div className="mt-1 space-y-0.5">
+            {keyStats.map((stat, i) => (
+              <div key={i} className="flex justify-between text-[10px] font-mono">
+                <span className="text-text-dim">{stat.label}</span>
+                <span style={{ color: stat.color }}>{stat.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
