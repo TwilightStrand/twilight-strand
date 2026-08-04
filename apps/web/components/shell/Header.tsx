@@ -13,9 +13,14 @@ function RecentBuildsDropdown() {
 
   useEffect(() => {
     if (!open) return;
-    const handler = () => setOpen(false);
-    document.addEventListener("click", handler);
-    return () => document.removeEventListener("click", handler);
+    const clickHandler = () => setOpen(false);
+    const keyHandler = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("click", clickHandler);
+    document.addEventListener("keydown", keyHandler);
+    return () => {
+      document.removeEventListener("click", clickHandler);
+      document.removeEventListener("keydown", keyHandler);
+    };
   }, [open]);
 
   if (savedBuilds.length === 0) return null;

@@ -241,6 +241,40 @@ export function CalcsTab() {
           onChange={(e) => setFilter(e.target.value)}
           className="flex-1 max-w-xs bg-bg-inset border border-border-subtle rounded px-2 py-1 text-xs font-mono text-text-primary placeholder:text-text-dim/40 focus:outline-none focus:border-accent"
         />
+        <button
+          onClick={async () => {
+            if (!stats) return;
+            const fmt = (n: number) => {
+              if (Math.abs(n) >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+              if (Math.abs(n) >= 1e3) return `${(n / 1e3).toFixed(1)}k`;
+              return String(Math.round(n));
+            };
+            const lines = [
+              `${stats.class_name} ${stats.ascendancy} Lv ${stats.level}`,
+              "",
+              `DPS: ${fmt(stats.total_dps)}`,
+              `Combined DPS: ${fmt(stats.combined_dps)}`,
+              `Crit: ${stats.crit_chance.toFixed(1)}%`,
+              `Speed: ${stats.attack_speed.toFixed(2)}/s`,
+              "",
+              `Life: ${stats.life} | ES: ${stats.energy_shield} | Mana: ${stats.mana}`,
+              `EHP: ${fmt(stats.total_ehp)}`,
+              "",
+              `Str: ${stats.strength} | Dex: ${stats.dexterity} | Int: ${stats.intelligence}`,
+              `Armour: ${stats.armour} | Evasion: ${stats.evasion}`,
+              `Block: ${stats.block_chance}% | Spell Block: ${stats.spell_block}%`,
+              "",
+              `Fire: ${stats.fire_res}/${stats.fire_res_max}%`,
+              `Cold: ${stats.cold_res}/${stats.cold_res_max}%`,
+              `Lightning: ${stats.lightning_res}/${stats.lightning_res_max}%`,
+              `Chaos: ${stats.chaos_res}/${stats.chaos_res_max}%`,
+            ];
+            await navigator.clipboard.writeText(lines.join("\n"));
+          }}
+          className="text-[10px] font-mono text-text-dim hover:text-accent transition-colors shrink-0"
+        >
+          Copy Stats
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

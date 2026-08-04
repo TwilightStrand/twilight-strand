@@ -53,6 +53,12 @@ export default function Home() {
           import("@/stores/tree-store").then((m) => m.useTreeStore.getState().undo());
         }
       }
+      if (e.key === "Escape") {
+        const { importOpen, setImportOpen } = useUiStore.getState();
+        if (importOpen) {
+          setImportOpen(false);
+        }
+      }
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);

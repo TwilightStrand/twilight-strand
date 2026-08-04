@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useBuildStore } from "@/stores/build-store";
+import { useUiStore } from "@/stores/ui-store";
 import { StatsSkeleton } from "./Skeleton";
 import { BuildDiff } from "./BuildDiff";
 import { STAT_EXPLANATIONS } from "@/lib/stat-explanations";
+import type { BuildStats } from "@/engine/types";
 
 function StatSection({
   title,
@@ -96,6 +98,36 @@ function ResRow({ label, current, max }: { label: string; current: number; max: 
   );
 }
 
+function DpsBar({ stats }: { stats: BuildStats }) {
+  const total = stats.total_dps || 1;
+  const bleed = stats.bleed_dps || 0;
+  const poison = stats.poison_dps || 0;
+  const ignite = stats.ignite_dps || 0;
+  const hit = Math.max(0, total - bleed - poison - ignite);
+
+  if (total <= 0) return null;
+
+  const segments = [
+    { value: hit, color: "#06b6d4", label: "Hit" },
+    { value: bleed, color: "#ef4444", label: "Bleed" },
+    { value: poison, color: "#22c55e", label: "Poison" },
+    { value: ignite, color: "#f97316", label: "Ignite" },
+  ].filter(s => s.value > 0);
+
+  if (segments.length <= 1) return null;
+
+  return (
+    <div
+      className="flex h-1 rounded-full overflow-hidden mt-0.5 mb-1"
+      title={segments.map(s => `${s.label}: ${Math.round(s.value / total * 100)}%`).join(", ")}
+    >
+      {segments.map((s, i) => (
+        <div key={i} style={{ width: `${(s.value / total) * 100}%`, backgroundColor: s.color }} />
+      ))}
+    </div>
+  );
+}
+
 function calcDelta(current: number, baseline: number | undefined): number | undefined {
   if (baseline === undefined) return undefined;
   const d = current - baseline;
@@ -108,6 +140,20 @@ export function StatsSidebar() {
   const cmp = useBuildStore((s) => s.compareStats);
   const setCompareBaseline = useBuildStore((s) => s.setCompareBaseline);
   const clearCompare = useBuildStore((s) => s.clearCompare);
+  const scrollRef = useRef<HTMLElement>(null);
+  const scrollPositions = useRef<Record<string, number>>({});
+  const activeTab = useUiStore((s) => s.activeTab);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollPositions.current[activeTab] ?? 0;
+    }
+    return () => {
+      if (scrollRef.current) {
+        scrollPositions.current[activeTab] = scrollRef.current.scrollTop;
+      }
+    };
+  }, [activeTab]);
 
   if (engineStatus === "loading" && !stats) {
     return <StatsSkeleton />;
@@ -149,7 +195,7 @@ export function StatsSidebar() {
   const physRed = stats?.phys_reduction ?? 0;
 
   return (
-    <aside className="w-48 min-w-48 hidden md:block border-r border-border-subtle bg-bg-deep/80 overflow-y-auto p-3" aria-label="Build statistics">
+    <aside ref={scrollRef} className="w-48 min-w-48 hidden md:block border-r border-border-subtle bg-bg-deep/80 overflow-y-auto p-3" aria-label="Build statistics">
       <div className="mb-3 pb-2 border-b border-border-subtle">
         <div className="flex items-center gap-2">
           <span className="text-life font-mono text-sm font-bold tabular-nums">
@@ -213,6 +259,12 @@ export function StatsSidebar() {
         <StatRow label="Evasion" value={fmtNum(evasion)} delta={cmp ? calcDelta(evasion, cmp.evasion) : undefined} />
         <StatRow label="Evade" value={`${fmtNum(evade)}%`} delta={cmp ? calcDelta(evade, cmp.evade_chance) : undefined} />
         <StatRow label="Life Regen/s" value={fmtNum(lifeRegen, 1)} delta={cmp ? calcDelta(lifeRegen, cmp.life_regen) : undefined} />
+        {(stats?.es_regen ?? 0) > 0 && (
+          <StatRow label="ES Regen/s" value={fmtNum(stats?.es_regen ?? 0, 1)} />
+        )}
+        {(stats?.es_recharge_rate ?? 0) > 0 && (
+          <StatRow label="ES Recharge/s" value={fmtNum(stats?.es_recharge_rate ?? 0)} />
+        )}
         {manaReservedPct > 0 && (
           <StatRow label="Mana Reserved" value={`${fmtNum(manaReservedPct)}%`} />
         )}
