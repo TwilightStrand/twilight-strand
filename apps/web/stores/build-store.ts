@@ -41,6 +41,9 @@ interface BuildState {
   setCompareBaseline: () => void;
   clearCompare: () => void;
 
+  history: Array<{ action: string; timestamp: number }>;
+  addHistory: (action: string) => void;
+
   initEngine: () => Promise<void>;
   importBuild: (input: string) => Promise<void>;
   clearBuild: () => void;
@@ -66,6 +69,13 @@ export const useBuildStore = create<BuildState>((set, get) => ({
   notes: "",
   savedBuilds: [],
   compareStats: null,
+  history: [],
+
+  addHistory(action: string) {
+    set((s) => ({
+      history: [{ action, timestamp: Date.now() }, ...s.history].slice(0, 50),
+    }));
+  },
 
   setCompareBaseline() {
     const s = get().stats;
@@ -98,6 +108,7 @@ export const useBuildStore = create<BuildState>((set, get) => ({
     }
 
     set({ savedBuilds: builds });
+    get().addHistory(`Saved build: ${saved.name}`);
     try {
       localStorage.setItem("tsc-saved-builds", JSON.stringify(builds));
     } catch {}
@@ -192,6 +203,8 @@ export const useBuildStore = create<BuildState>((set, get) => ({
         buildName,
       });
 
+      get().addHistory(`Imported build: ${buildName}`);
+
       if (typeof window !== "undefined" && kind === "pob-code") {
         window.history.replaceState(null, "", `#${input}`);
       }
@@ -215,6 +228,7 @@ export const useBuildStore = create<BuildState>((set, get) => ({
   },
 
   clearBuild() {
+    get().addHistory("Cleared build");
     set({
       code: null,
       xml: null,

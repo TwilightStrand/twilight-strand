@@ -1,6 +1,7 @@
 "use client";
 
 import { useUiStore } from "@/stores/ui-store";
+import { useBuildStore } from "@/stores/build-store";
 import { NotesPanel } from "@/components/shell/NotesPanel";
 
 export function SettingsPanel() {
@@ -10,6 +11,7 @@ export function SettingsPanel() {
   const setNumberFormat = useUiStore((s) => s.setNumberFormat);
   const performanceMode = useUiStore((s) => s.performanceMode);
   const setPerformanceMode = useUiStore((s) => s.setPerformanceMode);
+  const history = useBuildStore((s) => s.history);
 
   return (
     <div className="h-full overflow-y-auto">
@@ -73,6 +75,28 @@ export function SettingsPanel() {
                 {performanceMode ? "On" : "Off"}
               </button>
             </div>
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-xs font-mono font-bold uppercase tracking-widest text-text-dim mb-2">
+            History
+          </h3>
+          <div className="bg-bg-card border border-border-card rounded-lg p-3">
+            {history.length === 0 ? (
+              <p className="text-xs font-mono text-text-dim/60">No history yet</p>
+            ) : (
+              <div className="space-y-1 max-h-40 overflow-y-auto">
+                {history.map((entry, i) => (
+                  <div key={i} className="flex items-center justify-between text-xs font-mono">
+                    <span className="text-text-dim truncate">{entry.action}</span>
+                    <span className="text-text-dim/40 text-[9px] shrink-0 ml-2">
+                      {new Date(entry.timestamp).toLocaleTimeString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

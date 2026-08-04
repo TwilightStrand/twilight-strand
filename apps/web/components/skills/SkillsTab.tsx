@@ -63,8 +63,9 @@ function GemSlot({ gem }: { gem: GemData }) {
 }
 
 function SocketGroupCard({ group, index, isMain }: { group: SkillGroup; index: number; isMain: boolean }) {
-  const activeGem = group.gems.find((g) => !g.isSupport);
-  const supports = group.gems.filter((g) => g.isSupport);
+  const items = useBuildStore((s) => s.items);
+  const equippedItem = items.find((item) => item.slot === group.slot);
+  const allGems = group.gems;
 
   return (
     <div
@@ -94,7 +95,10 @@ function SocketGroupCard({ group, index, isMain }: { group: SkillGroup; index: n
           </span>
         )}
         {group.slot && (
-          <span className="text-[10px] font-mono text-text-dim truncate">
+          <span
+            className="text-[10px] font-mono text-text-dim truncate"
+            title={equippedItem ? `Equipped: ${equippedItem.name || equippedItem.base}` : `${group.slot}: Empty`}
+          >
             {group.slot}
           </span>
         )}
@@ -104,10 +108,19 @@ function SocketGroupCard({ group, index, isMain }: { group: SkillGroup; index: n
           </span>
         )}
       </div>
-      <div className="py-1">
-        {activeGem && <GemSlot gem={activeGem} />}
-        {supports.map((gem, i) => (
-          <GemSlot key={i} gem={gem} />
+      <div className="py-1 relative">
+        {allGems.length > 1 && (
+          <div className="absolute left-4 top-3 bottom-3 w-px bg-border-card" />
+        )}
+        {allGems.map((gem, i) => (
+          <div key={i} className="relative">
+            {allGems.length > 1 && (
+              <div className="absolute left-3.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full border border-border-card bg-bg-card z-10" />
+            )}
+            <div className={allGems.length > 1 ? "pl-4" : ""}>
+              <GemSlot gem={gem} />
+            </div>
+          </div>
         ))}
       </div>
     </div>
