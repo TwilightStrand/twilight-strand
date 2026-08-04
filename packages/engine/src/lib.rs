@@ -11,7 +11,9 @@ pub use gems::{lookup_gem, avg_base_damage, GemData, DamageType, GemTag};
 pub mod stat_parser;
 pub mod node_power;
 pub mod pathfinder;
+pub mod supports;
 pub use stat_parser::{parse_stat_line, parse_stats};
+pub use supports::get_support_modifiers;
 
 // ---------------------------------------------------------------------------
 // Public types shared with TypeScript via tsify
