@@ -507,6 +507,20 @@ export function TreeCanvas() {
       <NodePowerControls />
       {tooltip && (
         <div
+          ref={(el) => {
+            if (!el) return;
+            const rect = el.getBoundingClientRect();
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
+            let left = tooltip.x + 16;
+            let top = tooltip.y - 8;
+            if (left + rect.width > vw - 8) left = tooltip.x - rect.width - 16;
+            if (top + rect.height > vh - 8) top = vh - rect.height - 8;
+            if (left < 8) left = 8;
+            if (top < 8) top = 8;
+            el.style.left = `${left}px`;
+            el.style.top = `${top}px`;
+          }}
           className="fixed z-20 pointer-events-none"
           style={{
             left: tooltip.x + 16,

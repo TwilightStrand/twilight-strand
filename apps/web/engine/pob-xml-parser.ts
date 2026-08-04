@@ -94,6 +94,8 @@ function extractBuildInfo(root: Element): BuildStats {
     impale_dps: 0,
     life_leech_rate: 0,
     es_leech_rate: 0,
+    es_regen: 0,
+    es_recharge_rate: 0,
   };
 }
 

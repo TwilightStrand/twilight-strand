@@ -248,6 +248,7 @@ export function ItemsTab() {
   const [activeLoadout, setActiveLoadout] = useState(0);
   const [weaponSet, setWeaponSet] = useState<1 | 2>(1);
   const [activeFlasks, setActiveFlasks] = useState<Set<string>>(new Set());
+  const [itemFilter, setItemFilter] = useState("");
   const loadouts = ["Default"];
 
   function toggleFlask(slot: string) {
@@ -294,6 +295,15 @@ export function ItemsTab() {
             +
           </button>
         </div>
+        <div className="px-2 py-1.5 border-b border-border-subtle">
+          <input
+            type="text"
+            value={itemFilter}
+            onChange={(e) => setItemFilter(e.target.value)}
+            placeholder="Filter items..."
+            className="w-full bg-bg-inset border border-border-subtle rounded px-2 py-1 text-[10px] font-mono text-text-primary placeholder:text-text-dim/40 focus:outline-none focus:border-accent"
+          />
+        </div>
         <div className="p-2">
         <div className="flex items-center gap-1 mb-2 px-3">
           <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-text-dim mr-auto">
@@ -312,7 +322,13 @@ export function ItemsTab() {
             Set II
           </button>
         </div>
-        {equipmentSlots.map((slot) => (
+        {equipmentSlots.filter(slot => {
+          if (!itemFilter.trim()) return true;
+          const item = itemsBySlot.get(slot);
+          if (!item) return !itemFilter.trim();
+          const q = itemFilter.toLowerCase();
+          return item.name.toLowerCase().includes(q) || item.base.toLowerCase().includes(q) || item.mods.some(m => m.toLowerCase().includes(q));
+        }).map((slot) => (
           <SlotRow
             key={slot}
             slot={slot}

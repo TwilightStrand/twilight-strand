@@ -663,6 +663,8 @@ async function handleEvaluate(id: number, xml: string): Promise<void> {
       impale_dps: 0,
       life_leech_rate: 0,
       es_leech_rate: 0,
+      es_regen: 0,
+      es_recharge_rate: 0,
       class_name: "Scion",
       ascendancy: "",
       level: 1,
@@ -778,6 +780,8 @@ async function handleEvaluate(id: number, xml: string): Promise<void> {
             result.impale_dps = out.ImpaleDPS or 0
             result.life_leech_rate = out.LifeLeechGainRate or 0
             result.es_leech_rate = out.EnergyShieldLeechGainRate or 0
+            result.es_regen = out.EnergyShieldRegen or 0
+            result.es_recharge_rate = out.EnergyShieldRecharge or 0
             result.has_calcs = true
           else
             result.has_calcs = false
