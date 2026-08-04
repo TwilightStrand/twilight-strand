@@ -96,6 +96,13 @@ export function Header() {
           <span className="text-text-dim truncate max-w-32">{buildName}</span>
           <span className="text-text-dim/60 text-[10px]">Lv {level}</span>
         </div>
+        {stats && (
+          <div className="hidden lg:flex items-center gap-1.5 text-[9px] font-mono text-text-dim/50 ml-1">
+            <span>{allocNodes.size > 1 ? allocNodes.size - 1 : 0} pts</span>
+            <span className="text-text-dim/30">|</span>
+            <span>{stats.total_dps >= 1e6 ? `${(stats.total_dps / 1e6).toFixed(1)}M` : stats.total_dps >= 1e3 ? `${Math.round(stats.total_dps / 1e3)}k` : Math.round(stats.total_dps)} DPS</span>
+          </div>
+        )}
       </div>
 
       <EngineStatus />
