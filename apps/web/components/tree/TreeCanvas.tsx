@@ -15,6 +15,7 @@ import { SpatialGrid } from "./tree-spatial";
 import { useTreeStore } from "@/stores/tree-store";
 import { NodePowerControls, useNodePowerStore } from "./NodePowerControls";
 import { TreeSearch } from "./TreeSearch";
+import { TreeSpecBar } from "./TreeSpecBar";
 
 export function TreeCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -314,6 +315,7 @@ export function TreeCanvas() {
         }}
       />
       <TreeSearch treeData={treeData} />
+      <TreeSpecBar />
       <NodePowerControls />
       {tooltip && (
         <div

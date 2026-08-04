@@ -119,6 +119,8 @@ function ItemDetail({ item }: { item: ItemData }) {
 export function ItemsTab() {
   const items = useBuildStore((s) => s.items);
   const [selectedSlot, setSelectedSlot] = useState<string>(EQUIPMENT_SLOTS[0]);
+  const [activeLoadout, setActiveLoadout] = useState(0);
+  const loadouts = ["Default"];
 
   const itemsBySlot = new Map<string, ItemData>();
   for (const item of items) {
@@ -129,7 +131,30 @@ export function ItemsTab() {
 
   return (
     <div className="flex h-full">
-      <div className="w-64 min-w-56 border-r border-border-subtle overflow-y-auto p-2">
+      <div className="w-64 min-w-56 border-r border-border-subtle overflow-y-auto">
+        <div className="flex items-center gap-1 px-3 py-1.5 border-b border-border-subtle">
+          {loadouts.map((name, i) => (
+            <button
+              key={i}
+              onClick={() => setActiveLoadout(i)}
+              className={`text-[10px] font-mono px-2 py-0.5 rounded transition-colors ${
+                i === activeLoadout
+                  ? "bg-accent/20 text-accent border border-accent/30"
+                  : "text-text-dim hover:text-text-primary border border-transparent"
+              }`}
+            >
+              {name}
+            </button>
+          ))}
+          <button
+            className="text-[10px] font-mono px-1.5 py-0.5 rounded text-text-dim/40 cursor-not-allowed"
+            disabled
+            title="Add loadout (coming soon)"
+          >
+            +
+          </button>
+        </div>
+        <div className="p-2">
         <div className="mb-2">
           <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-text-dim px-3">
             Equipment
@@ -159,6 +184,7 @@ export function ItemsTab() {
             onClick={() => setSelectedSlot(slot)}
           />
         ))}
+      </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
