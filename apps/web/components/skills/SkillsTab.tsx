@@ -41,7 +41,7 @@ function GemSlot({ gem }: { gem: GemData }) {
   );
 }
 
-function SocketGroupCard({ group, index }: { group: SkillGroup; index: number }) {
+function SocketGroupCard({ group, index, isMain }: { group: SkillGroup; index: number; isMain: boolean }) {
   const activeGem = group.gems.find((g) => !g.isSupport);
   const supports = group.gems.filter((g) => g.isSupport);
 
@@ -49,7 +49,9 @@ function SocketGroupCard({ group, index }: { group: SkillGroup; index: number })
     <div
       className={`border rounded-lg overflow-hidden ${
         group.enabled
-          ? "border-border-card bg-bg-card"
+          ? isMain
+            ? "border-accent/40 bg-bg-card"
+            : "border-border-card bg-bg-card"
           : "border-border-subtle bg-bg-card/50 opacity-60"
       }`}
     >
@@ -60,6 +62,11 @@ function SocketGroupCard({ group, index }: { group: SkillGroup; index: number })
         <span className="text-sm font-mono text-text-heading truncate flex-1">
           {group.label}
         </span>
+        {isMain && (
+          <span className="text-[9px] font-mono uppercase tracking-wider text-accent bg-accent/10 px-1.5 rounded">
+            main
+          </span>
+        )}
         {group.slot && (
           <span className="text-[10px] font-mono text-text-dim truncate">
             {group.slot}
@@ -83,6 +90,7 @@ function SocketGroupCard({ group, index }: { group: SkillGroup; index: number })
 
 export function SkillsTab() {
   const skills = useBuildStore((s) => s.skills);
+  const mainSocketGroup = useBuildStore((s) => s.stats?.main_socket_group ?? 0);
 
   if (skills.length === 0) {
     return (
@@ -111,7 +119,7 @@ export function SkillsTab() {
       </div>
       <div className="space-y-2 max-w-2xl">
         {skills.map((group, i) => (
-          <SocketGroupCard key={i} group={group} index={i} />
+          <SocketGroupCard key={i} group={group} index={i} isMain={i + 1 === mainSocketGroup} />
         ))}
       </div>
     </div>
