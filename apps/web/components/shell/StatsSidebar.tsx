@@ -340,9 +340,14 @@ export function StatsSidebar() {
             </>
           )}
           </div>
-          <button onClick={toggleCompact} className="text-[9px] font-mono text-text-dim/40 hover:text-text-dim transition-colors" title={compact ? "Normal view" : "Compact view"}>
-            {compact ? "+" : "-"}
-          </button>
+          <div className="flex items-center gap-1">
+            <button onClick={toggleSidebarMode} className="text-[9px] font-mono text-text-dim/40 hover:text-text-dim transition-colors" title="Toggle display mode">
+              {sidebarMode === "list" ? "bars" : "list"}
+            </button>
+            <button onClick={toggleCompact} className="text-[9px] font-mono text-text-dim/40 hover:text-text-dim transition-colors" title={compact ? "Normal view" : "Compact view"}>
+              {compact ? "+" : "-"}
+            </button>
+          </div>
         </div>
         <PoolBar life={life} es={es} />
         {(stats?.total_ehp ?? 0) > 0 && (
@@ -368,7 +373,19 @@ export function StatsSidebar() {
 
       <PinnedStats stats={stats} />
 
-      <StatSection title="Offence" color="var(--color-offence)">
+      {sidebarMode === "bars" && stats && (
+        <div className="mb-3">
+          <BarStatRow label="Life" value={life} max={10000} color="var(--color-life)" />
+          <BarStatRow label="ES" value={es} max={15000} color="var(--color-es)" />
+          <BarStatRow label="DPS" value={dps} max={5000000} color="var(--color-offence)" />
+          <BarStatRow label="Armour" value={armour} max={50000} />
+          <BarStatRow label="Evasion" value={evasion} max={50000} />
+          <BarStatRow label="Block" value={atkBlock} max={75} />
+          <BarStatRow label="Phys Red" value={physRed} max={90} />
+        </div>
+      )}
+
+      {sidebarMode === "list" && (<><StatSection title="Offence" color="var(--color-offence)">
         <StatRow label="Skill DPS" value={fmtNum(dps)} statKey="total_dps" delta={cmp ? calcDelta(dps, cmp.combined_dps ?? cmp.total_dps) : undefined} title={`Total DPS: ${fmtNum(stats?.total_dps ?? 0)} | Combined: ${fmtNum(stats?.combined_dps ?? 0)}`} />
         {stats && <DpsBar stats={stats} />}
         <StatRow label="Crit Chance" value={`${fmtNum(critChance, 1)}%`} statKey="crit_chance" delta={cmp ? calcDelta(critChance, cmp.crit_chance) : undefined} />
@@ -411,7 +428,7 @@ export function StatsSidebar() {
         <StatRow label="Spell Block" value={`${fmtNum(spellBlock)}%`} />
         <StatRow label="Suppression" value={`${fmtNum(suppress)}%`} />
         <StatRow label="Phys Reduction" value={`${fmtNum(physRed)}%`} />
-      </StatSection>
+      </StatSection></>)}
 
       <BuildDiff />
     </aside>

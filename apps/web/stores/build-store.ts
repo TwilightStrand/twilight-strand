@@ -42,6 +42,8 @@ interface BuildState {
   clearCompare: () => void;
 
   lastSaved: number | null;
+  engineInitTime: number | null;
+  engineEvalTime: number | null;
 
   history: Array<{ action: string; timestamp: number }>;
   addHistory: (action: string) => void;
@@ -75,6 +77,8 @@ export const useBuildStore = create<BuildState>((set, get) => ({
   savedBuilds: [],
   compareStats: null,
   lastSaved: null,
+  engineInitTime: null,
+  engineEvalTime: null,
   history: [],
   configOverrides: {},
 
@@ -148,6 +152,7 @@ export const useBuildStore = create<BuildState>((set, get) => ({
     set({ engineStatus: "loading", engineProgress: "Starting engine..." });
 
     try {
+      const initStart = performance.now();
       const { getEngineBridge } = await import("@/engine/bridge");
       const bridge = getEngineBridge();
 
@@ -156,7 +161,7 @@ export const useBuildStore = create<BuildState>((set, get) => ({
       });
 
       await bridge.init("poe1");
-      set({ engineStatus: "ready", engineProgress: "" });
+      set({ engineStatus: "ready", engineProgress: "", engineInitTime: Math.round(performance.now() - initStart) });
     } catch (e) {
       set({
         engineStatus: "error",
@@ -267,6 +272,7 @@ async function evaluateWithEngine(xml: string) {
   setState({ evaluating: true });
 
   try {
+    const evalStart = performance.now();
     const { getEngineBridge } = await import("@/engine/bridge");
     const bridge = getEngineBridge();
     const result = await bridge.evaluate(xml);
@@ -293,6 +299,7 @@ async function evaluateWithEngine(xml: string) {
       items: result.items.length > 0 ? result.items : getState().items,
       skills: result.skills.length > 0 ? result.skills : getState().skills,
       evaluating: false,
+      engineEvalTime: Math.round(performance.now() - evalStart),
     });
 
     if (merged.allocated_nodes.length > 0) {
