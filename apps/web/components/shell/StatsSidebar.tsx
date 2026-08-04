@@ -74,6 +74,25 @@ function resColor(current: number, max: number): string {
   return "var(--color-blood)";
 }
 
+function ResRow({ label, current, max }: { label: string; current: number; max: number }) {
+  const overcap = Math.round(current - max);
+  return (
+    <div className="flex justify-between items-baseline text-xs font-mono">
+      <span className="text-text-dim">{label}</span>
+      <div className="flex items-center gap-1">
+        <span className="tabular-nums" style={{ color: resColor(current, max) }}>
+          {fmtNum(current)} /{max}%
+        </span>
+        {overcap > 0 && (
+          <span className="text-[9px] text-text-dim/50 tabular-nums">
+            +{overcap}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function calcDelta(current: number, baseline: number | undefined): number | undefined {
   if (baseline === undefined) return undefined;
   const d = current - baseline;
@@ -94,6 +113,8 @@ export function StatsSidebar() {
   const life = stats?.life ?? 60;
   const es = stats?.energy_shield ?? 0;
   const mana = stats?.mana ?? 50;
+  const manaUnreserved = stats?.mana_unreserved ?? mana;
+  const manaReservedPct = stats?.mana_reserved_percent ?? 0;
 
   const dps = stats?.combined_dps ?? stats?.total_dps ?? 0;
   const critChance = stats?.crit_chance ?? 0;
@@ -136,8 +157,8 @@ export function StatsSidebar() {
             {fmtNum(es)}
           </span>
           <span className="text-[10px] text-text-dim uppercase">ES</span>
-          <span className="text-mana font-mono text-sm font-bold tabular-nums">
-            {fmtNum(mana)}
+          <span className="text-mana font-mono text-sm font-bold tabular-nums" title={`Total: ${fmtNum(mana)} | Unreserved: ${fmtNum(manaUnreserved)} | Reserved: ${fmtNum(manaReservedPct)}%`}>
+            {fmtNum(manaUnreserved)}
           </span>
           <span className="text-[10px] text-text-dim uppercase">Mana</span>
         </div>
@@ -181,29 +202,16 @@ export function StatsSidebar() {
         <StatRow label="Evasion" value={fmtNum(evasion)} delta={cmp ? calcDelta(evasion, cmp.evasion) : undefined} />
         <StatRow label="Evade" value={`${fmtNum(evade)}%`} delta={cmp ? calcDelta(evade, cmp.evade_chance) : undefined} />
         <StatRow label="Life Regen/s" value={fmtNum(lifeRegen, 1)} delta={cmp ? calcDelta(lifeRegen, cmp.life_regen) : undefined} />
+        {manaReservedPct > 0 && (
+          <StatRow label="Mana Reserved" value={`${fmtNum(manaReservedPct)}%`} />
+        )}
       </StatSection>
 
       <StatSection title="Resistances" color="var(--color-blood)">
-        <StatRow
-          label="Fire"
-          value={`${fmtNum(fireRes)} /${fireMax}%`}
-          color={resColor(fireRes, fireMax)}
-        />
-        <StatRow
-          label="Cold"
-          value={`${fmtNum(coldRes)} /${coldMax}%`}
-          color={resColor(coldRes, coldMax)}
-        />
-        <StatRow
-          label="Lightning"
-          value={`${fmtNum(lightRes)} /${lightMax}%`}
-          color={resColor(lightRes, lightMax)}
-        />
-        <StatRow
-          label="Chaos"
-          value={`${fmtNum(chaosRes)} /${chaosMax}%`}
-          color={resColor(chaosRes, chaosMax)}
-        />
+        <ResRow label="Fire" current={fireRes} max={fireMax} />
+        <ResRow label="Cold" current={coldRes} max={coldMax} />
+        <ResRow label="Lightning" current={lightRes} max={lightMax} />
+        <ResRow label="Chaos" current={chaosRes} max={chaosMax} />
       </StatSection>
 
       <StatSection title="Mitigation" color="var(--color-defence)">

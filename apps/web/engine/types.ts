@@ -27,6 +27,9 @@ export interface BuildStats {
   chaos_res_max: number;
   life_regen: number;
   mana_regen: number;
+  mana_unreserved: number;
+  life_unreserved: number;
+  mana_reserved_percent: number;
   crit_chance: number;
   crit_multiplier: number;
   attack_speed: number;
@@ -37,6 +40,7 @@ export interface BuildStats {
   level: number;
   allocated_nodes: number[];
   main_socket_group: number;
+  tree_version: string;
 }
 
 export interface ItemData {
