@@ -124,6 +124,24 @@ function SocketGroupCard({ group, index, isMain, totalDps }: { group: SkillGroup
           </div>
         )}
         <button
+          onClick={(e) => {
+            e.stopPropagation();
+            const { skills } = useBuildStore.getState();
+            const updated = skills.map((s, i) =>
+              i === index ? { ...s, enabled: !s.enabled } : s
+            );
+            useBuildStore.setState({ skills: updated });
+          }}
+          className={`w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold transition-colors ${
+            group.enabled
+              ? "bg-accent/20 text-accent border border-accent/40"
+              : "bg-bg-hover text-text-dim/40 border border-border-subtle"
+          }`}
+          title={group.enabled ? "Disable group" : "Enable group"}
+        >
+          {group.enabled ? "E" : "D"}
+        </button>
+        <button
           onClick={() => {
             const { stats } = useBuildStore.getState();
             if (stats) {
