@@ -118,7 +118,6 @@ export function SettingsPanel() {
             )}
           </div>
         </div>
-      </div>
 
         <Changelog />
       </div>

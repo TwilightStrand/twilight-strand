@@ -94,4 +94,22 @@ describe("tree-store", () => {
     useTreeStore.getState().switchSpec(0);
     expect(useTreeStore.getState().specs[1].allocatedNodes.has("42")).toBe(true);
   });
+
+  it("should reset tree and push to undo stack", () => {
+    useTreeStore.getState().toggleNode("100");
+    useTreeStore.getState().toggleNode("200");
+    expect(useTreeStore.getState().allocatedNodes.size).toBe(2);
+    useTreeStore.getState().resetTree();
+    expect(useTreeStore.getState().allocatedNodes.size).toBe(0);
+    expect(useTreeStore.getState().undoStack.length).toBeGreaterThan(0);
+  });
+
+  it("should undo a reset", () => {
+    useTreeStore.getState().toggleNode("100");
+    useTreeStore.getState().toggleNode("200");
+    useTreeStore.getState().resetTree();
+    expect(useTreeStore.getState().allocatedNodes.size).toBe(0);
+    useTreeStore.getState().undo();
+    expect(useTreeStore.getState().allocatedNodes.size).toBe(2);
+  });
 });
