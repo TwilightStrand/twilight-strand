@@ -79,9 +79,20 @@ function SocketGroupCard({ group, index, isMain }: { group: SkillGroup; index: n
       }`}
     >
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border-subtle bg-bg-card-alt/50">
-        <span className="text-[10px] font-mono text-text-dim tabular-nums w-4">
+        <button
+          onClick={() => {
+            const { stats } = useBuildStore.getState();
+            if (stats) {
+              useBuildStore.setState({ stats: { ...stats, main_socket_group: index + 1 } });
+            }
+          }}
+          className={`text-[10px] font-mono tabular-nums w-4 transition-colors ${
+            isMain ? "text-accent" : "text-text-dim hover:text-accent"
+          }`}
+          title={isMain ? "Main skill" : "Click to set as main skill"}
+        >
           {index + 1}
-        </span>
+        </button>
         <span className="text-sm font-mono text-text-heading truncate flex-1">
           {group.label}
         </span>
