@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useBuildStore } from "@/stores/build-store";
+import { EmptyState } from "@/components/shell/EmptyState";
 import type { ItemData } from "@/engine/types";
 
 const WEAPON_SLOTS_SET1 = ["Weapon 1", "Weapon 2"];
@@ -96,8 +97,27 @@ function cleanMod(mod: string): string {
   return mod.replace(/\{?(\(crafted\)|\(implicit\)|\(enchant\)|\(fractured\))\}?/g, "").trim();
 }
 
+function extractKeyStats(item: ItemData): Array<{ label: string; value: string; color: string }> {
+  const stats: Array<{ label: string; value: string; color: string }> = [];
+  for (const mod of item.mods) {
+    const lifeMatch = mod.match(/\+(\d+) to maximum life/i);
+    if (lifeMatch) stats.push({ label: "Life", value: `+${lifeMatch[1]}`, color: "#c44" });
+    const esMatch = mod.match(/\+(\d+) to maximum energy shield/i);
+    if (esMatch) stats.push({ label: "ES", value: `+${esMatch[1]}`, color: "#4488dd" });
+    const resMatch = mod.match(/\+(\d+)% to (fire|cold|lightning|chaos|all elemental) resistance/i);
+    if (resMatch) {
+      const rc: Record<string, string> = { fire: "#c44", cold: "#48c", lightning: "#cc4", chaos: "#84c", "all elemental": "#c84" };
+      stats.push({ label: `${resMatch[2]} Res`, value: `+${resMatch[1]}%`, color: rc[resMatch[2].toLowerCase()] || "#888" });
+    }
+    const dmgMatch = mod.match(/adds (\d+) to (\d+) (physical|fire|cold|lightning|chaos) damage/i);
+    if (dmgMatch) stats.push({ label: `${dmgMatch[3]} Dmg`, value: `${dmgMatch[1]}-${dmgMatch[2]}`, color: "#c84" });
+  }
+  return stats.slice(0, 4);
+}
+
 function ItemDetail({ item }: { item: ItemData }) {
   const color = rarityColor(item.rarity);
+  const keyStats = extractKeyStats(item);
 
   return (
     <div className="p-4">
@@ -123,6 +143,20 @@ function ItemDetail({ item }: { item: ItemData }) {
           <p className="text-xs font-mono text-text-dim">{item.base}</p>
         )}
       </div>
+
+      {keyStats.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {keyStats.map((stat, i) => (
+            <span
+              key={i}
+              className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+              style={{ color: stat.color, backgroundColor: `${stat.color}15`, border: `1px solid ${stat.color}25` }}
+            >
+              {stat.label}: {stat.value}
+            </span>
+          ))}
+        </div>
+      )}
 
       {item.quality > 0 && (
         <div className="text-xs font-mono text-text-dim mb-2">
@@ -247,11 +281,14 @@ export function ItemsTab() {
       <div className="flex-1 overflow-y-auto">
         {selectedItem ? (
           <ItemDetail item={selectedItem} />
+        ) : items.length === 0 ? (
+          <EmptyState
+            title="No Equipment"
+            description="Import a build to see equipped items, flasks, and jewels."
+          />
         ) : (
           <div className="flex items-center justify-center h-full text-text-dim font-mono text-sm">
-            {items.length === 0
-              ? "No items yet. Import a build to see equipment."
-              : `No item in ${selectedSlot}`}
+            No item in {selectedSlot}
           </div>
         )}
       </div>
