@@ -6,6 +6,7 @@ import { useUiStore } from "@/stores/ui-store";
 import { StatsSkeleton } from "./Skeleton";
 import { BuildDiff } from "./BuildDiff";
 import { STAT_EXPLANATIONS } from "@/lib/stat-explanations";
+import { calculateBuildScore } from "@/lib/build-score";
 import type { BuildStats } from "@/engine/types";
 
 function StatSection({
@@ -356,6 +357,23 @@ export function StatsSidebar() {
             <span className="tabular-nums text-text-primary">{fmtNum(stats?.total_ehp ?? 0)}</span>
           </div>
         )}
+        {stats && (stats.total_dps > 0 || stats.life > 1) && (() => {
+          const { grade, score } = calculateBuildScore(stats);
+          return (
+            <div className="flex items-center justify-between mt-1.5 px-0.5" title={`Build score: ${score}/100`}>
+              <span className="text-[9px] font-mono text-text-dim">Build Score</span>
+              <div className="flex items-center gap-1">
+                <span className={`text-sm font-mono font-bold ${
+                  grade === "S" ? "text-amber-400" :
+                  grade === "A" ? "text-green-400" :
+                  grade === "B" ? "text-accent" :
+                  grade === "C" ? "text-text-primary" : "text-text-dim"
+                }`}>{grade}</span>
+                <span className="text-[9px] font-mono text-text-dim/60">{score}/100</span>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {stats && (
