@@ -262,10 +262,17 @@ export function Header() {
         <RecentBuildsDropdown />
         <button
           onClick={async () => {
-            const code = useBuildStore.getState().code;
+            const { code, cloudBuildId } = useBuildStore.getState();
             if (!code) return;
             const url = `${window.location.origin}#${code}`;
             await navigator.clipboard.writeText(url);
+            if (cloudBuildId) {
+              fetch(`/api/builds/${cloudBuildId}/share`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ shared: true }),
+              }).catch(() => {});
+            }
           }}
           disabled={!stats}
           className="text-xs font-mono text-text-dim hover:text-accent transition-colors px-2 py-1 rounded hover:bg-bg-hover disabled:opacity-30 disabled:cursor-not-allowed hidden sm:inline-block"
