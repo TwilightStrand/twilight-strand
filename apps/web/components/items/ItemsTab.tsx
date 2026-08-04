@@ -147,9 +147,25 @@ function extractKeyStats(item: ItemData): Array<{ label: string; value: string; 
   return stats.slice(0, 4);
 }
 
+function parseRequirements(item: ItemData): string[] {
+  const reqs: string[] = [];
+  for (const mod of item.mods) {
+    const lvlMatch = mod.match(/requires level (\d+)/i);
+    if (lvlMatch) reqs.push(`Level ${lvlMatch[1]}`);
+    const strMatch = mod.match(/(\d+) str(?:ength)?/i);
+    if (strMatch && !mod.toLowerCase().includes("to maximum")) reqs.push(`${strMatch[1]} Str`);
+    const dexMatch = mod.match(/(\d+) dex(?:terity)?/i);
+    if (dexMatch && !mod.toLowerCase().includes("to maximum")) reqs.push(`${dexMatch[1]} Dex`);
+    const intMatch = mod.match(/(\d+) int(?:elligence)?/i);
+    if (intMatch && !mod.toLowerCase().includes("to maximum")) reqs.push(`${intMatch[1]} Int`);
+  }
+  return reqs;
+}
+
 function ItemDetail({ item }: { item: ItemData }) {
   const color = rarityColor(item.rarity);
   const keyStats = extractKeyStats(item);
+  const reqs = parseRequirements(item);
 
   return (
     <div className="p-4 border-t-2" style={{ borderTopColor: color }}>
@@ -218,6 +234,12 @@ function ItemDetail({ item }: { item: ItemData }) {
       {item.sockets && (
         <div className="mb-2">
           <SocketVisual sockets={item.sockets} />
+        </div>
+      )}
+
+      {reqs.length > 0 && (
+        <div className="text-[10px] font-mono text-text-dim/60 mb-2">
+          Requires: {reqs.join(", ")}
         </div>
       )}
 

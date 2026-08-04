@@ -42,16 +42,23 @@ function StatRow({
   color,
   delta,
   title,
+  statKey,
 }: {
   label: string;
   value: string;
   color?: string;
   delta?: number;
   title?: string;
+  statKey?: string;
 }) {
   const tooltip = title || STAT_EXPLANATIONS[label];
+  const togglePin = useUiStore((s) => s.togglePinnedStat);
   return (
-    <div className="flex justify-between items-baseline text-xs font-mono" title={tooltip}>
+    <div
+      className="flex justify-between items-baseline text-xs font-mono"
+      title={tooltip}
+      onDoubleClick={() => statKey && togglePin(statKey)}
+    >
       <span className="text-text-dim">{label}</span>
       <div className="flex items-center gap-1.5">
         <span className="tabular-nums" style={color ? { color } : undefined}>
@@ -93,6 +100,63 @@ function ResRow({ label, current, max }: { label: string; current: number; max: 
             +{overcap}
           </span>
         )}
+      </div>
+    </div>
+  );
+}
+
+const STAT_DISPLAY: Record<string, string> = {
+  total_dps: "Total DPS",
+  combined_dps: "Combined DPS",
+  total_ehp: "Total EHP",
+  life: "Life",
+  energy_shield: "Energy Shield",
+  mana: "Mana",
+  strength: "Strength",
+  dexterity: "Dexterity",
+  intelligence: "Intelligence",
+  armour: "Armour",
+  evasion: "Evasion",
+  block_chance: "Block %",
+  fire_res: "Fire Res",
+  cold_res: "Cold Res",
+  lightning_res: "Lightning Res",
+  chaos_res: "Chaos Res",
+  crit_chance: "Crit %",
+  attack_speed: "Speed",
+};
+
+function PinnedStats({ stats }: { stats: BuildStats | null }) {
+  const pinned = useUiStore((s) => s.pinnedStats);
+  const togglePin = useUiStore((s) => s.togglePinnedStat);
+
+  if (!stats || pinned.length === 0) return null;
+
+  return (
+    <div className="mb-3 pb-2 border-b border-accent/20">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-accent/60">Pinned</span>
+      </div>
+      <div className="space-y-px">
+        {pinned.map((key) => {
+          const val = (stats as Record<string, unknown>)[key];
+          if (val === undefined || typeof val !== "number") return null;
+          return (
+            <div key={key} className="flex justify-between items-baseline text-xs font-mono group">
+              <span className="text-text-dim">{STAT_DISPLAY[key] || key.replace(/_/g, " ")}</span>
+              <div className="flex items-center gap-1">
+                <span className="tabular-nums text-text-primary">{fmtNum(val)}</span>
+                <button
+                  onClick={() => togglePin(key)}
+                  className="text-[8px] text-text-dim/0 group-hover:text-text-dim/60 hover:!text-blood transition-colors"
+                  title="Unpin"
+                >
+                  x
+                </button>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -240,13 +304,15 @@ export function StatsSidebar() {
         </div>
       )}
 
+      <PinnedStats stats={stats} />
+
       <StatSection title="Offence" color="var(--color-offence)">
-        <StatRow label="Skill DPS" value={fmtNum(dps)} delta={cmp ? calcDelta(dps, cmp.combined_dps ?? cmp.total_dps) : undefined} title={`Total DPS: ${fmtNum(stats?.total_dps ?? 0)} | Combined: ${fmtNum(stats?.combined_dps ?? 0)}`} />
+        <StatRow label="Skill DPS" value={fmtNum(dps)} statKey="total_dps" delta={cmp ? calcDelta(dps, cmp.combined_dps ?? cmp.total_dps) : undefined} title={`Total DPS: ${fmtNum(stats?.total_dps ?? 0)} | Combined: ${fmtNum(stats?.combined_dps ?? 0)}`} />
         {stats && <DpsBar stats={stats} />}
-        <StatRow label="Crit Chance" value={`${fmtNum(critChance, 1)}%`} delta={cmp ? calcDelta(critChance, cmp.crit_chance) : undefined} />
-        <StatRow label="Crit Multi" value={`${fmtNum(critMulti)}%`} delta={cmp ? calcDelta(critMulti, cmp.crit_multiplier) : undefined} />
-        <StatRow label="Attack Speed" value={`${fmtNum(atkSpd, 2)}/s`} delta={cmp ? calcDelta(atkSpd, cmp.attack_speed) : undefined} />
-        <StatRow label="Hit Chance" value={`${fmtNum(hitChance)}%`} delta={cmp ? calcDelta(hitChance, cmp.hit_chance) : undefined} />
+        <StatRow label="Crit Chance" value={`${fmtNum(critChance, 1)}%`} statKey="crit_chance" delta={cmp ? calcDelta(critChance, cmp.crit_chance) : undefined} />
+        <StatRow label="Crit Multi" value={`${fmtNum(critMulti)}%`} statKey="crit_multiplier" delta={cmp ? calcDelta(critMulti, cmp.crit_multiplier) : undefined} />
+        <StatRow label="Attack Speed" value={`${fmtNum(atkSpd, 2)}/s`} statKey="attack_speed" delta={cmp ? calcDelta(atkSpd, cmp.attack_speed) : undefined} />
+        <StatRow label="Hit Chance" value={`${fmtNum(hitChance)}%`} statKey="hit_chance" delta={cmp ? calcDelta(hitChance, cmp.hit_chance) : undefined} />
       </StatSection>
 
       <StatSection title="Attributes" color="var(--color-text-heading)">
