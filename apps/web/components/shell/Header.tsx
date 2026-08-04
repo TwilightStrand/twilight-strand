@@ -55,6 +55,7 @@ export function Header() {
   }, [initEngine]);
 
   const className = stats?.class_name ?? "Scion";
+  const ascendancy = stats?.ascendancy || "";
   const level = stats?.level ?? 1;
 
   return (
@@ -73,7 +74,7 @@ export function Header() {
           <span className="bg-bg-card px-1.5 py-0.5 rounded text-text-primary">
             PoE 1
           </span>
-          <span className="text-text-dim">{className}</span>
+          <span className="text-text-dim">{ascendancy || className}</span>
           <span className="text-text-dim">Lv {level}</span>
         </div>
       </div>

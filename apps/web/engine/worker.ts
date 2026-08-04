@@ -1,4 +1,4 @@
-import type { EngineRequest, EngineResponse, BuildStats } from "./types";
+import type { EngineRequest, EngineResponse, BuildStats, ItemData, SkillGroup, GemData } from "./types";
 
 let factory: import("wasmoon").default | null = null;
 let lua: Awaited<ReturnType<import("wasmoon").default["createEngine"]>> | null = null;
@@ -712,6 +712,16 @@ async function handleEvaluate(id: number, xml: string): Promise<void> {
           result.ascendancy = b.ascendClassName or (b.spec and b.spec.curAscendClassName) or ""
           result.level = b.characterLevel or 1
 
+          -- Extract allocated node IDs from spec
+          result.allocated_nodes = {}
+          if b.spec and b.spec.allocNodes then
+            local i = 1
+            for nodeId in pairs(b.spec.allocNodes) do
+              result.allocated_nodes[i] = nodeId
+              i = i + 1
+            end
+          end
+
           if b.calcsTab and b.calcsTab.mainOutput then
             local out = b.calcsTab.mainOutput
             result.total_dps = out.TotalDPS or out.CombinedDPS or 0
@@ -750,6 +760,60 @@ async function handleEvaluate(id: number, xml: string): Promise<void> {
             result.has_calcs = false
           end
 
+          -- Extract items from itemsTab
+          _tsc_eval_items = {}
+          if b.itemsTab and b.itemsTab.items then
+            local idx = 1
+            for _, item in pairs(b.itemsTab.items) do
+              if item.name and item.name ~= "" then
+                local mods = {}
+                if item.explicitModLines then
+                  for _, modLine in ipairs(item.explicitModLines) do
+                    if modLine.line and modLine.line ~= "" then
+                      mods[#mods+1] = modLine.line
+                    end
+                  end
+                end
+                _tsc_eval_items[idx] = {
+                  slot = item.slotName or "",
+                  name = item.name or "",
+                  base = item.baseName or item.base or "",
+                  rarity = item.rarity or "Normal",
+                  mods = mods,
+                  quality = item.quality or 0,
+                  sockets = "",
+                }
+                idx = idx + 1
+              end
+            end
+          end
+
+          -- Extract skills from skillsTab
+          _tsc_eval_skills = {}
+          if b.skillsTab and b.skillsTab.socketGroupList then
+            for i, group in ipairs(b.skillsTab.socketGroupList) do
+              local gems = {}
+              if group.gemList then
+                for j, gem in ipairs(group.gemList) do
+                  gems[j] = {
+                    name = gem.nameSpec or gem.name or "",
+                    level = gem.level or 20,
+                    quality = gem.quality or 0,
+                    enabled = gem.enabled ~= false,
+                    skillId = gem.skillId or gem.gemId or "",
+                    isSupport = gem.grantedEffect and gem.grantedEffect.support == true or false,
+                  }
+                end
+              end
+              _tsc_eval_skills[i] = {
+                slot = group.slot or "",
+                enabled = group.enabled ~= false,
+                gems = gems,
+                label = group.displayLabel or group.slot or "Group " .. i,
+              }
+            end
+          end
+
           _tsc_eval_stats = result
           _tsc_eval_ok = true
         end, debug.traceback)
@@ -766,9 +830,12 @@ async function handleEvaluate(id: number, xml: string): Promise<void> {
       if (evalOk && luaStats && typeof luaStats === "object") {
         const ls = luaStats as Record<string, unknown>;
         for (const [key, value] of Object.entries(ls)) {
-          if (key in stats) {
+          if (key in stats && key !== "allocated_nodes") {
             (stats as Record<string, unknown>)[key] = value;
           }
+        }
+        if (ls.allocated_nodes && typeof ls.allocated_nodes === "object") {
+          stats.allocated_nodes = Object.values(ls.allocated_nodes as Record<string, number>).map(Number);
         }
       } else if (evalErr) {
         console.warn("PoB eval error:", String(evalErr).substring(0, 300));
@@ -777,12 +844,68 @@ async function handleEvaluate(id: number, xml: string): Promise<void> {
       console.warn("PoB eval exception:", e);
     }
 
+    // Extract items and skills from Lua globals
+    const luaItems = lua.global.get("_tsc_eval_items");
+    const luaSkills = lua.global.get("_tsc_eval_skills");
+
+    const items: ItemData[] = [];
+    if (luaItems && typeof luaItems === "object") {
+      for (const item of Object.values(luaItems as Record<string, Record<string, unknown>>)) {
+        if (item && typeof item === "object") {
+          const mods: string[] = [];
+          if (item.mods && typeof item.mods === "object") {
+            for (const mod of Object.values(item.mods as Record<string, string>)) {
+              if (typeof mod === "string" && mod) mods.push(mod);
+            }
+          }
+          items.push({
+            slot: String(item.slot ?? ""),
+            name: String(item.name ?? ""),
+            base: String(item.base ?? ""),
+            rarity: String(item.rarity ?? "Normal"),
+            mods,
+            quality: Number(item.quality ?? 0),
+            sockets: String(item.sockets ?? ""),
+          });
+        }
+      }
+    }
+
+    const skills: SkillGroup[] = [];
+    if (luaSkills && typeof luaSkills === "object") {
+      for (const group of Object.values(luaSkills as Record<string, Record<string, unknown>>)) {
+        if (group && typeof group === "object") {
+          const gems: GemData[] = [];
+          if (group.gems && typeof group.gems === "object") {
+            for (const gem of Object.values(group.gems as Record<string, Record<string, unknown>>)) {
+              if (gem && typeof gem === "object") {
+                gems.push({
+                  name: String(gem.name ?? ""),
+                  level: Number(gem.level ?? 20),
+                  quality: Number(gem.quality ?? 0),
+                  enabled: gem.enabled !== false,
+                  skillId: String(gem.skillId ?? ""),
+                  isSupport: gem.isSupport === true,
+                });
+              }
+            }
+          }
+          skills.push({
+            slot: String(group.slot ?? ""),
+            enabled: group.enabled !== false,
+            gems,
+            label: String(group.label ?? ""),
+          });
+        }
+      }
+    }
+
     reply({
       id,
       type: "evaluated",
       stats,
-      items: [],
-      skills: [],
+      items,
+      skills,
     });
   } catch (e) {
     reply({
