@@ -13,6 +13,15 @@ function classifyBuildInput(input: string): string {
   return "unknown";
 }
 
+export interface SavedBuild {
+  name: string;
+  code: string;
+  savedAt: number;
+  className: string;
+  ascendancy: string;
+  level: number;
+}
+
 interface BuildState {
   code: string | null;
   xml: string | null;
@@ -24,10 +33,16 @@ interface BuildState {
   engineStatus: EngineStatus;
   engineProgress: string;
   evaluating: boolean;
+  buildName: string;
+  savedBuilds: SavedBuild[];
 
   initEngine: () => Promise<void>;
   importBuild: (input: string) => Promise<void>;
   clearBuild: () => void;
+  setBuildName: (name: string) => void;
+  saveBuild: () => void;
+  loadSavedBuilds: () => void;
+  deleteSavedBuild: (index: number) => void;
 }
 
 export const useBuildStore = create<BuildState>((set, get) => ({
@@ -41,6 +56,53 @@ export const useBuildStore = create<BuildState>((set, get) => ({
   engineStatus: "idle",
   engineProgress: "",
   evaluating: false,
+  buildName: "Unnamed Build",
+  savedBuilds: [],
+
+  saveBuild() {
+    const { code, stats, buildName } = get();
+    if (!code) return;
+
+    const saved: SavedBuild = {
+      name: buildName || stats?.ascendancy || stats?.class_name || "Unnamed",
+      code,
+      savedAt: Date.now(),
+      className: stats?.class_name || "",
+      ascendancy: stats?.ascendancy || "",
+      level: stats?.level || 1,
+    };
+
+    const builds = [...get().savedBuilds];
+    const existing = builds.findIndex((b) => b.name === saved.name);
+    if (existing >= 0) {
+      builds[existing] = saved;
+    } else {
+      builds.unshift(saved);
+    }
+
+    set({ savedBuilds: builds });
+    try {
+      localStorage.setItem("tsc-saved-builds", JSON.stringify(builds));
+    } catch {}
+  },
+
+  loadSavedBuilds() {
+    try {
+      const raw = localStorage.getItem("tsc-saved-builds");
+      if (raw) {
+        set({ savedBuilds: JSON.parse(raw) });
+      }
+    } catch {}
+  },
+
+  deleteSavedBuild(index: number) {
+    const builds = [...get().savedBuilds];
+    builds.splice(index, 1);
+    set({ savedBuilds: builds });
+    try {
+      localStorage.setItem("tsc-saved-builds", JSON.stringify(builds));
+    } catch {}
+  },
 
   async initEngine() {
     if (get().engineStatus !== "idle") return;
@@ -98,6 +160,10 @@ export const useBuildStore = create<BuildState>((set, get) => ({
       const { parsePobXml } = await import("@/engine/pob-xml-parser");
       const result = parsePobXml(xml);
 
+      const buildName = result.stats.ascendancy
+        ? `${result.stats.ascendancy} ${result.stats.class_name}`
+        : result.stats.class_name || "Unnamed Build";
+
       set({
         code: input,
         xml,
@@ -105,6 +171,7 @@ export const useBuildStore = create<BuildState>((set, get) => ({
         items: result.items,
         skills: result.skills,
         loading: false,
+        buildName,
       });
 
       // Phase 2: send to engine for accurate calcs (non-blocking)
@@ -134,7 +201,12 @@ export const useBuildStore = create<BuildState>((set, get) => ({
       skills: [],
       error: null,
       evaluating: false,
+      buildName: "Unnamed Build",
     });
+  },
+
+  setBuildName(name: string) {
+    set({ buildName: name });
   },
 }));
 
