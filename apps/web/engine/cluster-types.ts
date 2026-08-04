@@ -11,6 +11,7 @@ export interface ClusterNotable {
   name: string;
   stats: string[];
   weight: number;
+  tags?: string[];
 }
 
 export interface ClusterSearchResult {

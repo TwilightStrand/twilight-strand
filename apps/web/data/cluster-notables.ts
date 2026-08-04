@@ -18,7 +18,7 @@ export const CLUSTER_BASES: ClusterBase[] = [
     optimalPassives: 8,
     pointCostByEnchant: { 8: 5, 10: 6, 11: 7, 12: 7 },
     smallPassiveStat: "12% increased Cold Damage",
-    notablePool: ["Blanketed Snow", "Prismatic Heart", "Widespread Destruction", "Doryani's Lesson", "Corrosive Elements", "Disorienting Display", "Snowstorm"],
+    notablePool: ["Blanketed Snow", "Prismatic Heart", "Widespread Destruction", "Corrosive Elements", "Disorienting Display", "Snowstorm", "Deep Chill"],
   },
   {
     name: "Spell Damage",
@@ -72,7 +72,7 @@ export const CLUSTER_BASES: ClusterBase[] = [
     optimalPassives: 4,
     pointCostByEnchant: { 4: 3, 5: 4 },
     smallPassiveStat: "10% increased Critical Strike Chance",
-    notablePool: ["Precise Commander", "Quick Getaway", "Basics of Pain", "Pressure Points"],
+    notablePool: ["Pressure Points", "Quick Getaway", "Basics of Pain"],
   },
   {
     name: "Damage over Time",
@@ -90,7 +90,7 @@ export const CLUSTER_BASES: ClusterBase[] = [
     optimalPassives: 4,
     pointCostByEnchant: { 4: 3, 5: 4 },
     smallPassiveStat: "10% increased Critical Strike Chance for Spells",
-    notablePool: ["Precise Commander", "Quick Getaway"],
+    notablePool: ["Pressure Points", "Quick Getaway", "Basics of Pain"],
   },
   {
     name: "Life",
@@ -150,7 +150,18 @@ export const CLUSTER_NOTABLES: Record<string, ClusterNotable> = {
   },
   "Precise Commander": {
     name: "Precise Commander",
-    stats: ["30% increased Critical Strike Chance", "+15% to Critical Strike Multiplier"],
+    stats: ["Minions have 30% increased Critical Strike Chance", "Minions have +15% to Critical Strike Multiplier"],
+    weight: 100,
+    tags: ["minion"],
+  },
+  "Pressure Points": {
+    name: "Pressure Points",
+    stats: ["30% increased Critical Strike Chance"],
+    weight: 100,
+  },
+  "Basics of Pain": {
+    name: "Basics of Pain",
+    stats: ["+20% to Critical Strike Multiplier"],
     weight: 100,
   },
   "Quick Getaway": {
@@ -211,6 +222,11 @@ export const CLUSTER_NOTABLES: Record<string, ClusterNotable> = {
   "Snowstorm": {
     name: "Snowstorm",
     stats: ["10% of Cold Damage taken as Lightning Damage", "35% increased Cold Damage"],
+    weight: 100,
+  },
+  "Deep Chill": {
+    name: "Deep Chill",
+    stats: ["30% increased Cold Damage", "Chill Effect is increased by 50%"],
     weight: 100,
   },
 };
