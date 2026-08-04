@@ -7,14 +7,7 @@ import { ItemsTab } from "@/components/items/ItemsTab";
 import { SkillsTab } from "@/components/skills/SkillsTab";
 import { ConfigTab } from "@/components/config/ConfigTab";
 import { CalcsTab } from "@/components/calcs/CalcsTab";
-
-function Placeholder({ tab }: { tab: TabId }) {
-  return (
-    <div className="flex items-center justify-center h-full text-text-dim font-mono text-sm">
-      {tab.charAt(0).toUpperCase() + tab.slice(1)} tab
-    </div>
-  );
-}
+import { NotesPanel } from "@/components/shell/NotesPanel";
 
 function renderTab(tab: TabId) {
   switch (tab) {
@@ -28,8 +21,10 @@ function renderTab(tab: TabId) {
       return <ConfigTab />;
     case "calcs":
       return <CalcsTab />;
+    case "settings":
+      return <NotesPanel />;
     default:
-      return <Placeholder tab={tab} />;
+      return null;
   }
 }
 
