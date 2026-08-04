@@ -41,6 +41,10 @@ function extractBuildInfo(root: Element): BuildStats {
 
   const allocatedNodes = extractAllocatedNodes(root);
 
+  const treeEl = root.querySelector("Tree");
+  const specEl = treeEl?.querySelector("Spec");
+  const treeVersion = specEl?.getAttribute("treeVersion") || "3_29";
+
   return {
     total_dps: 0,
     combined_dps: 0,
@@ -78,6 +82,7 @@ function extractBuildInfo(root: Element): BuildStats {
     level,
     allocated_nodes: allocatedNodes,
     main_socket_group: mainSocketGroup,
+    tree_version: treeVersion,
   };
 }
 

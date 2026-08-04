@@ -35,6 +35,14 @@ export interface BuildStats {
   attack_speed: number;
   hit_chance: number;
   accuracy: number;
+  ward: number;
+  total_dps_with_minions: number;
+  bleed_dps: number;
+  poison_dps: number;
+  ignite_dps: number;
+  impale_dps: number;
+  life_leech_rate: number;
+  es_leech_rate: number;
   class_name: string;
   ascendancy: string;
   level: number;
