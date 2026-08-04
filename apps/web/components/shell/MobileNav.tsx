@@ -56,7 +56,7 @@ export function MobileNav() {
           Lv.{level} {className}
         </span>
       </div>
-      <div className="flex items-stretch">
+      <div className="flex items-stretch overflow-x-auto no-scrollbar">
         {TABS.map((tab) => (
           <button
             key={tab}

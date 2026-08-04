@@ -72,6 +72,9 @@ body {
   --color-defence: #475569;
 }
 
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
 .perf-mode *,
 .perf-mode *::before,
 .perf-mode *::after {
