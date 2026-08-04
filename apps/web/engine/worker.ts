@@ -608,7 +608,7 @@ async function handleInit(id: number, _gameId: string): Promise<void> {
   }
 }
 
-async function handleEvaluate(id: number, xml: string): Promise<void> {
+async function handleEvaluate(id: number, xml: string, config?: Record<string, string | boolean | number>): Promise<void> {
   if (!initialized || !lua) {
     reply({ id, type: "error", message: "Engine not initialized" });
     return;
@@ -695,6 +695,24 @@ async function handleEvaluate(id: number, xml: string): Promise<void> {
       const loadErr = lua.global.get("_tsc_eval_error");
       if (loadErr) {
         console.warn("PoB loadBuild error:", String(loadErr).substring(0, 300));
+      }
+
+      // Apply config overrides before running calculations
+      if (config && Object.keys(config).length > 0) {
+        lua.global.set("_tsc_config", config);
+        await lua.doString(`
+          if _tsc_config then
+            local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
+            if b and b.configTab and b.configTab.input then
+              for k, v in pairs(_tsc_config) do
+                b.configTab.input[k] = v
+              end
+              pcall(function() b.configTab:BuildModList() end)
+              b.buildFlag = true
+            end
+            _tsc_config = nil
+          end
+        `);
       }
 
       progress(id, "Running calculations...");
@@ -960,7 +978,7 @@ self.onmessage = async (e: MessageEvent<EngineRequest>) => {
       await handleInit(msg.id, msg.gameId);
       break;
     case "evaluate":
-      await handleEvaluate(msg.id, msg.xml);
+      await handleEvaluate(msg.id, msg.xml, (msg as { config?: Record<string, string | boolean | number> }).config);
       break;
     case "ping":
       reply({ id: msg.id, type: "pong" });

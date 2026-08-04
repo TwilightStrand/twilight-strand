@@ -54,6 +54,7 @@ interface BuildState {
 
   initEngine: () => Promise<void>;
   importBuild: (input: string) => Promise<void>;
+  reEvaluate: () => Promise<void>;
   clearBuild: () => void;
   setBuildName: (name: string) => void;
   setNotes: (notes: string) => void;
@@ -88,6 +89,12 @@ export const useBuildStore = create<BuildState>((set, get) => ({
 
   setConfigOverride(key: string, value: string | boolean | number) {
     set((s) => ({ configOverrides: { ...s.configOverrides, [key]: value } }));
+  },
+
+  async reEvaluate() {
+    const { xml, engineStatus } = get();
+    if (!xml || engineStatus !== "ready") return;
+    evaluateWithEngine(xml);
   },
 
   addHistory(action: string) {
@@ -329,7 +336,8 @@ async function evaluateWithEngine(xml: string) {
     const evalStart = performance.now();
     const { getEngineBridge } = await import("@/engine/bridge");
     const bridge = getEngineBridge();
-    const result = await bridge.evaluate(xml);
+    const config = getState().configOverrides;
+    const result = await bridge.evaluate(xml, Object.keys(config).length > 0 ? config : undefined);
 
     if (getState().xml !== xml) return;
 
