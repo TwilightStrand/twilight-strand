@@ -4,6 +4,7 @@ import { useUiStore } from "@/stores/ui-store";
 import { useBuildStore } from "@/stores/build-store";
 import { NotesPanel } from "@/components/shell/NotesPanel";
 import { Changelog } from "./Changelog";
+import { EngineComparison } from "./EngineComparison";
 
 export function SettingsPanel() {
   const theme = useUiStore((s) => s.theme);
@@ -118,6 +119,8 @@ export function SettingsPanel() {
             )}
           </div>
         </div>
+
+        <EngineComparison />
 
         <Changelog />
       </div>
