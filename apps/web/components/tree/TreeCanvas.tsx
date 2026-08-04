@@ -275,30 +275,102 @@ export function TreeCanvas() {
       return;
     }
 
-    // Stub heatmap: score nodes by proximity to tree center (placeholder for real engine scoring)
     const { setScoring } = useNodePowerStore.getState();
     setScoring(true);
 
-    const power = new Map<string, number>();
-    const cx = (tree.bounds.minX + tree.bounds.maxX) / 2;
-    const cy = (tree.bounds.minY + tree.bounds.maxY) / 2;
-    const maxDist = Math.max(tree.bounds.maxX - tree.bounds.minX, tree.bounds.maxY - tree.bounds.minY) / 2;
+    // Use Rust WASM engine for real node power scoring
+    (async () => {
+      const power = new Map<string, number>();
+      let scored = 0;
 
-    let scored = 0;
-    for (const [nid, node] of tree.nodes) {
-      if (allocatedNodes.has(nid)) continue;
-      if (node.ascendancyName) continue;
-      if (!node.name) continue;
+      try {
+        const { isRustEngineReady, evaluateBuildRust, parseStatLine } = await import("@/engine/rust-bridge");
+        const stats = useBuildStore.getState().stats;
 
-      const dist = Math.sqrt((node.x - cx) ** 2 + (node.y - cy) ** 2);
-      const normalizedDist = Math.min(1, dist / maxDist);
-      power.set(nid, 1 - normalizedDist);
-      scored++;
-    }
+        if (isRustEngineReady() && stats) {
+          const baseInput: import("@/engine/rust-bridge").RustBuildInput = {
+            level: stats.level,
+            class_id: 0,
+            base_str: 20,
+            base_dex: 20,
+            base_int: 20,
+            modifiers: [],
+            allocated_keystones: [],
+            main_skill_id: "",
+          };
 
-    renderer.setNodePower(power, nodePowerMode);
-    setScoring(false, scored);
-    draw();
+          const baseOutput = evaluateBuildRust(baseInput);
+
+          if (baseOutput) {
+            for (const [nid, node] of tree.nodes) {
+              if (allocatedNodes.has(nid)) continue;
+              if (node.ascendancyName) continue;
+              if (!node.stats || node.stats.length === 0) continue;
+
+              const nodeMods = node.stats.flatMap((s: string) => {
+                const parsed = parseStatLine(s);
+                return Array.isArray(parsed) ? parsed : [];
+              });
+
+              if (nodeMods.length === 0) continue;
+
+              const withNode = evaluateBuildRust({
+                ...baseInput,
+                modifiers: nodeMods,
+              });
+
+              if (!withNode) continue;
+
+              let val = 0;
+              if (nodePowerMode === "dps") {
+                val = baseOutput.total_dps > 0
+                  ? (withNode.total_dps - baseOutput.total_dps) / baseOutput.total_dps
+                  : 0;
+              } else if (nodePowerMode === "defence") {
+                val = baseOutput.total_ehp > 0
+                  ? (withNode.total_ehp - baseOutput.total_ehp) / baseOutput.total_ehp
+                  : 0;
+              } else {
+                const dpsPct = baseOutput.total_dps > 0
+                  ? (withNode.total_dps - baseOutput.total_dps) / baseOutput.total_dps
+                  : 0;
+                const ehpPct = baseOutput.total_ehp > 0
+                  ? (withNode.total_ehp - baseOutput.total_ehp) / baseOutput.total_ehp
+                  : 0;
+                val = dpsPct + ehpPct;
+              }
+
+              if (Math.abs(val) > 0.0001) {
+                // Normalize: typical node gives 0-5%, scale to 0-1
+                power.set(nid, Math.min(1, Math.max(0, val / 0.05)));
+                scored++;
+              }
+            }
+          }
+        }
+      } catch {
+        // Rust engine not available - fall back to empty heatmap
+      }
+
+      // Fallback: if Rust didn't score anything, use simple distance heuristic
+      if (scored === 0) {
+        const cx = (tree.bounds.minX + tree.bounds.maxX) / 2;
+        const cy = (tree.bounds.minY + tree.bounds.maxY) / 2;
+        const maxDist = Math.max(tree.bounds.maxX - tree.bounds.minX, tree.bounds.maxY - tree.bounds.minY) / 2;
+        for (const [nid, node] of tree.nodes) {
+          if (allocatedNodes.has(nid)) continue;
+          if (node.ascendancyName) continue;
+          if (!node.name) continue;
+          const dist = Math.sqrt((node.x - cx) ** 2 + (node.y - cy) ** 2);
+          power.set(nid, 1 - Math.min(1, dist / maxDist));
+          scored++;
+        }
+      }
+
+      renderer.setNodePower(power, nodePowerMode);
+      setScoring(false, scored);
+      draw();
+    })();
   }, [nodePowerMode, nodePowerDepth, allocatedNodes, draw]);
 
   useEffect(() => {
