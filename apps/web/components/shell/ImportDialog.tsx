@@ -3,6 +3,13 @@
 import { useState, useRef, useEffect } from "react";
 import { useBuildStore } from "@/stores/build-store";
 
+interface PoECharacter {
+  name: string;
+  class: string;
+  level: number;
+  league: string;
+}
+
 export function ImportDialog({
   open,
   onClose,
@@ -12,6 +19,11 @@ export function ImportDialog({
 }) {
   const [input, setInput] = useState("");
   const [importScope, setImportScope] = useState<"full" | "tree" | "items" | "skills">("full");
+  const [mode, setMode] = useState<"code" | "account">("code");
+  const [accountName, setAccountName] = useState("");
+  const [characters, setCharacters] = useState<PoECharacter[]>([]);
+  const [fetchingChars, setFetchingChars] = useState(false);
+  const [accountError, setAccountError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { importBuild, loading, error, savedBuilds, loadSavedBuilds, deleteSavedBuild } = useBuildStore();
 
@@ -70,11 +82,95 @@ export function ImportDialog({
           </button>
         </div>
 
-        <p className="text-text-dim text-xs font-mono mb-3">
-          Paste a PoB build code, pastebin URL, or pobb.in link
-        </p>
+        <div className="flex gap-1 mb-3">
+          <button
+            onClick={() => setMode("code")}
+            className={`text-[10px] font-mono px-2.5 py-1 rounded transition-colors ${
+              mode === "code" ? "bg-accent/20 text-accent" : "text-text-dim hover:text-text-primary"
+            }`}
+          >
+            Code / URL
+          </button>
+          <button
+            onClick={() => setMode("account")}
+            className={`text-[10px] font-mono px-2.5 py-1 rounded transition-colors ${
+              mode === "account" ? "bg-accent/20 text-accent" : "text-text-dim hover:text-text-primary"
+            }`}
+          >
+            PoE Account
+          </button>
+        </div>
 
-        <div
+        {mode === "account" && (
+          <div className="mb-3">
+            <div className="flex gap-2 mb-3">
+              <input
+                value={accountName}
+                onChange={(e) => { setAccountName(e.target.value); setAccountError(null); }}
+                onKeyDown={(e) => e.key === "Enter" && document.getElementById("fetch-chars-btn")?.click()}
+                placeholder="Account name..."
+                className="flex-1 bg-bg-inset border border-border-subtle rounded px-3 py-1.5 text-sm font-mono text-text-primary placeholder:text-text-dim/40 focus:outline-none focus:border-accent"
+              />
+              <button
+                id="fetch-chars-btn"
+                onClick={async () => {
+                  if (!accountName.trim()) return;
+                  setFetchingChars(true);
+                  setAccountError(null);
+                  try {
+                    const resp = await fetch(`/api/character?account=${encodeURIComponent(accountName.trim())}`);
+                    const data = await resp.json();
+                    if (data.error) {
+                      setAccountError(data.error);
+                    } else if (data.characters) {
+                      setCharacters(data.characters);
+                    }
+                  } catch {
+                    setAccountError("Failed to fetch characters");
+                  } finally {
+                    setFetchingChars(false);
+                  }
+                }}
+                disabled={fetchingChars || !accountName.trim()}
+                className="px-3 py-1.5 text-sm font-mono bg-accent/20 text-accent rounded border border-accent/30 hover:bg-accent/30 disabled:opacity-40 transition-colors"
+              >
+                {fetchingChars ? "..." : "Fetch"}
+              </button>
+            </div>
+            {accountError && (
+              <div className="text-blood text-xs font-mono mb-2">{accountError}</div>
+            )}
+            {characters.length > 0 && (
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {characters.map((char) => (
+                  <button
+                    key={char.name}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-mono rounded hover:bg-bg-hover transition-colors"
+                    onClick={() => {
+                      setAccountError(`Character import for ${char.name} requires PoB JSON conversion (coming soon)`);
+                    }}
+                  >
+                    <span className="text-text-primary">{char.name}</span>
+                    <span className="text-text-dim">{char.class}</span>
+                    <span className="text-text-dim ml-auto">Lv {char.level}</span>
+                    <span className="text-text-dim/60">{char.league}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {characters.length === 0 && !fetchingChars && (
+              <p className="text-xs font-mono text-text-dim/60 text-center py-4">
+                Enter your PoE account name and click Fetch. Profile must be public.
+              </p>
+            )}
+          </div>
+        )}
+
+        {mode === "code" && <p className="text-text-dim text-xs font-mono mb-3">
+          Paste a PoB build code, pastebin URL, or pobb.in link
+        </p>}
+
+        {mode === "code" && <div
           onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
           onDrop={(e) => {
             e.preventDefault();
@@ -114,27 +210,29 @@ export function ImportDialog({
               />
             </label>
           </div>
-        </div>
+        </div>}
 
-        <div className="flex items-center gap-2 mt-2">
-          <span className="text-[10px] font-mono text-text-dim">Import:</span>
-          {(["full", "tree", "items", "skills"] as const).map((scope) => (
-            <button
-              key={scope}
-              onClick={() => scope === "full" && setImportScope(scope)}
-              disabled={scope !== "full"}
-              className={`text-[10px] font-mono px-2 py-0.5 rounded transition-colors ${
-                importScope === scope
-                  ? "bg-accent/20 text-accent border border-accent/30"
-                  : "text-text-dim border border-transparent disabled:opacity-30"
-              }`}
-            >
-              {scope === "full" ? "Full Build" : scope.charAt(0).toUpperCase() + scope.slice(1)}
-            </button>
-          ))}
-        </div>
+        {mode === "code" && (
+          <div className="flex items-center gap-2 mt-2">
+            <span className="text-[10px] font-mono text-text-dim">Import:</span>
+            {(["full", "tree", "items", "skills"] as const).map((scope) => (
+              <button
+                key={scope}
+                onClick={() => scope === "full" && setImportScope(scope)}
+                disabled={scope !== "full"}
+                className={`text-[10px] font-mono px-2 py-0.5 rounded transition-colors ${
+                  importScope === scope
+                    ? "bg-accent/20 text-accent border border-accent/30"
+                    : "text-text-dim border border-transparent disabled:opacity-30"
+                }`}
+              >
+                {scope === "full" ? "Full Build" : scope.charAt(0).toUpperCase() + scope.slice(1)}
+              </button>
+            ))}
+          </div>
+        )}
 
-        {!input.trim() && savedBuilds.length === 0 && (
+        {mode === "code" && !input.trim() && savedBuilds.length === 0 && (
           <div className="mt-3">
             <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-text-dim">
               Quick Start
