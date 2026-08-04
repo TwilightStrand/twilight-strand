@@ -29,6 +29,7 @@ interface UiState {
   performanceMode: boolean;
   gameVersion: "poe1" | "poe2";
   pinnedStats: string[];
+  sidebarCompact: boolean;
   setActiveTab: (tab: TabId) => void;
   toggleSidebar: () => void;
   setImportOpen: (open: boolean) => void;
@@ -37,6 +38,7 @@ interface UiState {
   setPerformanceMode: (enabled: boolean) => void;
   setGameVersion: (version: "poe1" | "poe2") => void;
   togglePinnedStat: (stat: string) => void;
+  toggleSidebarCompact: () => void;
 }
 
 export const useUiStore = create<UiState>((set) => ({
@@ -82,5 +84,13 @@ export const useUiStore = create<UiState>((set) => ({
       : [...s.pinnedStats, stat];
     try { localStorage.setItem("tsc-pinned", JSON.stringify(pinned)); } catch {}
     return { pinnedStats: pinned };
+  }),
+  sidebarCompact: (() => {
+    try { return typeof localStorage !== "undefined" && localStorage.getItem("tsc-sidebar-compact") === "1"; } catch { return false; }
+  })(),
+  toggleSidebarCompact: () => set((s) => {
+    const compact = !s.sidebarCompact;
+    try { localStorage.setItem("tsc-sidebar-compact", compact ? "1" : "0"); } catch {}
+    return { sidebarCompact: compact };
   }),
 }));
