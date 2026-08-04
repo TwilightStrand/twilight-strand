@@ -100,6 +100,33 @@ function BuildInfoSection() {
   );
 }
 
+const PRESETS: { name: string; config: Record<string, boolean | string | number> }[] = [
+  {
+    name: "Mapping",
+    config: {
+      usePowerCharges: true,
+      useFrenzyCharges: true,
+      conditionMoving: true,
+      conditionOnslaught: true,
+      enemyIsBoss: "None",
+    },
+  },
+  {
+    name: "Bossing",
+    config: {
+      usePowerCharges: true,
+      conditionStationary: true,
+      conditionFocused: true,
+      enemyIsBoss: "Pinnacle Boss",
+      conditionEnemyCursed: true,
+    },
+  },
+  {
+    name: "Default",
+    config: {},
+  },
+];
+
 export function ConfigTab() {
   const [config, setConfig] = useState(DEFAULT_CONFIG);
   const setConfigOverride = useBuildStore((s) => s.setConfigOverride);
@@ -111,6 +138,15 @@ export function ConfigTab() {
     setConfigOverride(id, value);
   };
 
+  const applyPreset = (preset: typeof PRESETS[number]) => {
+    // Reset all to defaults first
+    setConfig(DEFAULT_CONFIG);
+    // Then apply preset values
+    for (const [key, value] of Object.entries(preset.config)) {
+      updateValue(key, value);
+    }
+  };
+
   const categories = [...new Set(config.map((c) => c.category))];
 
   return (
@@ -119,6 +155,19 @@ export function ConfigTab() {
         <h2 className="text-text-heading font-display text-lg mb-4">
           Configuration
         </h2>
+
+        <div className="flex items-center gap-1.5 mb-4">
+          <span className="text-[10px] font-mono text-text-dim mr-1">Presets:</span>
+          {PRESETS.map((preset) => (
+            <button
+              key={preset.name}
+              onClick={() => applyPreset(preset)}
+              className="text-[10px] font-mono px-2 py-0.5 rounded bg-bg-card border border-border-subtle text-text-dim hover:text-accent hover:border-accent/30 transition-colors"
+            >
+              {preset.name}
+            </button>
+          ))}
+        </div>
 
         <BuildInfoSection />
 
