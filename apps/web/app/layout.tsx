@@ -31,6 +31,11 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.getItem("tsc-theme");if(t==="light"){document.documentElement.setAttribute("data-theme","light");document.documentElement.className="light"}var p=localStorage.getItem("tsc-perf");if(p==="true"){document.documentElement.classList.add("perf-mode")}}catch(e){}`,
+          }}
+        />
       </head>
       <body className="min-h-dvh antialiased">
         {children}
