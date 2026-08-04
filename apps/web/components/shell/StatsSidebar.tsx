@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useBuildStore } from "@/stores/build-store";
 import { StatsSkeleton } from "./Skeleton";
 import { BuildDiff } from "./BuildDiff";
+import { STAT_EXPLANATIONS } from "@/lib/stat-explanations";
 
 function StatSection({
   title,
@@ -46,8 +47,9 @@ function StatRow({
   delta?: number;
   title?: string;
 }) {
+  const tooltip = title || STAT_EXPLANATIONS[label];
   return (
-    <div className="flex justify-between items-baseline text-xs font-mono" title={title}>
+    <div className="flex justify-between items-baseline text-xs font-mono" title={tooltip}>
       <span className="text-text-dim">{label}</span>
       <div className="flex items-center gap-1.5">
         <span className="tabular-nums" style={color ? { color } : undefined}>

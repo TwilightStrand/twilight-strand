@@ -48,8 +48,8 @@ export function BuildDiff() {
   const diffs: Array<{ key: string; label: string; delta: number; better: boolean }> = [];
 
   for (const [key, label] of Object.entries(STAT_LABELS)) {
-    const before = (compareStats as Record<string, unknown>)[key];
-    const after = (stats as Record<string, unknown>)[key];
+    const before = (compareStats as unknown as Record<string, unknown>)[key];
+    const after = (stats as unknown as Record<string, unknown>)[key];
     if (typeof before !== "number" || typeof after !== "number") continue;
     const delta = after - before;
     if (Math.abs(delta) < 0.01) continue;

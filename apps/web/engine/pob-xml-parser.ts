@@ -83,6 +83,17 @@ function extractBuildInfo(root: Element): BuildStats {
     allocated_nodes: allocatedNodes,
     main_socket_group: mainSocketGroup,
     tree_version: treeVersion,
+    mana_unreserved: 40 + (level - 1) * 6,
+    life_unreserved: 60 + (level - 1) * 12,
+    mana_reserved_percent: 0,
+    ward: 0,
+    total_dps_with_minions: 0,
+    bleed_dps: 0,
+    poison_dps: 0,
+    ignite_dps: 0,
+    impale_dps: 0,
+    life_leech_rate: 0,
+    es_leech_rate: 0,
   };
 }
 

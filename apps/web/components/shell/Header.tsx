@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { TABS, TAB_LABELS, useUiStore } from "@/stores/ui-store";
 import type { TabId } from "@/stores/ui-store";
 import { useBuildStore } from "@/stores/build-store";
+import { useTreeStore } from "@/stores/tree-store";
 
 const TAB_ICONS: Record<TabId, string> = {
   tree: "⬡",
@@ -48,14 +49,26 @@ function EngineStatus() {
 export function Header() {
   const { activeTab, setActiveTab, setImportOpen, gameVersion, setGameVersion } = useUiStore();
   const stats = useBuildStore((s) => s.stats);
+  const items = useBuildStore((s) => s.items);
+  const skills = useBuildStore((s) => s.skills);
   const initEngine = useBuildStore((s) => s.initEngine);
   const buildName = useBuildStore((s) => s.buildName);
+  const allocNodes = useTreeStore((s) => s.allocatedNodes);
 
   useEffect(() => {
     initEngine();
   }, [initEngine]);
 
   const level = stats?.level ?? 1;
+
+  function tabBadge(tab: TabId): string | null {
+    switch (tab) {
+      case "items": return items.length > 0 ? String(items.length) : null;
+      case "skills": return skills.length > 0 ? String(skills.length) : null;
+      case "tree": return allocNodes.size > 1 ? String(allocNodes.size - 1) : null;
+      default: return null;
+    }
+  }
 
   return (
     <header className="h-12 min-h-12 md:h-14 md:min-h-14 border-b border-border-divider bg-bg-surface/60 backdrop-blur-sm flex items-center px-3 gap-2">
@@ -124,6 +137,14 @@ export function Header() {
           >
             <span className="text-xs">{TAB_ICONS[tab]}</span>
             {TAB_LABELS[tab]}
+            {(() => {
+              const badge = tabBadge(tab);
+              return badge ? (
+                <span className="text-[8px] font-mono bg-accent/20 text-accent px-1 rounded-full">
+                  {badge}
+                </span>
+              ) : null;
+            })()}
             {activeTab === tab && (
               <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-accent rounded-full" />
             )}
