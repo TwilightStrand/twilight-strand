@@ -34,12 +34,14 @@ interface BuildState {
   engineProgress: string;
   evaluating: boolean;
   buildName: string;
+  notes: string;
   savedBuilds: SavedBuild[];
 
   initEngine: () => Promise<void>;
   importBuild: (input: string) => Promise<void>;
   clearBuild: () => void;
   setBuildName: (name: string) => void;
+  setNotes: (notes: string) => void;
   saveBuild: () => void;
   loadSavedBuilds: () => void;
   deleteSavedBuild: (index: number) => void;
@@ -57,6 +59,7 @@ export const useBuildStore = create<BuildState>((set, get) => ({
   engineProgress: "",
   evaluating: false,
   buildName: "Unnamed Build",
+  notes: "",
   savedBuilds: [],
 
   saveBuild() {
@@ -170,6 +173,7 @@ export const useBuildStore = create<BuildState>((set, get) => ({
         stats: result.stats,
         items: result.items,
         skills: result.skills,
+        notes: result.notes || "",
         loading: false,
         buildName,
       });
@@ -202,11 +206,16 @@ export const useBuildStore = create<BuildState>((set, get) => ({
       error: null,
       evaluating: false,
       buildName: "Unnamed Build",
+      notes: "",
     });
   },
 
   setBuildName(name: string) {
     set({ buildName: name });
+  },
+
+  setNotes(notes: string) {
+    set({ notes });
   },
 }));
 
