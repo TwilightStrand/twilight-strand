@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { BuildGuide, LevelingStep } from "@/engine/guide-types";
+import { LevelScrubber } from "./LevelScrubber";
 
 function StepCard({ step }: { step: LevelingStep }) {
   return (
@@ -95,10 +96,14 @@ export function GuideViewer({
         </button>
 
         {expanded && (
-          <div className="space-y-2">
-            {guide.leveling.map((step, i) => (
-              <StepCard key={i} step={step} />
-            ))}
+          <div className="space-y-4">
+            <LevelScrubber steps={guide.leveling} />
+            <div className="border-t border-border-subtle pt-3 space-y-2">
+              <span className="text-[9px] font-mono text-text-dim uppercase">All Steps</span>
+              {guide.leveling.map((step, i) => (
+                <StepCard key={i} step={step} />
+              ))}
+            </div>
           </div>
         )}
       </div>
