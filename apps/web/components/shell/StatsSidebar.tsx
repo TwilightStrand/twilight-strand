@@ -28,17 +28,26 @@ function StatRow({
   label,
   value,
   color,
+  delta,
 }: {
   label: string;
   value: string;
   color?: string;
+  delta?: number;
 }) {
   return (
     <div className="flex justify-between items-baseline text-xs font-mono">
       <span className="text-text-dim">{label}</span>
-      <span className="tabular-nums" style={color ? { color } : undefined}>
-        {value}
-      </span>
+      <div className="flex items-center gap-1.5">
+        <span className="tabular-nums" style={color ? { color } : undefined}>
+          {value}
+        </span>
+        {delta !== undefined && delta !== 0 && (
+          <span className={`text-[9px] tabular-nums ${delta > 0 ? "text-green-400" : "text-red-400"}`}>
+            {delta > 0 ? "+" : ""}{Math.abs(delta) >= 1000 ? fmtNum(delta) : Math.round(delta)}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -55,8 +64,17 @@ function resColor(current: number, max: number): string {
   return "var(--color-blood)";
 }
 
+function calcDelta(current: number, baseline: number | undefined): number | undefined {
+  if (baseline === undefined) return undefined;
+  const d = current - baseline;
+  return Math.abs(d) < 0.01 ? undefined : d;
+}
+
 export function StatsSidebar() {
   const stats = useBuildStore((s) => s.stats);
+  const cmp = useBuildStore((s) => s.compareStats);
+  const setCompareBaseline = useBuildStore((s) => s.setCompareBaseline);
+  const clearCompare = useBuildStore((s) => s.clearCompare);
 
   const life = stats?.life ?? 60;
   const es = stats?.energy_shield ?? 0;
@@ -116,25 +134,38 @@ export function StatsSidebar() {
         )}
       </div>
 
+      {stats && (
+        <div className="flex justify-end mb-2">
+          <button
+            onClick={() => cmp ? clearCompare() : setCompareBaseline()}
+            className={`text-[9px] font-mono px-1.5 py-0.5 rounded transition-colors ${
+              cmp ? "bg-amber-400/20 text-amber-400" : "text-text-dim hover:text-accent"
+            }`}
+          >
+            {cmp ? "Clear compare" : "Pin for compare"}
+          </button>
+        </div>
+      )}
+
       <StatSection title="Offence" color="var(--color-offence)">
-        <StatRow label="Skill DPS" value={fmtNum(dps)} />
-        <StatRow label="Crit Chance" value={`${fmtNum(critChance, 1)}%`} />
-        <StatRow label="Crit Multi" value={`${fmtNum(critMulti)}%`} />
-        <StatRow label="Attack Speed" value={`${fmtNum(atkSpd, 2)}/s`} />
-        <StatRow label="Hit Chance" value={`${fmtNum(hitChance)}%`} />
+        <StatRow label="Skill DPS" value={fmtNum(dps)} delta={cmp ? calcDelta(dps, cmp.combined_dps ?? cmp.total_dps) : undefined} />
+        <StatRow label="Crit Chance" value={`${fmtNum(critChance, 1)}%`} delta={cmp ? calcDelta(critChance, cmp.crit_chance) : undefined} />
+        <StatRow label="Crit Multi" value={`${fmtNum(critMulti)}%`} delta={cmp ? calcDelta(critMulti, cmp.crit_multiplier) : undefined} />
+        <StatRow label="Attack Speed" value={`${fmtNum(atkSpd, 2)}/s`} delta={cmp ? calcDelta(atkSpd, cmp.attack_speed) : undefined} />
+        <StatRow label="Hit Chance" value={`${fmtNum(hitChance)}%`} delta={cmp ? calcDelta(hitChance, cmp.hit_chance) : undefined} />
       </StatSection>
 
       <StatSection title="Attributes" color="var(--color-text-heading)">
-        <StatRow label="Str" value={fmtNum(str)} color="var(--color-strength)" />
-        <StatRow label="Dex" value={fmtNum(dex)} color="var(--color-dexterity)" />
-        <StatRow label="Int" value={fmtNum(int)} color="var(--color-intelligence)" />
+        <StatRow label="Str" value={fmtNum(str)} color="var(--color-strength)" delta={cmp ? calcDelta(str, cmp.strength) : undefined} />
+        <StatRow label="Dex" value={fmtNum(dex)} color="var(--color-dexterity)" delta={cmp ? calcDelta(dex, cmp.dexterity) : undefined} />
+        <StatRow label="Int" value={fmtNum(int)} color="var(--color-intelligence)" delta={cmp ? calcDelta(int, cmp.intelligence) : undefined} />
       </StatSection>
 
       <StatSection title="Defence" color="var(--color-defence)">
-        <StatRow label="Armour" value={fmtNum(armour)} />
-        <StatRow label="Evasion" value={fmtNum(evasion)} />
-        <StatRow label="Evade" value={`${fmtNum(evade)}%`} />
-        <StatRow label="Life Regen/s" value={fmtNum(lifeRegen, 1)} />
+        <StatRow label="Armour" value={fmtNum(armour)} delta={cmp ? calcDelta(armour, cmp.armour) : undefined} />
+        <StatRow label="Evasion" value={fmtNum(evasion)} delta={cmp ? calcDelta(evasion, cmp.evasion) : undefined} />
+        <StatRow label="Evade" value={`${fmtNum(evade)}%`} delta={cmp ? calcDelta(evade, cmp.evade_chance) : undefined} />
+        <StatRow label="Life Regen/s" value={fmtNum(lifeRegen, 1)} delta={cmp ? calcDelta(lifeRegen, cmp.life_regen) : undefined} />
       </StatSection>
 
       <StatSection title="Resistances" color="var(--color-blood)">

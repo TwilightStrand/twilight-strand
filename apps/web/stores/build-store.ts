@@ -37,6 +37,10 @@ interface BuildState {
   notes: string;
   savedBuilds: SavedBuild[];
 
+  compareStats: BuildStats | null;
+  setCompareBaseline: () => void;
+  clearCompare: () => void;
+
   initEngine: () => Promise<void>;
   importBuild: (input: string) => Promise<void>;
   clearBuild: () => void;
@@ -61,6 +65,16 @@ export const useBuildStore = create<BuildState>((set, get) => ({
   buildName: "Unnamed Build",
   notes: "",
   savedBuilds: [],
+  compareStats: null,
+
+  setCompareBaseline() {
+    const s = get().stats;
+    set({ compareStats: s ? { ...s } : null });
+  },
+
+  clearCompare() {
+    set({ compareStats: null });
+  },
 
   saveBuild() {
     const { code, stats, buildName } = get();
@@ -177,6 +191,10 @@ export const useBuildStore = create<BuildState>((set, get) => ({
         loading: false,
         buildName,
       });
+
+      if (typeof window !== "undefined" && kind === "pob-code") {
+        window.history.replaceState(null, "", `#${input}`);
+      }
 
       // Phase 2: send to engine for accurate calcs (non-blocking)
       const { engineStatus } = get();
