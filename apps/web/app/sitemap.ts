@@ -1,6 +1,3 @@
-import { db } from "@/db";
-import { builds } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
 import type { MetadataRoute } from "next";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -12,6 +9,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   try {
+    const { db } = await import("@/db");
+    const { builds } = await import("@/db/schema");
+    const { eq, desc } = await import("drizzle-orm");
+
     const sharedBuilds = await db
       .select({ id: builds.id, updatedAt: builds.updatedAt })
       .from(builds)

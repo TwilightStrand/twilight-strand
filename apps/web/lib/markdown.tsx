@@ -91,15 +91,15 @@ function formatInline(text: string): React.ReactNode {
     const codeMatch = remaining.match(/`(.*?)`/);
     const italicMatch = remaining.match(/(?<!\*)\*(?!\*)(.*?)(?<!\*)\*(?!\*)/);
 
-    let earliest: { index: number; length: number; node: React.ReactNode } | null = null;
+    let earliest: { index: number; length: number; node: React.ReactNode } | null = null as { index: number; length: number; node: React.ReactNode } | null;
 
     if (boldMatch?.index !== undefined) {
       const candidate = { index: boldMatch.index, length: boldMatch[0].length, node: <strong key={key++} className="font-bold text-text-heading">{boldMatch[1]}</strong> };
-      if (!earliest || candidate.index < earliest.index) earliest = candidate;
+      if (!earliest || candidate.index < (earliest as { index: number }).index) earliest = candidate;
     }
     if (codeMatch?.index !== undefined) {
       const candidate = { index: codeMatch.index, length: codeMatch[0].length, node: <code key={key++} className="bg-bg-inset px-1 rounded text-accent text-[11px]">{codeMatch[1]}</code> };
-      if (!earliest || candidate.index < earliest.index) earliest = candidate;
+      if (!earliest || candidate.index < (earliest as { index: number }).index) earliest = candidate;
     }
     if (italicMatch?.index !== undefined && (!boldMatch || italicMatch.index !== boldMatch.index)) {
       const candidate = { index: italicMatch.index, length: italicMatch[0].length, node: <em key={key++} className="italic">{italicMatch[1]}</em> };
