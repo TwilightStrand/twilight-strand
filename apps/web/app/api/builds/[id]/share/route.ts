@@ -1,32 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { db } from "@/db";
-import { builds } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { id } = await params;
-  const { shared } = await req.json();
-
   try {
+    const { auth } = await import("@/lib/auth");
+    const { db } = await import("@/db");
+    const { builds } = await import("@/db/schema");
+    const { eq, and } = await import("drizzle-orm");
+
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const { shared } = await req.json();
+
     await db
       .update(builds)
       .set({ shared: !!shared, updatedAt: new Date() })
       .where(and(eq(builds.id, id), eq(builds.userId, session.user.id)));
 
     return NextResponse.json({ ok: true });
-  } catch (e) {
+  } catch {
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Database error" },
-      { status: 500 }
+      { error: "Database not configured. Set DATABASE_URL in .env" },
+      { status: 503 }
     );
   }
 }

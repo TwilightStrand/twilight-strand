@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/db";
-import { builds, users } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
-  const limit = Math.min(50, parseInt(req.nextUrl.searchParams.get("limit") || "20"));
-  const offset = parseInt(req.nextUrl.searchParams.get("offset") || "0");
-
   try {
+    const { db } = await import("@/db");
+    const { builds, users } = await import("@/db/schema");
+    const { eq, desc } = await import("drizzle-orm");
+
+    const limit = Math.min(50, parseInt(req.nextUrl.searchParams.get("limit") || "20"));
+    const offset = parseInt(req.nextUrl.searchParams.get("offset") || "0");
+
     const sharedBuilds = await db
       .select({
         id: builds.id,
@@ -31,10 +32,10 @@ export async function GET(req: NextRequest) {
       .offset(offset);
 
     return NextResponse.json({ builds: sharedBuilds });
-  } catch (e) {
+  } catch {
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Database error" },
-      { status: 500 }
+      { error: "Database not configured. Set DATABASE_URL in .env" },
+      { status: 503 }
     );
   }
 }
