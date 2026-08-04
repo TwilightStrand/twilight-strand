@@ -35,6 +35,7 @@ export class TreeRenderer {
   private spriteSheets: Map<string, SpriteSheet> = new Map();
   private nodePower: Map<string, number> = new Map();
   private nodePowerMode: "off" | "dps" | "defence" | "both" = "off";
+  private searchResults: Set<string> = new Set();
 
   constructor(canvas: HTMLCanvasElement, tree: TreeData) {
     this.canvas = canvas;
@@ -112,6 +113,10 @@ export class TreeRenderer {
 
   setAllocatedNodes(nodes: Set<string>): void {
     this.allocatedNodes = nodes;
+  }
+
+  setSearchResults(results: Set<string>): void {
+    this.searchResults = results;
   }
 
   setNodePower(power: Map<string, number>, mode: "off" | "dps" | "defence" | "both"): void {
@@ -227,6 +232,18 @@ export class TreeRenderer {
       }
 
       this.drawNodeCircle(ctx, screenPos.x, screenPos.y, radius, node, allocated);
+
+      if (this.searchResults.size > 0 && this.searchResults.has(nid)) {
+        ctx.save();
+        ctx.strokeStyle = "rgba(0, 200, 255, 0.9)";
+        ctx.lineWidth = Math.max(2, radius * 0.2);
+        ctx.shadowColor = "rgba(0, 200, 255, 0.6)";
+        ctx.shadowBlur = radius * 0.8;
+        ctx.beginPath();
+        ctx.arc(screenPos.x, screenPos.y, radius + 2, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
 
       if (cam.zoom >= minZoomForIcons && node.icon) {
         this.drawNodeIcon(ctx, screenPos.x, screenPos.y, radius, node, allocated);

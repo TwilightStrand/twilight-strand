@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback } from "react";
-import { parseTreeData, type TreeData, type TreeNode } from "./tree-data";
+import { parseTreeData, type TreeData } from "./tree-data";
+import type { TreeNode } from "./tree-data";
 import {
   createCamera,
   zoomCamera,
@@ -13,6 +14,7 @@ import { TreeRenderer } from "./tree-renderer";
 import { SpatialGrid } from "./tree-spatial";
 import { useTreeStore } from "@/stores/tree-store";
 import { NodePowerControls, useNodePowerStore } from "./NodePowerControls";
+import { TreeSearch } from "./TreeSearch";
 
 export function TreeCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -33,17 +35,20 @@ export function TreeCanvas() {
   } | null>(null);
 
   const { allocatedNodes, toggleNode, setHoveredNode } = useTreeStore();
+  const searchResults = useTreeStore((s) => s.searchResults);
   const { mode: npMode, depth: npDepth } = useNodePowerStore();
   const nodePowerMode = useNodePowerStore((s) => s.mode);
   const nodePowerDepth = useNodePowerStore((s) => s.depth);
+  const [treeData, setTreeData] = useState<TreeData | null>(null);
 
   const draw = useCallback(() => {
     const renderer = rendererRef.current;
     const camera = cameraRef.current;
     if (!renderer || !camera) return;
     renderer.setAllocatedNodes(allocatedNodes);
+    renderer.setSearchResults(searchResults);
     renderer.render(camera);
-  }, [allocatedNodes]);
+  }, [allocatedNodes, searchResults]);
 
   useEffect(() => {
     draw();
@@ -145,6 +150,7 @@ export function TreeCanvas() {
 
         const treeData: TreeData = parseTreeData(raw);
         treeDataRef.current = treeData;
+        setTreeData(treeData);
 
         const renderer = new TreeRenderer(canvas!, treeData);
         const spatial = new SpatialGrid(treeData.nodes);
@@ -307,38 +313,52 @@ export function TreeCanvas() {
           setHoveredNode(null);
         }}
       />
+      <TreeSearch treeData={treeData} />
       <NodePowerControls />
       {tooltip && (
         <div
-          className="absolute z-20 pointer-events-none px-3 py-2 rounded bg-bg-card border border-border-card shadow-lg max-w-xs"
+          className="fixed z-20 pointer-events-none"
           style={{
             left: tooltip.x + 16,
             top: tooltip.y - 8,
-            transform: "translateY(-100%)",
           }}
         >
-          <div className="font-mono text-xs font-bold text-text-heading">
-            {tooltip.node.name}
-          </div>
-          {tooltip.node.isKeystone && (
-            <span className="text-[9px] font-mono text-amber-400 uppercase tracking-wider">
-              Keystone
-            </span>
-          )}
-          {tooltip.node.isNotable && (
-            <span className="text-[9px] font-mono text-gold uppercase tracking-wider">
-              Notable
-            </span>
-          )}
-          {tooltip.node.stats && tooltip.node.stats.length > 0 && (
-            <div className="mt-1 space-y-px">
-              {tooltip.node.stats.map((stat, i) => (
-                <div key={i} className="text-[10px] text-text-primary">
-                  {stat}
-                </div>
-              ))}
+          <div className="bg-bg-card/95 backdrop-blur border border-border-card rounded-lg shadow-xl p-3 max-w-72">
+            <div className="flex items-center gap-2 mb-1">
+              {tooltip.node.isKeystone && (
+                <span className="text-[9px] font-mono uppercase tracking-wider text-amber-400 bg-amber-400/10 px-1.5 rounded">
+                  Keystone
+                </span>
+              )}
+              {tooltip.node.isNotable && !tooltip.node.isKeystone && (
+                <span className="text-[9px] font-mono uppercase tracking-wider text-accent bg-accent/10 px-1.5 rounded">
+                  Notable
+                </span>
+              )}
+              {tooltip.node.isJewelSocket && (
+                <span className="text-[9px] font-mono uppercase tracking-wider text-purple-400 bg-purple-400/10 px-1.5 rounded">
+                  Jewel
+                </span>
+              )}
+              {allocatedNodes.has(tooltip.node.id) && (
+                <span className="text-[9px] font-mono uppercase tracking-wider text-green-400">
+                  Allocated
+                </span>
+              )}
             </div>
-          )}
+            <h4 className="text-sm font-mono font-bold text-text-heading mb-1.5">
+              {tooltip.node.name}
+            </h4>
+            {tooltip.node.stats && tooltip.node.stats.length > 0 && (
+              <div className="space-y-0.5">
+                {tooltip.node.stats.map((stat, i) => (
+                  <div key={i} className="text-xs font-mono text-accent-dim">
+                    {stat}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

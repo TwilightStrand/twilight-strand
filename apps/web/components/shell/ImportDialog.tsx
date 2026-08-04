@@ -72,15 +72,47 @@ export function ImportDialog({
           Paste a PoB build code, pastebin URL, or pobb.in link
         </p>
 
-        <textarea
-          ref={textareaRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onPaste={handlePaste}
-          placeholder="Paste your build code here..."
-          className="w-full h-32 bg-bg-inset border border-border-subtle rounded px-3 py-2 text-sm font-mono text-text-primary placeholder:text-text-dim/40 resize-none focus:outline-none focus:border-accent"
-          disabled={loading}
-        />
+        <div
+          onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const file = e.dataTransfer.files[0];
+            if (file) {
+              const reader = new FileReader();
+              reader.onload = () => setInput(reader.result as string);
+              reader.readAsText(file);
+            }
+          }}
+        >
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onPaste={handlePaste}
+            placeholder="Paste your build code here..."
+            className="w-full h-32 bg-bg-inset border border-border-subtle rounded px-3 py-2 text-sm font-mono text-text-primary placeholder:text-text-dim/40 resize-none focus:outline-none focus:border-accent"
+            disabled={loading}
+          />
+          <div className="mt-2 text-center">
+            <label className="text-[10px] font-mono text-text-dim cursor-pointer hover:text-accent transition-colors">
+              or <span className="underline">upload a .xml file</span>
+              <input
+                type="file"
+                accept=".xml,.txt"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onload = () => setInput(reader.result as string);
+                    reader.readAsText(file);
+                  }
+                }}
+              />
+            </label>
+          </div>
+        </div>
 
         {error && (
           <div className="mt-2 text-blood text-xs font-mono">{error}</div>
