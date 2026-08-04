@@ -283,6 +283,8 @@ export class TreeRenderer {
 
       if (node.isJewelSocket) {
         this.drawJewelSocket(ctx, screenPos.x, screenPos.y, radius, allocated);
+      } else if (node.isMastery) {
+        this.drawMasteryStar(ctx, screenPos.x, screenPos.y, radius, allocated);
       } else {
         this.drawNodeCircle(ctx, screenPos.x, screenPos.y, radius, node, allocated);
       }
@@ -356,6 +358,48 @@ export class TreeRenderer {
     ctx.shadowColor = "transparent";
     ctx.shadowBlur = 0;
     ctx.restore();
+  }
+
+  private drawMasteryStar(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    radius: number,
+    allocated: boolean
+  ): void {
+    const spikes = 6;
+    const outerR = radius * 0.85;
+    const innerR = outerR * 0.5;
+
+    ctx.beginPath();
+    for (let i = 0; i < spikes * 2; i++) {
+      const r = i % 2 === 0 ? outerR : innerR;
+      const angle = (i * Math.PI) / spikes - Math.PI / 2;
+      const px = x + Math.cos(angle) * r;
+      const py = y + Math.sin(angle) * r;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+
+    if (allocated) {
+      ctx.shadowColor = "rgba(245, 158, 11, 0.5)";
+      ctx.shadowBlur = radius * 0.6;
+      ctx.fillStyle = "#b45309";
+      ctx.fill();
+      ctx.strokeStyle = "#fbbf24";
+      ctx.lineWidth = Math.max(1, radius * 0.08);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = "rgba(245, 158, 11, 0.08)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(245, 158, 11, 0.3)";
+      ctx.lineWidth = Math.max(0.5, radius * 0.05);
+      ctx.stroke();
+    }
+
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
   }
 
   private drawNodeCircle(
