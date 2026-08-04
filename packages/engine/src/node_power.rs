@@ -101,6 +101,7 @@ mod tests {
             ],
             allocated_keystones: vec![],
             main_skill_id: String::new(),
+            ascendancy_name: String::new(),
         }
     }
 
