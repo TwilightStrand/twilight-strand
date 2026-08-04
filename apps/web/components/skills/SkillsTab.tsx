@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useBuildStore } from "@/stores/build-store";
 import { EmptyState } from "@/components/shell/EmptyState";
+import { SkillEditor } from "./SkillEditor";
 import type { SkillGroup, GemData } from "@/engine/types";
 
 function fmtNum(n: number): string {
@@ -78,7 +79,7 @@ function GemSlot({ gem }: { gem: GemData }) {
   );
 }
 
-function SocketGroupCard({ group, index, isMain, totalDps }: { group: SkillGroup; index: number; isMain: boolean; totalDps: number }) {
+function SocketGroupCard({ group, index, isMain, totalDps, onEdit, onDelete }: { group: SkillGroup; index: number; isMain: boolean; totalDps: number; onEdit: () => void; onDelete: () => void }) {
   const items = useBuildStore((s) => s.items);
   const equippedItem = items.find((item) => item.slot === group.slot);
   const allGems = group.gems;
@@ -193,6 +194,8 @@ function SocketGroupCard({ group, index, isMain, totalDps }: { group: SkillGroup
             No active skill
           </span>
         )}
+        <button onClick={(e) => { e.stopPropagation(); onEdit(); }} className="text-[9px] font-mono text-text-dim/40 hover:text-accent transition-colors">edit</button>
+        <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="text-[9px] font-mono text-text-dim/40 hover:text-blood transition-colors">x</button>
       </div>
       <div className="py-1 relative">
         {allGems.length > 1 && (
@@ -225,13 +228,26 @@ export function SkillsTab() {
   const skills = useBuildStore((s) => s.skills);
   const mainSocketGroup = useBuildStore((s) => s.stats?.main_socket_group ?? 0);
   const totalDps = skills.reduce((sum, g) => sum + (g.dps || 0), 0);
+  const [editing, setEditing] = useState<number | null>(null);
+  const [creating, setCreating] = useState(false);
 
-  if (skills.length === 0) {
+  if (skills.length === 0 && !creating) {
     return (
-      <EmptyState
-        title="No Socket Groups"
-        description="Socket groups hold active skill gems and support gems linked to them. Import a build to see your skills."
-      />
+      <div className="h-full overflow-y-auto p-4">
+        <EmptyState
+          title="No Socket Groups"
+          description="Socket groups hold active skill gems and support gems linked to them. Import a build or create one manually."
+          showImport
+        />
+        <div className="flex justify-center mt-4">
+          <button
+            onClick={() => setCreating(true)}
+            className="px-4 py-1.5 text-sm font-mono bg-bg-card border border-border-card rounded hover:border-accent/50 text-text-dim hover:text-accent transition-colors"
+          >
+            + Add socket group
+          </button>
+        </div>
+      </div>
     );
   }
 
@@ -241,13 +257,50 @@ export function SkillsTab() {
         <h2 className="text-xs font-mono uppercase tracking-widest text-text-dim">
           Socket Groups
         </h2>
-        <button className="text-xs font-mono text-text-dim hover:text-accent transition-colors">
+        <button
+          onClick={() => setCreating(true)}
+          className="text-xs font-mono text-text-dim hover:text-accent transition-colors"
+        >
           + Add group
         </button>
       </div>
+
+      {(creating || editing !== null) && (
+        <div className="mb-4">
+          <SkillEditor
+            group={editing !== null ? skills[editing] : undefined}
+            index={editing ?? skills.length}
+            onSave={(group) => {
+              const updated = [...skills];
+              if (editing !== null) {
+                updated[editing] = group;
+              } else {
+                updated.push(group);
+              }
+              useBuildStore.setState({ skills: updated });
+              setEditing(null);
+              setCreating(false);
+            }}
+            onCancel={() => { setEditing(null); setCreating(false); }}
+          />
+        </div>
+      )}
+
       <div className="space-y-2 max-w-2xl">
         {skills.map((group, i) => (
-          <SocketGroupCard key={i} group={group} index={i} isMain={i + 1 === mainSocketGroup} totalDps={totalDps} />
+          <SocketGroupCard
+            key={i}
+            group={group}
+            index={i}
+            isMain={i + 1 === mainSocketGroup}
+            totalDps={totalDps}
+            onEdit={() => setEditing(i)}
+            onDelete={() => {
+              const updated = [...skills];
+              updated.splice(i, 1);
+              useBuildStore.setState({ skills: updated });
+            }}
+          />
         ))}
       </div>
     </div>
