@@ -647,6 +647,9 @@ async function handleEvaluate(id: number, xml: string): Promise<void> {
       chaos_res_max: 75,
       life_regen: 0,
       mana_regen: 0.9,
+      mana_unreserved: 50,
+      life_unreserved: 60,
+      mana_reserved_percent: 0,
       crit_chance: 0,
       crit_multiplier: 150,
       attack_speed: 1.2,
@@ -657,6 +660,7 @@ async function handleEvaluate(id: number, xml: string): Promise<void> {
       level: 1,
       allocated_nodes: [],
       main_socket_group: 0,
+      tree_version: "3_29",
     };
 
     // Try PoB evaluation
@@ -755,6 +759,9 @@ async function handleEvaluate(id: number, xml: string): Promise<void> {
             result.accuracy = out.Accuracy or 0
             result.life_regen = out.LifeRegen or 0
             result.mana_regen = out.ManaRegen or 0
+            result.mana_unreserved = out.ManaUnreserved or out.Mana or 0
+            result.life_unreserved = out.LifeUnreserved or out.Life or 0
+            result.mana_reserved_percent = out.ManaReservedPercent or 0
             result.has_calcs = true
           else
             result.has_calcs = false

@@ -196,7 +196,17 @@ export function ItemsTab() {
   const [selectedSlot, setSelectedSlot] = useState<string>("Weapon 1");
   const [activeLoadout, setActiveLoadout] = useState(0);
   const [weaponSet, setWeaponSet] = useState<1 | 2>(1);
+  const [activeFlasks, setActiveFlasks] = useState<Set<string>>(new Set());
   const loadouts = ["Default"];
+
+  function toggleFlask(slot: string) {
+    setActiveFlasks(prev => {
+      const next = new Set(prev);
+      if (next.has(slot)) next.delete(slot);
+      else next.add(slot);
+      return next;
+    });
+  }
 
   const weaponSlots = weaponSet === 1 ? WEAPON_SLOTS_SET1 : WEAPON_SLOTS_SET2;
   const equipmentSlots = [...weaponSlots, ...ARMOUR_SLOTS];
@@ -267,13 +277,27 @@ export function ItemsTab() {
           </span>
         </div>
         {FLASK_SLOTS.map((slot) => (
-          <SlotRow
-            key={slot}
-            slot={slot}
-            item={itemsBySlot.get(slot)}
-            selected={selectedSlot === slot}
-            onClick={() => setSelectedSlot(slot)}
-          />
+          <div key={slot} className="flex items-center gap-0.5">
+            <button
+              onClick={(e) => { e.stopPropagation(); toggleFlask(slot); }}
+              className={`w-4 h-4 rounded-sm text-[8px] font-bold shrink-0 transition-colors ${
+                activeFlasks.has(slot)
+                  ? "bg-accent/30 text-accent border border-accent/50"
+                  : "bg-bg-hover text-text-dim/40 border border-border-subtle"
+              }`}
+              title={activeFlasks.has(slot) ? "Flask active" : "Flask inactive"}
+            >
+              {activeFlasks.has(slot) ? "A" : ""}
+            </button>
+            <div className="flex-1">
+              <SlotRow
+                slot={slot}
+                item={itemsBySlot.get(slot)}
+                selected={selectedSlot === slot}
+                onClick={() => setSelectedSlot(slot)}
+              />
+            </div>
+          </div>
         ))}
       </div>
       </div>
