@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/shell/EmptyState";
 import { ItemEditor } from "./ItemEditor";
 import { ClusterDisplay } from "./ClusterDisplay";
 import { CraftingBench } from "./CraftingBench";
+import { UniqueBrowser } from "./UniqueBrowser";
 import type { ItemData } from "@/engine/types";
 
 const WEAPON_SLOTS_SET1 = ["Weapon 1", "Weapon 2"];
@@ -410,6 +411,7 @@ export function ItemsTab() {
   const [editing, setEditing] = useState(false);
   const [editingItem, setEditingItem] = useState<ItemData | undefined>();
   const [crafting, setCrafting] = useState(false);
+  const [browsingUniques, setBrowsingUniques] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const storeLoadouts = useBuildStore((s) => s.loadouts);
   const loadouts = storeLoadouts.map(l => l.name);
@@ -504,6 +506,12 @@ export function ItemsTab() {
             + New
           </button>
           <button
+            onClick={() => setBrowsingUniques(true)}
+            className="text-[10px] font-mono text-amber-400 hover:text-amber-400/80 transition-colors mr-1"
+          >
+            Uniques
+          </button>
+          <button
             onClick={() => setWeaponSet(1)}
             className={`text-[9px] font-mono px-1.5 py-0.5 rounded transition-colors ${weaponSet === 1 ? "bg-accent/20 text-accent" : "text-text-dim/50 hover:text-text-dim"}`}
           >
@@ -564,7 +572,31 @@ export function ItemsTab() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {crafting && selectedItem ? (
+        {browsingUniques ? (
+          <UniqueBrowser
+            defaultSlot={selectedSlot}
+            onEquip={(item) => {
+              const current = [...useBuildStore.getState().items];
+              const slot = selectedSlot || item.slot || "Body Armour";
+              const newItem: ItemData = {
+                slot,
+                name: item.name,
+                base: item.base,
+                rarity: "Unique",
+                mods: item.mods,
+                quality: 0,
+                sockets: "",
+              };
+              const idx = current.findIndex((i) => i.slot === slot);
+              if (idx >= 0) current[idx] = newItem;
+              else current.push(newItem);
+              useBuildStore.setState({ items: current });
+              setSelectedSlot(slot);
+              setBrowsingUniques(false);
+            }}
+            onClose={() => setBrowsingUniques(false)}
+          />
+        ) : crafting && selectedItem ? (
           <CraftingBench
             item={selectedItem}
             onCraft={(mod) => {
