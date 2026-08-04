@@ -38,6 +38,10 @@ function gemColor(gem: GemData): string {
 }
 
 function GemSlot({ gem }: { gem: GemData }) {
+  const isMaxLevel = gem.level >= 21;
+  const isAwakened = (gem.name || "").toLowerCase().startsWith("awakened");
+  const isVaal = (gem.name || "").toLowerCase().startsWith("vaal");
+
   return (
     <div
       className={`flex items-center gap-2 px-2 py-1 rounded text-xs font-mono ${
@@ -49,6 +53,8 @@ function GemSlot({ gem }: { gem: GemData }) {
         style={{ backgroundColor: gemColor(gem) }}
       />
       <span className="flex-1 min-w-0 truncate text-text-primary">
+        {isVaal && <span className="text-red-400 mr-0.5">V</span>}
+        {isAwakened && <span className="text-amber-400 mr-0.5">A</span>}
         {gem.name || gem.skillId}
       </span>
       {gem.isSupport && (
@@ -56,8 +62,10 @@ function GemSlot({ gem }: { gem: GemData }) {
           sup
         </span>
       )}
-      <span className="text-text-dim tabular-nums shrink-0">
-        {gem.level}/{gem.quality}
+      <span className="tabular-nums shrink-0">
+        <span className={isMaxLevel ? "text-amber-400" : "text-text-dim"}>{gem.level}</span>
+        <span className="text-text-dim/40">/</span>
+        <span className={gem.quality >= 20 ? "text-accent" : "text-text-dim"}>{gem.quality}</span>
       </span>
     </div>
   );

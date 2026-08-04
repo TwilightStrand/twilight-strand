@@ -68,9 +68,12 @@ function SlotRow({
       )}
       <span className={`${flaskColor ? "w-16" : "w-24"} shrink-0 text-text-dim truncate`}>{slot}</span>
       {item ? (
-        <span className="truncate" style={{ color: rarityColor(item.rarity) }}>
-          {item.name || item.base}
-        </span>
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className="w-0.5 h-4 rounded-full shrink-0" style={{ backgroundColor: rarityColor(item.rarity) }} />
+          <span className="truncate" style={{ color: rarityColor(item.rarity) }}>
+            {item.name || item.base}
+          </span>
+        </div>
       ) : (
         <span className="text-text-dim/40 italic">Empty</span>
       )}
@@ -149,7 +152,7 @@ function ItemDetail({ item }: { item: ItemData }) {
   const keyStats = extractKeyStats(item);
 
   return (
-    <div className="p-4">
+    <div className="p-4 border-t-2" style={{ borderTopColor: color }}>
       <div className="mb-3">
         <div className="flex items-center gap-2 mb-1">
           <span
