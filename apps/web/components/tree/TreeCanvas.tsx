@@ -352,20 +352,8 @@ export function TreeCanvas() {
         // Rust engine not available - fall back to empty heatmap
       }
 
-      // Fallback: if Rust didn't score anything, use simple distance heuristic
-      if (scored === 0) {
-        const cx = (tree.bounds.minX + tree.bounds.maxX) / 2;
-        const cy = (tree.bounds.minY + tree.bounds.maxY) / 2;
-        const maxDist = Math.max(tree.bounds.maxX - tree.bounds.minX, tree.bounds.maxY - tree.bounds.minY) / 2;
-        for (const [nid, node] of tree.nodes) {
-          if (allocatedNodes.has(nid)) continue;
-          if (node.ascendancyName) continue;
-          if (!node.name) continue;
-          const dist = Math.sqrt((node.x - cx) ** 2 + (node.y - cy) ** 2);
-          power.set(nid, 1 - Math.min(1, dist / maxDist));
-          scored++;
-        }
-      }
+      // If Rust engine didn't score any nodes, heatmap stays empty
+      // (Rust WASM must be loaded for real node power scoring)
 
       renderer.setNodePower(power, nodePowerMode);
       setScoring(false, scored);

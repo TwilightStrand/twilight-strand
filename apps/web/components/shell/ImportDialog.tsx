@@ -260,12 +260,14 @@ export function ImportDialog({
             {(["full", "tree", "items", "skills"] as const).map((scope) => (
               <button
                 key={scope}
-                onClick={() => scope === "full" && setImportScope(scope)}
-                disabled={scope !== "full"}
+                onClick={() => {
+                  setImportScope(scope);
+                  useBuildStore.getState().setImportScope(scope);
+                }}
                 className={`text-[10px] font-mono px-2 py-0.5 rounded transition-colors ${
                   importScope === scope
                     ? "bg-accent/20 text-accent border border-accent/30"
-                    : "text-text-dim border border-transparent disabled:opacity-30"
+                    : "text-text-dim hover:text-text-primary border border-transparent"
                 }`}
               >
                 {scope === "full" ? "Full Build" : scope.charAt(0).toUpperCase() + scope.slice(1)}
