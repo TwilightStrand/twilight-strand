@@ -181,6 +181,48 @@ const LUA_SHIMS = `
     end
   end
 
+  -- Lua 5.4 string.format %d compat: LuaJIT silently truncates floats
+  -- for %d, but PUC Lua 5.4 raises "number has no integer representation".
+  -- PoB's calc modules pass floats to %d throughout.
+  do
+    local _orig_format = string.format
+    local floor = math.floor
+    string.format = function(fmt, ...)
+      if type(fmt) ~= "string" then
+        return _orig_format(fmt, ...)
+      end
+      local nargs = select("#", ...)
+      if nargs == 0 then return _orig_format(fmt) end
+      local args = {...}
+      local i = 0
+      local pos = 1
+      while pos <= #fmt do
+        local c = fmt:sub(pos, pos)
+        if c == "%" then
+          local next_c = fmt:sub(pos+1, pos+1)
+          if next_c == "%" then
+            pos = pos + 2
+          else
+            i = i + 1
+            local _, endpos = fmt:find("^%%[-#+ 0]*%d*%.?%d*[a-zA-Z]", pos)
+            if endpos then
+              local spec = fmt:sub(endpos, endpos)
+              if (spec == "d" or spec == "i" or spec == "o" or spec == "u" or spec == "x" or spec == "X") and i <= nargs and type(args[i]) == "number" then
+                args[i] = floor(args[i])
+              end
+              pos = endpos + 1
+            else
+              pos = pos + 1
+            end
+          end
+        else
+          pos = pos + 1
+        end
+      end
+      return _orig_format(fmt, unpack(args, 1, nargs))
+    end
+  end
+
   -- Command-line args stub (PoB's Main.lua reads arg[0])
   arg = arg or { [0] = "/pob/Launch.lua" }
 
@@ -328,6 +370,27 @@ async function preloadTreeData(
       local dkjson = require("dkjson")
       _tsc_preloaded_tree = dkjson.decode(_tsc_tree_json)
       _tsc_tree_json = nil
+
+      -- JSON object keys are always strings, but PoB's tree.lua uses
+      -- integer keys for nodes and groups (e.g. [28609]= {...}).
+      -- Convert string-numeric keys back to integers.
+      local function rekey_numeric(tbl)
+        local fixes = {}
+        for k, v in pairs(tbl) do
+          if type(k) == "string" then
+            local n = tonumber(k)
+            if n and n == math.floor(n) then
+              fixes[#fixes+1] = { k, n, v }
+            end
+          end
+        end
+        for _, fix in ipairs(fixes) do
+          tbl[fix[1]] = nil
+          tbl[fix[2]] = fix[3]
+        end
+      end
+      if _tsc_preloaded_tree.nodes then rekey_numeric(_tsc_preloaded_tree.nodes) end
+      if _tsc_preloaded_tree.groups then rekey_numeric(_tsc_preloaded_tree.groups) end
     `);
 
     if (spritesJson) {
