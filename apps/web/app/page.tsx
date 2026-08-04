@@ -6,6 +6,7 @@ import { StatsSidebar } from "@/components/shell/StatsSidebar";
 import { TabContent } from "@/components/shell/TabContent";
 import { MobileNav } from "@/components/shell/MobileNav";
 import { ImportDialog } from "@/components/shell/ImportDialog";
+import { KeyboardShortcuts } from "@/components/shell/KeyboardShortcuts";
 import { useUiStore } from "@/stores/ui-store";
 
 export default function Home() {
@@ -25,6 +26,10 @@ export default function Home() {
       if ((e.ctrlKey || e.metaKey) && e.key === "i") {
         e.preventDefault();
         setImportOpen(true);
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        import("@/stores/build-store").then((m) => m.useBuildStore.getState().saveBuild());
       }
       if ((e.ctrlKey || e.metaKey) && e.key === "z") {
         e.preventDefault();
@@ -50,6 +55,7 @@ export default function Home() {
         <MobileNav />
       </div>
       <ImportDialog open={importOpen} onClose={() => setImportOpen(false)} />
+      <KeyboardShortcuts />
     </>
   );
 }

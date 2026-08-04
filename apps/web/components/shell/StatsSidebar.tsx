@@ -1,25 +1,32 @@
 "use client";
 
+import { useState } from "react";
 import { useBuildStore } from "@/stores/build-store";
 
 function StatSection({
   title,
   color,
   children,
+  defaultOpen = true,
 }: {
   title: string;
   color: string;
   children: React.ReactNode;
+  defaultOpen?: boolean;
 }) {
+  const [open, setOpen] = useState(defaultOpen);
+
   return (
     <div className="mb-3">
-      <h3
-        className="text-[10px] font-mono font-bold uppercase tracking-widest mb-1"
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between text-[10px] font-mono font-bold uppercase tracking-widest mb-1"
         style={{ color }}
       >
-        {title}
-      </h3>
-      <div className="space-y-px">{children}</div>
+        <span>{title}</span>
+        <span className="text-[8px] text-text-dim">{open ? "−" : "+"}</span>
+      </button>
+      {open && <div className="space-y-px">{children}</div>}
     </div>
   );
 }
