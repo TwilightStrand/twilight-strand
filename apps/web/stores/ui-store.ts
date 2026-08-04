@@ -24,16 +24,44 @@ interface UiState {
   activeTab: TabId;
   sidebarOpen: boolean;
   importOpen: boolean;
+  theme: "dark" | "light";
+  numberFormat: "us" | "eu";
+  performanceMode: boolean;
   setActiveTab: (tab: TabId) => void;
   toggleSidebar: () => void;
   setImportOpen: (open: boolean) => void;
+  setTheme: (theme: "dark" | "light") => void;
+  setNumberFormat: (format: "us" | "eu") => void;
+  setPerformanceMode: (enabled: boolean) => void;
 }
 
 export const useUiStore = create<UiState>((set) => ({
   activeTab: "tree",
   sidebarOpen: true,
   importOpen: false,
+  theme: "dark",
+  numberFormat: "us",
+  performanceMode: false,
   setActiveTab: (tab) => set({ activeTab: tab }),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   setImportOpen: (open) => set({ importOpen: open }),
+  setTheme: (theme) => {
+    set({ theme });
+    if (typeof document !== "undefined") {
+      document.documentElement.setAttribute("data-theme", theme);
+      document.documentElement.className = theme;
+    }
+    try { localStorage.setItem("tsc-theme", theme); } catch {}
+  },
+  setNumberFormat: (format) => {
+    set({ numberFormat: format });
+    try { localStorage.setItem("tsc-numfmt", format); } catch {}
+  },
+  setPerformanceMode: (enabled) => {
+    set({ performanceMode: enabled });
+    if (typeof document !== "undefined") {
+      document.documentElement.classList.toggle("perf-mode", enabled);
+    }
+    try { localStorage.setItem("tsc-perf", String(enabled)); } catch {}
+  },
 }));
