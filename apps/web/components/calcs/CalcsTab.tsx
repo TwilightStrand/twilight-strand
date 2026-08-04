@@ -6,6 +6,53 @@ import { CalcSection } from "./CalcSection";
 import { EmptyState } from "@/components/shell/EmptyState";
 import { CalcRow, CalcSubheader } from "./CalcRow";
 import { ClusterSearch } from "@/components/tree/ClusterSearch";
+import type { BuildStats } from "@/engine/types";
+
+function fmtNum(n: number): string {
+  if (Math.abs(n) >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  if (Math.abs(n) >= 1e3) return `${(n / 1e3).toFixed(1)}k`;
+  return String(Math.round(n));
+}
+
+function DpsChart({ stats }: { stats: BuildStats }) {
+  const total = stats.total_dps || 1;
+  const bars = [
+    { label: "Hit DPS", value: Math.max(0, total - (stats.bleed_dps || 0) - (stats.poison_dps || 0) - (stats.ignite_dps || 0)), color: "#06b6d4" },
+    { label: "Bleed", value: stats.bleed_dps || 0, color: "#ef4444" },
+    { label: "Poison", value: stats.poison_dps || 0, color: "#22c55e" },
+    { label: "Ignite", value: stats.ignite_dps || 0, color: "#f97316" },
+    { label: "Impale", value: stats.impale_dps || 0, color: "#a855f7" },
+  ].filter(b => b.value > 0);
+
+  const maxVal = Math.max(...bars.map(b => b.value));
+
+  if (bars.length === 0 || total <= 0) return null;
+
+  return (
+    <div className="mb-4 bg-bg-card border border-border-card rounded-lg p-3">
+      <h3 className="text-[10px] font-mono font-bold uppercase tracking-widest text-accent mb-2">DPS Breakdown</h3>
+      <div className="space-y-1.5">
+        {bars.map(bar => (
+          <div key={bar.label}>
+            <div className="flex justify-between text-[10px] font-mono mb-0.5">
+              <span className="text-text-dim">{bar.label}</span>
+              <span className="tabular-nums text-text-primary">{fmtNum(bar.value)}</span>
+            </div>
+            <div className="h-2 bg-bg-hover rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-300"
+                style={{ width: `${(bar.value / maxVal) * 100}%`, backgroundColor: bar.color }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="text-[9px] font-mono text-text-dim/60 mt-1.5 text-right">
+        Total: {fmtNum(total)}
+      </div>
+    </div>
+  );
+}
 
 const COLOR_OFFENCE = "#cfe0ff";
 const COLOR_DEFENCE = "#9fb0d8";
@@ -287,6 +334,8 @@ export function CalcsTab() {
           JSON
         </button>
       </div>
+
+      <DpsChart stats={stats} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="space-y-0">
