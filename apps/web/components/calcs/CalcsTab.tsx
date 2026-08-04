@@ -6,6 +6,7 @@ import { CalcSection } from "./CalcSection";
 import { EmptyState } from "@/components/shell/EmptyState";
 import { CalcRow, CalcSubheader } from "./CalcRow";
 import { ClusterSearch } from "@/components/tree/ClusterSearch";
+import { PowerReport } from "@/components/tree/PowerReport";
 import type { BuildStats } from "@/engine/types";
 
 function fmtNum(n: number): string {
@@ -389,6 +390,9 @@ export function CalcsTab() {
       </div>
       <div className="border-t border-border-subtle mt-4 pt-4">
         <ClusterSearch />
+      </div>
+      <div className="border-t border-border-subtle mt-4 pt-4">
+        <PowerReport />
       </div>
     </div>
   );
