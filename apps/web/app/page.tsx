@@ -1,18 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Header } from "@/components/shell/Header";
-import { StatsSidebar } from "@/components/shell/StatsSidebar";
-import { TabContent } from "@/components/shell/TabContent";
-import { MobileNav } from "@/components/shell/MobileNav";
+import { ActivityBar } from "@/components/shell/ActivityBar";
+import { ErrorBoundary } from "@/components/shell/ErrorBoundary";
 import { ImportDialog } from "@/components/shell/ImportDialog";
 import { KeyboardShortcuts } from "@/components/shell/KeyboardShortcuts";
-import { WelcomeHint } from "@/components/shell/WelcomeHint";
-import { ToastContainer } from "@/components/shell/Toast";
+import { MobileNav } from "@/components/shell/MobileNav";
 import { MobileStats } from "@/components/shell/MobileStats";
-import { ErrorBoundary } from "@/components/shell/ErrorBoundary";
-import { useUiStore } from "@/stores/ui-store";
+import { StatsSidebar } from "@/components/shell/StatsSidebar";
+import { StatusBar } from "@/components/shell/StatusBar";
+import { TabContent } from "@/components/shell/TabContent";
+import { ToastContainer } from "@/components/shell/Toast";
+import { WelcomeHint } from "@/components/shell/WelcomeHint";
 import { useBuildStore } from "@/stores/build-store";
+import { useUiStore } from "@/stores/ui-store";
 
 export default function Home() {
   const { importOpen, setImportOpen } = useUiStore();
@@ -25,9 +26,15 @@ export default function Home() {
       document.title = `${buildName} - Twilight Strand`;
       const meta = document.querySelector('meta[name="description"]');
       if (meta) {
-        const dps = stats.total_dps >= 1e6 ? `${(stats.total_dps / 1e6).toFixed(1)}M` : stats.total_dps >= 1e3 ? `${Math.round(stats.total_dps / 1e3)}k` : String(Math.round(stats.total_dps));
-        meta.setAttribute("content",
-          `${stats.ascendancy || stats.class_name} Lv ${stats.level} - ${dps} DPS, ${stats.life} Life, ${stats.energy_shield} ES - Twilight Strand Build Planner`
+        const dps =
+          stats.total_dps >= 1e6
+            ? `${(stats.total_dps / 1e6).toFixed(1)}M`
+            : stats.total_dps >= 1e3
+              ? `${Math.round(stats.total_dps / 1e3)}k`
+              : String(Math.round(stats.total_dps));
+        meta.setAttribute(
+          "content",
+          `${stats.ascendancy || stats.class_name} Lv ${stats.level} - ${dps} DPS, ${stats.life} Life, ${stats.energy_shield} ES - Twilight Strand Build Planner`,
         );
       }
     } else {
@@ -73,10 +80,8 @@ export default function Home() {
         }
       }
       if (e.key === "Escape") {
-        const { importOpen, setImportOpen } = useUiStore.getState();
-        if (importOpen) {
-          setImportOpen(false);
-        }
+        const { importOpen: io, setImportOpen: sio } = useUiStore.getState();
+        if (io) sio(false);
       }
     }
     window.addEventListener("keydown", handleKeyDown);
@@ -86,8 +91,14 @@ export default function Home() {
   return (
     <>
       <div className="h-dvh flex flex-col">
-        <Header />
+        {/* Status bar (thin, replaces old header) */}
+        <StatusBar />
+
         <div className="flex-1 flex overflow-hidden">
+          {/* Activity bar (vertical icon nav) */}
+          <ActivityBar />
+
+          {/* Stats sidebar */}
           {sidebarOpen && (
             <ErrorBoundary name="sidebar">
               <StatsSidebar />
@@ -95,17 +106,19 @@ export default function Home() {
           )}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="hidden md:flex w-4 items-center justify-center border-r border-border-subtle hover:bg-bg-hover/50 transition-colors shrink-0"
+            className="hidden md:flex w-3 items-center justify-center border-r border-border-subtle hover:bg-bg-hover/50 transition-colors shrink-0"
             aria-label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
           >
-            <span className="text-text-dim text-[10px]">
-              {sidebarOpen ? "‹" : "›"}
-            </span>
+            <span className="text-text-dim/30 text-[8px]">{sidebarOpen ? "‹" : "›"}</span>
           </button>
+
+          {/* Main content */}
           <ErrorBoundary name="content">
             <TabContent />
           </ErrorBoundary>
         </div>
+
+        {/* Mobile bottom nav */}
         <MobileNav />
       </div>
       <ImportDialog open={importOpen} onClose={() => setImportOpen(false)} />

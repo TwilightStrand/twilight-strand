@@ -8,7 +8,7 @@
     "typecheck": "cd apps/web && npx tsc --noEmit",
     "test": "turbo test",
     "data:fetch": "cd packages/pob-data && bash fetch-pob.sh && bash fetch-tree.sh && bash gen-manifest.sh",
-    "data:gen": "node apps/web/scripts/convert-tree-lua.mjs && node apps/web/scripts/gen-cluster-data.mjs && node apps/web/scripts/gen-gem-data.mjs && node apps/web/scripts/gen-unique-data.mjs && node apps/web/scripts/gen-config-options.mjs",
+    "data:gen": "node apps/web/scripts/convert-tree-lua.mjs && node apps/web/scripts/gen-cluster-data.mjs && node apps/web/scripts/gen-gem-data.mjs && node apps/web/scripts/gen-unique-data.mjs && node apps/web/scripts/gen-config-options.mjs && node apps/web/scripts/gen-corruption-data.mjs",
     "data:all": "pnpm data:fetch && pnpm data:gen",
     "engine:test": "cd packages/engine && cargo test",
     "engine:build": "cd packages/engine && bash build.sh",
@@ -27,6 +27,7 @@
     ]
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.7",
     "turbo": "^2.10.8"
   },
   "dependencies": {

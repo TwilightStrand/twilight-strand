@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 interface NinjaBuild {
   account: string;
@@ -30,28 +30,13 @@ interface SkillCount {
   pct: number;
 }
 
-function Bar({
-  label,
-  value,
-  pct,
-  maxPct,
-}: {
-  label: string;
-  value: number;
-  pct: number;
-  maxPct: number;
-}) {
+function Bar({ label, value, pct, maxPct }: { label: string; value: number; pct: number; maxPct: number }) {
   const width = maxPct > 0 ? (pct / maxPct) * 100 : 0;
   return (
     <div className="flex items-center gap-2 py-0.5">
-      <span className="text-[10px] font-mono text-text-primary w-28 truncate shrink-0">
-        {label}
-      </span>
+      <span className="text-[10px] font-mono text-text-primary w-28 truncate shrink-0">{label}</span>
       <div className="flex-1 h-3 bg-bg-inset rounded-sm overflow-hidden">
-        <div
-          className="h-full bg-accent/40 rounded-sm transition-all"
-          style={{ width: `${width}%` }}
-        />
+        <div className="h-full bg-accent/40 rounded-sm transition-all" style={{ width: `${width}%` }} />
       </div>
       <span className="text-[9px] font-mono text-text-dim tabular-nums w-12 text-right shrink-0">
         {value} ({pct.toFixed(0)}%)
@@ -67,7 +52,7 @@ export function MetaStats() {
   const [league, setLeague] = useState("Settlers");
   const [classFilter, setClassFilter] = useState("");
 
-  const [fetchKey, setFetchKey] = useState(0);
+  const [_fetchKey, setFetchKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,8 +74,10 @@ export function MetaStats() {
       }
     }
     doFetch();
-    return () => { cancelled = true; };
-  }, [league, classFilter, fetchKey]);
+    return () => {
+      cancelled = true;
+    };
+  }, [league, classFilter]);
 
   const classCounts = useMemo<ClassCount[]>(() => {
     if (!data?.builds.length) return [];
@@ -130,7 +117,7 @@ export function MetaStats() {
         es: acc.es + b.energyShield,
         depth: acc.depth + b.depth,
       }),
-      { level: 0, life: 0, es: 0, depth: 0 }
+      { level: 0, life: 0, es: 0, depth: 0 },
     );
     return {
       level: Math.round(sum.level / n),
@@ -143,9 +130,7 @@ export function MetaStats() {
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs font-mono font-bold uppercase tracking-widest text-text-dim">
-          Meta Statistics
-        </h3>
+        <h3 className="text-xs font-mono font-bold uppercase tracking-widest text-text-dim">Meta Statistics</h3>
         <div className="flex items-center gap-1.5">
           <select
             value={league}
@@ -202,7 +187,9 @@ export function MetaStats() {
       {error && (
         <div className="text-[10px] font-mono text-red-400/80 mb-2 bg-red-400/5 border border-red-400/10 rounded px-2 py-1.5">
           <p>{error}</p>
-          <p className="text-red-400/50 mt-0.5">poe.ninja API may be unavailable or the league name may have changed.</p>
+          <p className="text-red-400/50 mt-0.5">
+            poe.ninja API may be unavailable or the league name may have changed.
+          </p>
         </div>
       )}
 
@@ -221,16 +208,9 @@ export function MetaStats() {
               },
               { label: "Avg Depth", value: avgStats.depth },
             ].map((s) => (
-              <div
-                key={s.label}
-                className="bg-bg-inset rounded p-2 text-center"
-              >
-                <div className="text-[9px] font-mono text-text-dim">
-                  {s.label}
-                </div>
-                <div className="text-sm font-mono text-text-primary tabular-nums">
-                  {s.value}
-                </div>
+              <div key={s.label} className="bg-bg-inset rounded p-2 text-center">
+                <div className="text-[9px] font-mono text-text-dim">{s.label}</div>
+                <div className="text-sm font-mono text-text-primary tabular-nums">{s.value}</div>
               </div>
             ))}
           </div>
@@ -240,13 +220,7 @@ export function MetaStats() {
               Class Distribution ({data.builds.length} builds)
             </h4>
             {classCounts.map((c) => (
-              <Bar
-                key={c.name}
-                label={c.name}
-                value={c.count}
-                pct={c.pct}
-                maxPct={classCounts[0]?.pct || 1}
-              />
+              <Bar key={c.name} label={c.name} value={c.count} pct={c.pct} maxPct={classCounts[0]?.pct || 1} />
             ))}
           </div>
 
@@ -255,27 +229,18 @@ export function MetaStats() {
               Top Skills
             </h4>
             {skillCounts.map((s) => (
-              <Bar
-                key={s.name}
-                label={s.name}
-                value={s.count}
-                pct={s.pct}
-                maxPct={skillCounts[0]?.pct || 1}
-              />
+              <Bar key={s.name} label={s.name} value={s.count} pct={s.pct} maxPct={skillCounts[0]?.pct || 1} />
             ))}
           </div>
 
           <p className="text-[8px] font-mono text-text-dim/30 mt-3">
-            Data from poe.ninja ladder. Top {data.builds.length} of{" "}
-            {data.total.toLocaleString()} builds.
+            Data from poe.ninja ladder. Top {data.builds.length} of {data.total.toLocaleString()} builds.
           </p>
         </>
       )}
 
       {!data && !loading && !error && (
-        <p className="text-[10px] font-mono text-text-dim/50 text-center py-4">
-          Loading meta statistics...
-        </p>
+        <p className="text-[10px] font-mono text-text-dim/50 text-center py-4">Loading meta statistics...</p>
       )}
     </div>
   );

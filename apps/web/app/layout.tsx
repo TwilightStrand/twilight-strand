@@ -3,8 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Twilight Strand - PoE Build Planner",
-  description:
-    "Open-source Path of Exile build planner. Import PoB codes for instant DPS, defence, and tree analysis.",
+  description: "Open-source Path of Exile build planner. Import PoB codes for instant DPS, defence, and tree analysis.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -21,11 +20,7 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="dark">
       <head>

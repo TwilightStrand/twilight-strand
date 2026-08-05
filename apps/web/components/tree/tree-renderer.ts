@@ -1,6 +1,6 @@
-import type { TreeData, TreeNode, SpriteSheet, SpriteCoord } from "./tree-data";
 import type { Camera } from "./tree-camera";
 import { worldToScreen } from "./tree-camera";
+import type { SpriteCoord, SpriteSheet, TreeData, TreeNode } from "./tree-data";
 
 const NODE_RADIUS_NORMAL = 26;
 const NODE_RADIUS_NOTABLE = 38;
@@ -64,8 +64,7 @@ export class TreeRenderer {
       if (typeof zoomLevels !== "object" || zoomLevels === null) continue;
 
       const levels = zoomLevels as Record<string, SpriteSheet | SpriteSheet[]>;
-      const entry = levels[PREFERRED_ZOOM] ?? levels[FALLBACK_ZOOM] ??
-        Object.values(levels).pop();
+      const entry = levels[PREFERRED_ZOOM] ?? levels[FALLBACK_ZOOM] ?? Object.values(levels).pop();
 
       if (!entry) continue;
 
@@ -88,7 +87,7 @@ export class TreeRenderer {
       img.crossOrigin = "anonymous";
       const localUrl = this.resolveUrl(url);
       img.src = localUrl;
-      await new Promise<void>((resolve, reject) => {
+      await new Promise<void>((resolve, _reject) => {
         img.onload = () => resolve();
         img.onerror = () => {
           console.warn(`Failed to load sprite: ${localUrl}`);
@@ -188,9 +187,7 @@ export class TreeRenderer {
 
     // Check if camera moved enough to invalidate static cache
     const camChanged =
-      this.lastStaticCam.x !== camera.x ||
-      this.lastStaticCam.y !== camera.y ||
-      this.lastStaticCam.zoom !== camera.zoom;
+      this.lastStaticCam.x !== camera.x || this.lastStaticCam.y !== camera.y || this.lastStaticCam.zoom !== camera.zoom;
 
     if (camChanged || this.staticDirty) {
       this.lastStaticCam = { x: camera.x, y: camera.y, zoom: camera.zoom };
@@ -250,27 +247,11 @@ export class TreeRenderer {
     ctx.restore();
   }
 
-  private isVisible(
-    sx: number,
-    sy: number,
-    radius: number,
-    cw: number,
-    ch: number
-  ): boolean {
-    return (
-      sx + radius > 0 &&
-      sx - radius < cw &&
-      sy + radius > 0 &&
-      sy - radius < ch
-    );
+  private isVisible(sx: number, sy: number, radius: number, cw: number, ch: number): boolean {
+    return sx + radius > 0 && sx - radius < cw && sy + radius > 0 && sy - radius < ch;
   }
 
-  private drawGroupBackgrounds(
-    ctx: CanvasRenderingContext2D,
-    cam: Camera,
-    cw: number,
-    ch: number
-  ): void {
+  private drawGroupBackgrounds(ctx: CanvasRenderingContext2D, cam: Camera, cw: number, ch: number): void {
     if (this.groupBgImages.size === 0) return;
 
     const orbitRadii = this.tree.constants.orbitRadii;
@@ -315,12 +296,7 @@ export class TreeRenderer {
     }
   }
 
-  private drawClassStartAreas(
-    ctx: CanvasRenderingContext2D,
-    cam: Camera,
-    cw: number,
-    ch: number
-  ): void {
+  private drawClassStartAreas(ctx: CanvasRenderingContext2D, cam: Camera, cw: number, ch: number): void {
     for (const [, nodeId] of this.tree.classStartNodes) {
       const node = this.tree.nodes.get(nodeId);
       if (!node) continue;
@@ -345,12 +321,7 @@ export class TreeRenderer {
     }
   }
 
-  private drawConnections(
-    ctx: CanvasRenderingContext2D,
-    cam: Camera,
-    cw: number,
-    ch: number
-  ): void {
+  private drawConnections(ctx: CanvasRenderingContext2D, cam: Camera, cw: number, ch: number): void {
     // Batch connections by visual style to minimize stroke() calls
     const batches: Array<{
       style: string;
@@ -377,10 +348,10 @@ export class TreeRenderer {
         Math.min(from.x, to.x) > cw + pad ||
         Math.max(from.y, to.y) < -pad ||
         Math.min(from.y, to.y) > ch + pad
-      ) continue;
+      )
+        continue;
 
-      const isHoverConn = this.hoveredNode !== null &&
-        (conn.from === this.hoveredNode || conn.to === this.hoveredNode);
+      const isHoverConn = this.hoveredNode !== null && (conn.from === this.hoveredNode || conn.to === this.hoveredNode);
 
       if (isHoverConn) {
         hoverBatch.moveTo(from.x, from.y);
@@ -441,12 +412,7 @@ export class TreeRenderer {
     }
   }
 
-  private drawNodes(
-    ctx: CanvasRenderingContext2D,
-    cam: Camera,
-    cw: number,
-    ch: number
-  ): void {
+  private drawNodes(ctx: CanvasRenderingContext2D, cam: Camera, cw: number, ch: number): void {
     const minZoomForLabels = 0.15;
     const minZoomForIcons = 0.06;
 
@@ -457,7 +423,8 @@ export class TreeRenderer {
     let hasNormalNodes = false;
 
     // Collect deferred items for second pass
-    const deferred: Array<{ nid: string; node: TreeNode; sx: number; sy: number; radius: number; allocated: boolean }> = [];
+    const deferred: Array<{ nid: string; node: TreeNode; sx: number; sy: number; radius: number; allocated: boolean }> =
+      [];
 
     for (const [nid, node] of this.tree.nodes) {
       if (node.classStartIndex !== undefined && !node.name) continue;
@@ -469,8 +436,13 @@ export class TreeRenderer {
       if (radius < 1) continue;
 
       const allocated = this.allocatedNodes.has(nid);
-      const isSpecial = node.isNotable || node.isKeystone || node.isMastery ||
-        node.isJewelSocket || node.ascendancyName || allocated ||
+      const isSpecial =
+        node.isNotable ||
+        node.isKeystone ||
+        node.isMastery ||
+        node.isJewelSocket ||
+        node.ascendancyName ||
+        allocated ||
         (this.nodePowerMode !== "off" && this.nodePower.has(nid));
 
       if (!isSpecial) {
@@ -534,15 +506,13 @@ export class TreeRenderer {
     }
 
     if (cam.zoom >= minZoomForLabels) {
-      const fontSize = Math.max(9, 11 * cam.zoom / 0.15);
+      const fontSize = Math.max(9, (11 * cam.zoom) / 0.15);
       ctx.font = `${fontSize}px ui-sans-serif, system-ui, sans-serif`;
       ctx.textAlign = "center";
       for (const { node, sx, sy, radius, allocated } of deferred) {
         if (node.name && (node.isNotable || node.isKeystone)) {
-          ctx.fillStyle = allocated
-            ? "rgba(255, 230, 150, 0.9)"
-            : "rgba(180, 190, 210, 0.7)";
-          ctx.fillText(node.name, sx, sy + radius + Math.max(10, 14 * cam.zoom / 0.15));
+          ctx.fillStyle = allocated ? "rgba(255, 230, 150, 0.9)" : "rgba(180, 190, 210, 0.7)";
+          ctx.fillText(node.name, sx, sy + radius + Math.max(10, (14 * cam.zoom) / 0.15));
         }
       }
     }
@@ -561,7 +531,7 @@ export class TreeRenderer {
     x: number,
     y: number,
     radius: number,
-    allocated: boolean
+    allocated: boolean,
   ): void {
     const size = radius * 0.85;
 
@@ -593,7 +563,7 @@ export class TreeRenderer {
     x: number,
     y: number,
     radius: number,
-    allocated: boolean
+    allocated: boolean,
   ): void {
     const spikes = 6;
     const outerR = radius * 0.85;
@@ -636,7 +606,7 @@ export class TreeRenderer {
     y: number,
     radius: number,
     node: TreeNode,
-    allocated: boolean
+    allocated: boolean,
   ): void {
     let fill: string;
     let border: string;
@@ -697,7 +667,7 @@ export class TreeRenderer {
     y: number,
     radius: number,
     node: TreeNode,
-    allocated: boolean
+    allocated: boolean,
   ): void {
     if (!node.icon) return;
 
@@ -726,7 +696,7 @@ export class TreeRenderer {
     y: number,
     radius: number,
     iconPath: string,
-    category: string
+    category: string,
   ): void {
     const atlas = this.atlases.get(category);
     if (!atlas) return;
@@ -741,12 +711,30 @@ export class TreeRenderer {
       ctx.beginPath();
       ctx.arc(x, y, radius * 0.9, 0, Math.PI * 2);
       ctx.clip();
-      ctx.drawImage(atlas.image, coord.x, coord.y, coord.w, coord.h,
-        x - iconSize / 2, y - iconSize / 2, iconSize, iconSize);
+      ctx.drawImage(
+        atlas.image,
+        coord.x,
+        coord.y,
+        coord.w,
+        coord.h,
+        x - iconSize / 2,
+        y - iconSize / 2,
+        iconSize,
+        iconSize,
+      );
       ctx.restore();
     } else {
-      ctx.drawImage(atlas.image, coord.x, coord.y, coord.w, coord.h,
-        x - iconSize / 2, y - iconSize / 2, iconSize, iconSize);
+      ctx.drawImage(
+        atlas.image,
+        coord.x,
+        coord.y,
+        coord.w,
+        coord.h,
+        x - iconSize / 2,
+        y - iconSize / 2,
+        iconSize,
+        iconSize,
+      );
     }
   }
 
@@ -781,13 +769,7 @@ export class TreeRenderer {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
 
-  private drawHeatmapGlow(
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    radius: number,
-    value: number
-  ): void {
+  private drawHeatmapGlow(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, value: number): void {
     const color = this.getHeatColor(value);
     const glowRadius = radius * 2.5;
 
@@ -802,12 +784,7 @@ export class TreeRenderer {
     ctx.restore();
   }
 
-  private drawAnimations(
-    ctx: CanvasRenderingContext2D,
-    cam: Camera,
-    cw: number,
-    ch: number
-  ): void {
+  private drawAnimations(ctx: CanvasRenderingContext2D, cam: Camera, cw: number, ch: number): void {
     const now = performance.now();
     const DURATION = 400;
 
@@ -826,9 +803,7 @@ export class TreeRenderer {
       ctx.beginPath();
       ctx.arc(sx, sy, radius, 0, Math.PI * 2);
       ctx.strokeStyle =
-        anim.type === "allocate"
-          ? `rgba(212, 160, 36, ${alpha * 0.6})`
-          : `rgba(239, 68, 68, ${alpha * 0.4})`;
+        anim.type === "allocate" ? `rgba(212, 160, 36, ${alpha * 0.6})` : `rgba(239, 68, 68, ${alpha * 0.4})`;
       ctx.lineWidth = 2;
       ctx.stroke();
 

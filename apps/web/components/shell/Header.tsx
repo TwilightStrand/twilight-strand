@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TABS, TAB_LABELS, useUiStore } from "@/stores/ui-store";
-import type { TabId } from "@/stores/ui-store";
+import { initLocale, t } from "@/lib/i18n";
+import type { BuildStats } from "@/engine/types";
 import { useBuildStore } from "@/stores/build-store";
 import { useTreeStore } from "@/stores/tree-store";
-import { BuildCard } from "./BuildCard";
-import { initLocale, t } from "@/lib/i18n";
+import type { TabId } from "@/stores/ui-store";
+import { TAB_LABELS, TABS, useUiStore } from "@/stores/ui-store";
 import { AuthButton } from "./AuthButton";
+import { BuildCard } from "./BuildCard";
 import { toast } from "./Toast";
 
 function RecentBuildsDropdown() {
@@ -18,7 +19,9 @@ function RecentBuildsDropdown() {
   useEffect(() => {
     if (!open) return;
     const clickHandler = () => setOpen(false);
-    const keyHandler = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    const keyHandler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
     document.addEventListener("click", clickHandler);
     document.addEventListener("keydown", keyHandler);
     return () => {
@@ -32,7 +35,10 @@ function RecentBuildsDropdown() {
   return (
     <div className="relative hidden sm:block">
       <button
-        onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen(!open);
+        }}
         className="text-xs font-mono text-text-dim hover:text-accent transition-colors px-2 py-1 rounded hover:bg-bg-hover"
         title="Recent builds"
       >
@@ -48,7 +54,10 @@ function RecentBuildsDropdown() {
               ascendancy={build.ascendancy}
               level={build.level}
               compact
-              onClick={() => { importBuild(build.code); setOpen(false); }}
+              onClick={() => {
+                importBuild(build.code);
+                setOpen(false);
+              }}
             />
           ))}
         </div>
@@ -99,10 +108,52 @@ function EngineStatus() {
       {(status === "loading" || evaluating) && (
         <span className="inline-block h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
       )}
-      {status === "error" && (
-        <span className="inline-block h-2 w-2 rounded-full bg-red-400" />
-      )}
+      {status === "error" && <span className="inline-block h-2 w-2 rounded-full bg-red-400" />}
       <span className="max-w-48 truncate">{label}</span>
+    </div>
+  );
+}
+
+function HeaderActions({ stats, hasCode }: { stats: BuildStats | null; hasCode: boolean }) {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [open]);
+
+  return (
+    <div className="relative">
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+        className="text-xs font-mono text-text-dim hover:text-text-primary px-1.5 py-1 rounded hover:bg-bg-hover transition-colors"
+        title="Actions"
+      >
+        ...
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 bg-bg-card border border-border-card rounded-lg shadow-xl z-50 min-w-36 py-1">
+          {[
+            { label: "Save", action: () => { useBuildStore.getState().saveBuild(); useBuildStore.getState().saveToCloud(); toast("Saved"); }, disabled: !hasCode },
+            { label: "Share link", action: async () => { const { code } = useBuildStore.getState(); if (code) { await navigator.clipboard.writeText(`${window.location.origin}#${code}`); toast("Link copied"); } }, disabled: !stats },
+            { label: "Export PoB", action: async () => { const xml = useBuildStore.getState().xml; if (!xml) return; const { encodePobCode } = await import("@/engine/pob-codec"); const code = encodePobCode(xml); if (code) { await navigator.clipboard.writeText(code); toast("PoB code copied"); } }, disabled: !stats },
+            { label: "Copy as MD", action: async () => { const s = useBuildStore.getState(); if (!s.stats) return; const st = s.stats; const lines = [`# ${st.class_name} ${st.ascendancy} (Lv ${st.level})`, "", `DPS: ${Math.round(st.total_dps)} | Life: ${st.life} | ES: ${st.energy_shield}`]; await navigator.clipboard.writeText(lines.join("\n")); toast("Markdown copied"); }, disabled: !stats },
+            { label: "New build", action: () => { useBuildStore.getState().clearBuild(); useTreeStore.getState().setAllocatedNodes(new Set()); }, disabled: false },
+            { label: "Community", action: () => { window.location.href = "/community"; }, disabled: false },
+          ].map((item) => (
+            <button
+              key={item.label}
+              onClick={() => { item.action(); setOpen(false); }}
+              disabled={item.disabled}
+              className="w-full text-left px-3 py-1.5 text-xs font-mono text-text-dim hover:text-text-primary hover:bg-bg-hover transition-colors disabled:opacity-30"
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -127,26 +178,46 @@ export function Header() {
   const level = stats?.level ?? 1;
 
   const CLASS_COLORS: Record<string, string> = {
-    Marauder: "#c44", Witch: "#44c", Ranger: "#4c4",
-    Duelist: "#c84", Templar: "#cc4", Shadow: "#8c4",
+    Marauder: "#c44",
+    Witch: "#44c",
+    Ranger: "#4c4",
+    Duelist: "#c84",
+    Templar: "#cc4",
+    Shadow: "#8c4",
     Scion: "#ccc",
   };
   const ASCENDANCY_COLORS: Record<string, string> = {
-    Juggernaut: "#c44", Berserker: "#c44", Chieftain: "#c44",
-    Necromancer: "#44c", Elementalist: "#44c", Occultist: "#44c",
-    Deadeye: "#4c4", Raider: "#4c4", Pathfinder: "#4c4",
-    Gladiator: "#c84", Champion: "#c84", Slayer: "#c84",
-    Inquisitor: "#cc4", Hierophant: "#cc4", Guardian: "#cc4",
-    Assassin: "#8c4", Trickster: "#8c4", Saboteur: "#8c4",
+    Juggernaut: "#c44",
+    Berserker: "#c44",
+    Chieftain: "#c44",
+    Necromancer: "#44c",
+    Elementalist: "#44c",
+    Occultist: "#44c",
+    Deadeye: "#4c4",
+    Raider: "#4c4",
+    Pathfinder: "#4c4",
+    Gladiator: "#c84",
+    Champion: "#c84",
+    Slayer: "#c84",
+    Inquisitor: "#cc4",
+    Hierophant: "#cc4",
+    Guardian: "#cc4",
+    Assassin: "#8c4",
+    Trickster: "#8c4",
+    Saboteur: "#8c4",
     Ascendant: "#ccc",
   };
 
   function tabBadge(tab: TabId): string | null {
     switch (tab) {
-      case "items": return items.length > 0 ? String(items.length) : null;
-      case "skills": return skills.length > 0 ? String(skills.length) : null;
-      case "tree": return allocNodes.size > 1 ? String(allocNodes.size - 1) : null;
-      default: return null;
+      case "items":
+        return items.length > 0 ? String(items.length) : null;
+      case "skills":
+        return skills.length > 0 ? String(skills.length) : null;
+      case "tree":
+        return allocNodes.size > 1 ? String(allocNodes.size - 1) : null;
+      default:
+        return null;
     }
   }
 
@@ -156,9 +227,7 @@ export function Header() {
         <span className="text-accent font-display text-lg font-bold tracking-tight hidden sm:inline">
           Twilight Strand
         </span>
-        <span className="text-accent font-display text-lg font-bold sm:hidden">
-          TS
-        </span>
+        <span className="text-accent font-display text-lg font-bold sm:hidden">TS</span>
 
         <span className="text-border-card hidden sm:inline">|</span>
 
@@ -170,9 +239,7 @@ export function Header() {
           >
             {gameVersion === "poe1" ? "PoE 1" : "PoE 2"}
           </button>
-          {gameVersion === "poe2" && (
-            <span className="text-[9px] font-mono text-amber-400">beta</span>
-          )}
+          {gameVersion === "poe2" && <span className="text-[9px] font-mono text-amber-400">beta</span>}
           <span
             className="w-2 h-2 rounded-full shrink-0"
             style={{ backgroundColor: ASCENDANCY_COLORS[ascendancy] || CLASS_COLORS[className] || "#888" }}
@@ -184,7 +251,14 @@ export function Header() {
           <div className="hidden lg:flex items-center gap-1.5 text-[9px] font-mono text-text-dim/50 ml-1">
             <span>{allocNodes.size > 1 ? allocNodes.size - 1 : 0} pts</span>
             <span className="text-text-dim/30">|</span>
-            <span>{stats.total_dps >= 1e6 ? `${(stats.total_dps / 1e6).toFixed(1)}M` : stats.total_dps >= 1e3 ? `${Math.round(stats.total_dps / 1e3)}k` : Math.round(stats.total_dps)} DPS</span>
+            <span>
+              {stats.total_dps >= 1e6
+                ? `${(stats.total_dps / 1e6).toFixed(1)}M`
+                : stats.total_dps >= 1e3
+                  ? `${Math.round(stats.total_dps / 1e3)}k`
+                  : Math.round(stats.total_dps)}{" "}
+              DPS
+            </span>
           </div>
         )}
       </div>
@@ -193,7 +267,6 @@ export function Header() {
 
       <nav
         className="hidden md:flex items-center gap-0.5 ml-4"
-        role="tablist"
         aria-label="Build sections"
         onKeyDown={(e) => {
           const idx = TABS.indexOf(activeTab);
@@ -231,128 +304,25 @@ export function Header() {
             {(() => {
               const badge = tabBadge(tab);
               return badge ? (
-                <span className="text-[8px] font-mono bg-accent/20 text-accent px-1 rounded-full">
-                  {badge}
-                </span>
+                <span className="text-[8px] font-mono bg-accent/20 text-accent px-1 rounded-full">{badge}</span>
               ) : null;
             })()}
-            {activeTab === tab && (
-              <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-accent rounded-full" />
-            )}
+            {activeTab === tab && <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-accent rounded-full" />}
           </button>
         ))}
       </nav>
 
       <div className="flex-1" />
 
-      <div className="flex items-center gap-2">
-        <a
-          href="/community"
-          className="text-xs font-mono text-text-dim hover:text-accent transition-colors px-2 py-1 rounded hover:bg-bg-hover hidden lg:inline-block"
-        >
-          Community
-        </a>
-        <button
-          onClick={() => {
-            useBuildStore.getState().clearBuild();
-            useTreeStore.getState().setAllocatedNodes(new Set());
-            window.history.replaceState(null, "", window.location.pathname);
-          }}
-          className="text-xs font-mono text-text-dim hover:text-blood transition-colors px-2 py-1 rounded hover:bg-bg-hover hidden sm:inline-block"
-          title="New build (clear current)"
-        >
-          New
-        </button>
-        <RecentBuildsDropdown />
-        <button
-          onClick={async () => {
-            const { code, cloudBuildId } = useBuildStore.getState();
-            if (!code) return;
-            const url = `${window.location.origin}#${code}`;
-            await navigator.clipboard.writeText(url);
-            toast("Shareable link copied");
-            if (cloudBuildId) {
-              fetch(`/api/builds/${cloudBuildId}/share`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ shared: true }),
-              }).catch(() => {});
-            }
-          }}
-          disabled={!stats}
-          className="text-xs font-mono text-text-dim hover:text-accent transition-colors px-2 py-1 rounded hover:bg-bg-hover disabled:opacity-30 disabled:cursor-not-allowed hidden sm:inline-block"
-          title="Copy shareable link"
-        >
-          Share
-        </button>
-        <button
-          onClick={async () => {
-            const xml = useBuildStore.getState().xml;
-            if (!xml) return;
-            const { encodePobCode } = await import("@/engine/pob-codec");
-            const code = encodePobCode(xml);
-            if (code) {
-              await navigator.clipboard.writeText(code);
-              toast("PoB code copied to clipboard");
-            }
-          }}
-          disabled={!stats}
-          className="text-xs font-mono text-text-dim hover:text-accent transition-colors px-2 py-1 rounded hover:bg-bg-hover disabled:opacity-30 disabled:cursor-not-allowed hidden sm:inline-block"
-        >
-          Export
-        </button>
-        <button
-          onClick={async () => {
-            const s = useBuildStore.getState();
-            if (!s.stats) return;
-            const st = s.stats;
-            const lines = [
-              `# ${st.class_name} ${st.ascendancy} (Level ${st.level})`,
-              "",
-              "## Stats",
-              `- **DPS:** ${st.total_dps >= 1e6 ? (st.total_dps / 1e6).toFixed(1) + "M" : st.total_dps >= 1e3 ? Math.round(st.total_dps / 1e3) + "k" : Math.round(st.total_dps)}`,
-              `- **Life:** ${st.life} | **ES:** ${st.energy_shield} | **Mana:** ${st.mana}`,
-              `- **Armour:** ${st.armour} | **Evasion:** ${st.evasion}`,
-              `- **Fire Res:** ${st.fire_res}% | **Cold:** ${st.cold_res}% | **Lightning:** ${st.lightning_res}% | **Chaos:** ${st.chaos_res}%`,
-              "",
-              "## Skills",
-              ...s.skills.filter(sk => sk.enabled).map(sk => {
-                const active = sk.gems.find(g => !g.isSupport);
-                const sups = sk.gems.filter(g => g.isSupport).map(g => g.name).join(", ");
-                return `- **${active?.name || sk.label}** (${sk.slot})${sups ? `: ${sups}` : ""}`;
-              }),
-              "",
-              "## Gear",
-              ...s.items.filter(it => it.slot && it.name).map(it => `- **${it.slot}:** ${it.name} (${it.rarity})`),
-            ];
-            await navigator.clipboard.writeText(lines.join("\n"));
-            toast("Markdown copied to clipboard");
-          }}
-          disabled={!stats}
-          className="text-xs font-mono text-text-dim hover:text-accent transition-colors px-2 py-1 rounded hover:bg-bg-hover disabled:opacity-30 disabled:cursor-not-allowed hidden lg:inline-block"
-          title="Copy build as markdown"
-        >
-          MD
-        </button>
-        <button
-          onClick={() => {
-            useBuildStore.getState().saveBuild();
-            useBuildStore.getState().saveToCloud();
-            toast("Build saved");
-          }}
-          disabled={!hasCode}
-          className="text-xs font-mono text-text-dim hover:text-accent transition-colors px-2 py-1 rounded hover:bg-bg-hover disabled:opacity-30 disabled:cursor-not-allowed hidden sm:inline-block"
-        >
-          Save
-        </button>
+      <div className="flex items-center gap-1.5">
         <button
           onClick={() => setImportOpen(true)}
-          className="text-xs font-mono text-text-dim hover:text-accent transition-colors px-2 py-1 rounded hover:bg-bg-hover"
+          className="text-xs font-mono text-accent px-2.5 py-1 rounded border border-accent/25 hover:bg-accent/10 transition-colors"
         >
           Import
         </button>
+        <HeaderActions stats={stats} hasCode={hasCode} />
         <AuthButton />
-        <LastSavedIndicator />
       </div>
     </header>
   );
