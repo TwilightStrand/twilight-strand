@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useUiStore } from "@/stores/ui-store";
-import { useBuildStore } from "@/stores/build-store";
+import { useEffect, useState } from "react";
 import { NotesPanel } from "@/components/shell/NotesPanel";
+import { AVAILABLE_LOCALES, getLocale, setLocale } from "@/lib/i18n";
+import { useBuildStore } from "@/stores/build-store";
+import { useUiStore } from "@/stores/ui-store";
 import { Changelog } from "./Changelog";
 import { EngineComparison } from "./EngineComparison";
 import { MetaStats } from "./MetaStats";
-import { AVAILABLE_LOCALES, getLocale, setLocale } from "@/lib/i18n";
 
 export function SettingsPanel() {
   const theme = useUiStore((s) => s.theme);
@@ -31,9 +31,7 @@ export function SettingsPanel() {
     <div className="h-full overflow-y-auto">
       <div className="p-4 max-w-lg space-y-6">
         <div>
-          <h3 className="text-xs font-mono font-bold uppercase tracking-widest text-text-dim mb-2">
-            Appearance
-          </h3>
+          <h3 className="text-xs font-mono font-bold uppercase tracking-widest text-text-dim mb-2">Appearance</h3>
           <div className="bg-bg-card border border-border-card rounded-lg p-3 space-y-3">
             <div className="flex items-center justify-between text-xs font-mono">
               <span className="text-text-primary">Theme</span>
@@ -57,10 +55,10 @@ export function SettingsPanel() {
             <div className="flex items-center justify-between text-xs font-mono">
               <span className="text-text-primary">Number Format</span>
               <div className="flex gap-1">
-                {([
+                {[
                   { value: "us" as const, label: "1,234.5" },
                   { value: "eu" as const, label: "1.234,5" },
-                ]).map((fmt) => (
+                ].map((fmt) => (
                   <button
                     key={fmt.value}
                     onClick={() => setNumberFormat(fmt.value)}
@@ -82,7 +80,10 @@ export function SettingsPanel() {
                 {AVAILABLE_LOCALES.map((loc) => (
                   <button
                     key={loc.value}
-                    onClick={() => { setLocale(loc.value); window.location.reload(); }}
+                    onClick={() => {
+                      setLocale(loc.value);
+                      window.location.reload();
+                    }}
                     className={`px-2.5 py-1 rounded transition-colors ${
                       getLocale() === loc.value
                         ? "bg-accent/20 text-accent border border-accent/30"
@@ -112,17 +113,19 @@ export function SettingsPanel() {
         </div>
 
         <div>
-          <h3 className="text-xs font-mono font-bold uppercase tracking-widest text-text-dim mb-2">
-            Engine
-          </h3>
+          <h3 className="text-xs font-mono font-bold uppercase tracking-widest text-text-dim mb-2">Engine</h3>
           <div className="bg-bg-card border border-border-card rounded-lg p-3 space-y-1">
             <div className="flex justify-between text-xs font-mono">
               <span className="text-text-dim">Init time</span>
-              <span className="text-text-primary">{engineInitTime ? `${(engineInitTime / 1000).toFixed(1)}s` : "-"}</span>
+              <span className="text-text-primary">
+                {engineInitTime ? `${(engineInitTime / 1000).toFixed(1)}s` : "-"}
+              </span>
             </div>
             <div className="flex justify-between text-xs font-mono">
               <span className="text-text-dim">Eval time</span>
-              <span className="text-text-primary">{engineEvalTime ? `${(engineEvalTime / 1000).toFixed(1)}s` : "-"}</span>
+              <span className="text-text-primary">
+                {engineEvalTime ? `${(engineEvalTime / 1000).toFixed(1)}s` : "-"}
+              </span>
             </div>
             <div className="flex justify-between text-xs font-mono">
               <span className="text-text-dim">Rust WASM</span>
@@ -134,9 +137,7 @@ export function SettingsPanel() {
         </div>
 
         <div>
-          <h3 className="text-xs font-mono font-bold uppercase tracking-widest text-text-dim mb-2">
-            History
-          </h3>
+          <h3 className="text-xs font-mono font-bold uppercase tracking-widest text-text-dim mb-2">History</h3>
           <div className="bg-bg-card border border-border-card rounded-lg p-3">
             {history.length === 0 ? (
               <p className="text-xs font-mono text-text-dim/60">No history yet</p>

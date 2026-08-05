@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { BuildStats } from "@/engine/types";
+import { calculateBuildScore } from "@/lib/build-score";
+import { STAT_EXPLANATIONS } from "@/lib/stat-explanations";
 import { useBuildStore } from "@/stores/build-store";
 import { useUiStore } from "@/stores/ui-store";
-import { StatsSkeleton } from "./Skeleton";
 import { BuildDiff } from "./BuildDiff";
-import { STAT_EXPLANATIONS } from "@/lib/stat-explanations";
-import { calculateBuildScore } from "@/lib/build-score";
-import type { BuildStats } from "@/engine/types";
+import { StatsSkeleton } from "./Skeleton";
 
 function StatSection({
   title,
@@ -89,7 +89,8 @@ function StatRow({
         <AnimatedValue value={value} color={color} />
         {delta !== undefined && delta !== 0 && (
           <span className={`text-[9px] tabular-nums ${delta > 0 ? "text-green-400" : "text-red-400"}`}>
-            {delta > 0 ? "+" : ""}{Math.abs(delta) >= 1000 ? fmtNum(delta) : Math.round(delta)}
+            {delta > 0 ? "+" : ""}
+            {Math.abs(delta) >= 1000 ? fmtNum(delta) : Math.round(delta)}
           </span>
         )}
       </div>
@@ -118,11 +119,7 @@ function ResRow({ label, current, max }: { label: string; current: number; max: 
         <span className="tabular-nums" style={{ color: resColor(current, max) }}>
           {fmtNum(current)} /{max}%
         </span>
-        {overcap > 0 && (
-          <span className="text-[9px] text-text-dim/50 tabular-nums">
-            +{overcap}
-          </span>
-        )}
+        {overcap > 0 && <span className="text-[9px] text-text-dim/50 tabular-nums">+{overcap}</span>}
       </div>
     </div>
   );
@@ -199,14 +196,14 @@ function DpsBar({ stats }: { stats: BuildStats }) {
     { value: bleed, color: "#ef4444", label: "Bleed" },
     { value: poison, color: "#22c55e", label: "Poison" },
     { value: ignite, color: "#f97316", label: "Ignite" },
-  ].filter(s => s.value > 0);
+  ].filter((s) => s.value > 0);
 
   if (segments.length <= 1) return null;
 
   return (
     <div
       className="flex h-1 rounded-full overflow-hidden mt-0.5 mb-1"
-      title={segments.map(s => `${s.label}: ${Math.round(s.value / total * 100)}%`).join(", ")}
+      title={segments.map((s) => `${s.label}: ${Math.round((s.value / total) * 100)}%`).join(", ")}
     >
       {segments.map((s, i) => (
         <div key={i} style={{ width: `${(s.value / total) * 100}%`, backgroundColor: s.color }} />
@@ -224,7 +221,10 @@ function BarStatRow({ label, value, max, color }: { label: string; value: number
         <span className="tabular-nums text-text-primary">{fmtNum(value)}</span>
       </div>
       <div className="h-1 bg-bg-hover rounded-full overflow-hidden">
-        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color || "var(--color-accent)" }} />
+        <div
+          className="h-full rounded-full transition-all"
+          style={{ width: `${pct}%`, backgroundColor: color || "var(--color-accent)" }}
+        />
       </div>
     </div>
   );
@@ -237,25 +237,52 @@ function PoolBar({ life, es }: { life: number; es: number }) {
   const esPct = (es / total) * 100;
 
   return (
-    <div className="flex h-1 rounded-full overflow-hidden w-full mt-1 mb-2" title={`Life: ${life} (${Math.round(lifePct)}%) | ES: ${es} (${Math.round(esPct)}%)`}>
+    <div
+      className="flex h-1 rounded-full overflow-hidden w-full mt-1 mb-2"
+      title={`Life: ${life} (${Math.round(lifePct)}%) | ES: ${es} (${Math.round(esPct)}%)`}
+    >
       {life > 0 && <div style={{ width: `${lifePct}%` }} className="bg-life" />}
       {es > 0 && <div style={{ width: `${esPct}%` }} className="bg-es" />}
     </div>
   );
 }
 
-const AURA_KEYWORDS = ["herald", "purity", "determination", "grace", "discipline", "haste", "hatred", "anger", "wrath", "zealotry", "malevolence", "pride", "defiance", "clarity", "vitality", "precision", "tempest shield", "arctic armour", "flesh and stone", "blood and sand", "petrified blood"];
+const AURA_KEYWORDS = [
+  "herald",
+  "purity",
+  "determination",
+  "grace",
+  "discipline",
+  "haste",
+  "hatred",
+  "anger",
+  "wrath",
+  "zealotry",
+  "malevolence",
+  "pride",
+  "defiance",
+  "clarity",
+  "vitality",
+  "precision",
+  "tempest shield",
+  "arctic armour",
+  "flesh and stone",
+  "blood and sand",
+  "petrified blood",
+];
 
 function ActiveAuras() {
   const skills = useBuildStore((s) => s.skills);
   const activeAuras = skills
-    .filter(g => g.enabled)
-    .flatMap(g => g.gems.filter(gem => {
-      if (!gem.enabled || gem.isSupport) return false;
-      const name = gem.name.toLowerCase();
-      return AURA_KEYWORDS.some(kw => name.includes(kw));
-    }))
-    .map(g => g.name);
+    .filter((g) => g.enabled)
+    .flatMap((g) =>
+      g.gems.filter((gem) => {
+        if (!gem.enabled || gem.isSupport) return false;
+        const name = gem.name.toLowerCase();
+        return AURA_KEYWORDS.some((kw) => name.includes(kw));
+      }),
+    )
+    .map((g) => g.name);
 
   if (activeAuras.length === 0) return null;
 
@@ -294,7 +321,7 @@ function DefensiveLayers({ stats }: { stats: BuildStats }) {
         {layers.length} Defensive Layer{layers.length !== 1 ? "s" : ""}
       </span>
       <div className="flex flex-wrap gap-1 mt-0.5">
-        {layers.map(l => (
+        {layers.map((l) => (
           <span key={l} className="text-[9px] font-mono text-green-400/60 bg-green-400/5 px-1 rounded">
             {l}
           </span>
@@ -336,7 +363,26 @@ export function StatsSidebar() {
   }, [activeTab]);
 
   if (engineStatus === "loading" && !stats) {
-    return <StatsSkeleton />;
+    return (
+      <aside className="w-48 min-w-48 p-3 hidden md:block border-r border-border-subtle bg-bg-deep/80">
+        <div className="space-y-3 animate-pulse">
+          <div className="text-center py-3">
+            <div className="text-[9px] font-mono text-text-dim/40 uppercase tracking-widest">Waiting for build</div>
+            <div className="text-[8px] font-mono text-text-dim/20 mt-1">Import a build to see stats</div>
+          </div>
+          {["Offence", "Defence", "Resistances"].map((s) => (
+            <div key={s}>
+              <div className="text-[10px] font-mono font-bold uppercase tracking-widest text-text-dim/20 mb-1">{s}</div>
+              <div className="space-y-1">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-3 bg-bg-hover/30 rounded" />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </aside>
+    );
   }
 
   const life = stats?.life ?? 60;
@@ -375,70 +421,86 @@ export function StatsSidebar() {
   const physRed = stats?.phys_reduction ?? 0;
 
   return (
-    <aside ref={scrollRef} className={`${compact ? "w-36 min-w-36 p-2" : "w-48 min-w-48 p-3"} hidden md:block border-r border-border-subtle bg-bg-deep/80 overflow-y-auto`} aria-label="Build statistics">
-      <div className="mb-3 pb-2 border-b border-border-subtle">
-        <div className="flex items-center justify-between mb-0.5">
-          <div className="flex items-center gap-2">
-          <span className="text-life font-mono text-sm font-bold tabular-nums">
-            {fmtNum(life)}
-          </span>
-          <span className="text-[10px] text-text-dim uppercase">Life</span>
-          <span className="text-es font-mono text-sm font-bold tabular-nums">
-            {fmtNum(es)}
-          </span>
-          <span className="text-[10px] text-text-dim uppercase">ES</span>
-          <span className="text-mana font-mono text-sm font-bold tabular-nums" title={`Total: ${fmtNum(mana)} | Unreserved: ${fmtNum(manaUnreserved)} | Reserved: ${fmtNum(manaReservedPct)}%`}>
-            {fmtNum(manaUnreserved)}
-          </span>
-          <span className="text-[10px] text-text-dim uppercase">Mana</span>
-          {(stats?.ward ?? 0) > 0 && (
-            <>
-              <span className="text-purple-400 font-mono text-sm font-bold tabular-nums">
-                {fmtNum(stats?.ward ?? 0)}
-              </span>
-              <span className="text-[10px] text-text-dim uppercase">Ward</span>
-            </>
+    <aside
+      ref={scrollRef}
+      className={`${compact ? "w-36 min-w-36 p-2" : "w-48 min-w-48 p-3"} hidden md:block border-r border-border-subtle bg-bg-deep/80 overflow-y-auto`}
+      aria-label="Build statistics"
+    >
+      {/* Hero stats - the 3 numbers that matter most */}
+      <div className="mb-3 pb-3 border-b border-border-subtle">
+        <div className="grid grid-cols-1 gap-1.5 mb-2">
+          {dps > 0 && (
+            <div className="bg-bg-inset rounded px-2 py-1.5 border border-border-subtle">
+              <div className="text-[8px] font-mono uppercase tracking-widest text-offence/60">Skill DPS</div>
+              <div className="text-lg font-mono font-bold tabular-nums text-offence leading-tight stat-value">{fmtNum(dps)}</div>
+              <DpsBar stats={stats!} />
+            </div>
           )}
+          <div className="grid grid-cols-2 gap-1.5">
+            <div className="bg-bg-inset rounded px-2 py-1 border border-border-subtle">
+              <div className="text-[8px] font-mono uppercase tracking-widest text-life/60">Life</div>
+              <div className="text-sm font-mono font-bold tabular-nums text-life leading-tight stat-value">{fmtNum(life)}</div>
+            </div>
+            <div className="bg-bg-inset rounded px-2 py-1 border border-border-subtle">
+              <div className="text-[8px] font-mono uppercase tracking-widest text-es/60">{es > life ? "ES" : "EHP"}</div>
+              <div className="text-sm font-mono font-bold tabular-nums text-es leading-tight stat-value">
+                {es > life ? fmtNum(es) : fmtNum(stats?.total_ehp ?? 0)}
+              </div>
+            </div>
+          </div>
+        </div>
+        <PoolBar life={life} es={es} />
+        <div className="flex items-center justify-between mt-1">
+          <div className="flex items-center gap-2 text-[9px] font-mono text-text-dim/60">
+            <span className="text-mana tabular-nums" title={`Reserved: ${fmtNum(manaReservedPct)}%`}>{fmtNum(manaUnreserved)}</span>
+            <span>mana</span>
+            {(stats?.ward ?? 0) > 0 && (
+              <><span className="text-purple-400 tabular-nums">{fmtNum(stats?.ward ?? 0)}</span><span>ward</span></>
+            )}
           </div>
           <div className="flex items-center gap-1">
-            <button onClick={toggleSidebarMode} className="text-[9px] font-mono text-text-dim/40 hover:text-text-dim transition-colors" title="Toggle display mode">
+            <button onClick={toggleSidebarMode} className="text-[9px] font-mono text-text-dim/30 hover:text-text-dim transition-colors" title="Toggle display mode">
               {sidebarMode === "list" ? "bars" : "list"}
             </button>
-            <button onClick={toggleCompact} className="text-[9px] font-mono text-text-dim/40 hover:text-text-dim transition-colors" title={compact ? "Normal view" : "Compact view"}>
+            <button onClick={toggleCompact} className="text-[9px] font-mono text-text-dim/30 hover:text-text-dim transition-colors" title={compact ? "Normal" : "Compact"}>
               {compact ? "+" : "-"}
             </button>
           </div>
         </div>
-        <PoolBar life={life} es={es} />
-        {(stats?.total_ehp ?? 0) > 0 && (
-          <div className="flex justify-between items-baseline text-xs font-mono mt-1" title="Effective Hit Pool against physical damage">
-            <span className="text-text-dim">Total EHP</span>
-            <span className="tabular-nums text-text-primary">{fmtNum(stats?.total_ehp ?? 0)}</span>
-          </div>
-        )}
-        {stats && (stats.total_dps > 0 || stats.life > 1) && (() => {
-          const { grade, score } = calculateBuildScore(stats);
-          return (
-            <div className="flex items-center justify-between mt-1.5 px-0.5" title={`Build score: ${score}/100`}>
-              <span className="text-[9px] font-mono text-text-dim">Build Score</span>
-              <div className="flex items-center gap-1">
-                <span className={`text-sm font-mono font-bold ${
-                  grade === "S" ? "text-amber-400" :
-                  grade === "A" ? "text-green-400" :
-                  grade === "B" ? "text-accent" :
-                  grade === "C" ? "text-text-primary" : "text-text-dim"
-                }`}>{grade}</span>
-                <span className="text-[9px] font-mono text-text-dim/60">{score}/100</span>
+        {stats &&
+          (stats.total_dps > 0 || stats.life > 1) &&
+          (() => {
+            const { grade, score } = calculateBuildScore(stats);
+            return (
+              <div className="flex items-center justify-between mt-1.5 px-0.5" title={`Build score: ${score}/100`}>
+                <span className="text-[9px] font-mono text-text-dim">Build Score</span>
+                <div className="flex items-center gap-1">
+                  <span
+                    className={`text-sm font-mono font-bold ${
+                      grade === "S"
+                        ? "text-amber-400"
+                        : grade === "A"
+                          ? "text-green-400"
+                          : grade === "B"
+                            ? "text-accent"
+                            : grade === "C"
+                              ? "text-text-primary"
+                              : "text-text-dim"
+                    }`}
+                  >
+                    {grade}
+                  </span>
+                  <span className="text-[9px] font-mono text-text-dim/60">{score}/100</span>
+                </div>
               </div>
-            </div>
-          );
-        })()}
+            );
+          })()}
       </div>
 
       {stats && (
         <div className="flex justify-end mb-2">
           <button
-            onClick={() => cmp ? clearCompare() : setCompareBaseline()}
+            onClick={() => (cmp ? clearCompare() : setCompareBaseline())}
             className={`text-[9px] font-mono px-1.5 py-0.5 rounded transition-colors ${
               cmp ? "bg-amber-400/20 text-amber-400" : "text-text-dim hover:text-accent"
             }`}
@@ -463,69 +525,121 @@ export function StatsSidebar() {
         </div>
       )}
 
-      {sidebarMode === "list" && (<><StatSection title="Offence" color="var(--color-offence)">
-        <StatRow label="Skill DPS" value={fmtNum(dps)} statKey="total_dps" delta={cmp ? calcDelta(dps, cmp.combined_dps ?? cmp.total_dps) : undefined} title={`Total DPS: ${fmtNum(stats?.total_dps ?? 0)} | Combined: ${fmtNum(stats?.combined_dps ?? 0)}`} />
-        {stats && <DpsBar stats={stats} />}
-        <StatRow label="Crit Chance" value={`${fmtNum(critChance, 1)}%`} statKey="crit_chance" delta={cmp ? calcDelta(critChance, cmp.crit_chance) : undefined} />
-        <StatRow label="Crit Multi" value={`${fmtNum(critMulti)}%`} statKey="crit_multiplier" delta={cmp ? calcDelta(critMulti, cmp.crit_multiplier) : undefined} />
-        <StatRow label="Attack Speed" value={`${fmtNum(atkSpd, 2)}/s`} statKey="attack_speed" delta={cmp ? calcDelta(atkSpd, cmp.attack_speed) : undefined} />
-        <StatRow label="Hit Chance" value={`${fmtNum(hitChance)}%`} statKey="hit_chance" delta={cmp ? calcDelta(hitChance, cmp.hit_chance) : undefined} />
-      </StatSection>
+      {sidebarMode === "list" && (
+        <>
+          <StatSection title="Offence" color="var(--color-offence)">
+            <StatRow
+              label="Skill DPS"
+              value={fmtNum(dps)}
+              statKey="total_dps"
+              delta={cmp ? calcDelta(dps, cmp.combined_dps ?? cmp.total_dps) : undefined}
+              title={`Total DPS: ${fmtNum(stats?.total_dps ?? 0)} | Combined: ${fmtNum(stats?.combined_dps ?? 0)}`}
+            />
+            {stats && <DpsBar stats={stats} />}
+            <StatRow
+              label="Crit Chance"
+              value={`${fmtNum(critChance, 1)}%`}
+              statKey="crit_chance"
+              delta={cmp ? calcDelta(critChance, cmp.crit_chance) : undefined}
+            />
+            <StatRow
+              label="Crit Multi"
+              value={`${fmtNum(critMulti)}%`}
+              statKey="crit_multiplier"
+              delta={cmp ? calcDelta(critMulti, cmp.crit_multiplier) : undefined}
+            />
+            <StatRow
+              label="Attack Speed"
+              value={`${fmtNum(atkSpd, 2)}/s`}
+              statKey="attack_speed"
+              delta={cmp ? calcDelta(atkSpd, cmp.attack_speed) : undefined}
+            />
+            <StatRow
+              label="Hit Chance"
+              value={`${fmtNum(hitChance)}%`}
+              statKey="hit_chance"
+              delta={cmp ? calcDelta(hitChance, cmp.hit_chance) : undefined}
+            />
+          </StatSection>
 
-      <StatSection title="Attributes" color="var(--color-text-heading)">
-        <StatRow label="Str" value={fmtNum(str)} color="var(--color-strength)" delta={cmp ? calcDelta(str, cmp.strength) : undefined} />
-        <StatRow label="Dex" value={fmtNum(dex)} color="var(--color-dexterity)" delta={cmp ? calcDelta(dex, cmp.dexterity) : undefined} />
-        <StatRow label="Int" value={fmtNum(int)} color="var(--color-intelligence)" delta={cmp ? calcDelta(int, cmp.intelligence) : undefined} />
-      </StatSection>
+          <StatSection title="Attributes" color="var(--color-text-heading)">
+            <StatRow
+              label="Str"
+              value={fmtNum(str)}
+              color="var(--color-strength)"
+              delta={cmp ? calcDelta(str, cmp.strength) : undefined}
+            />
+            <StatRow
+              label="Dex"
+              value={fmtNum(dex)}
+              color="var(--color-dexterity)"
+              delta={cmp ? calcDelta(dex, cmp.dexterity) : undefined}
+            />
+            <StatRow
+              label="Int"
+              value={fmtNum(int)}
+              color="var(--color-intelligence)"
+              delta={cmp ? calcDelta(int, cmp.intelligence) : undefined}
+            />
+          </StatSection>
 
-      <StatSection title="Defence" color="var(--color-defence)">
-        <StatRow label="Armour" value={fmtNum(armour)} delta={cmp ? calcDelta(armour, cmp.armour) : undefined} />
-        <StatRow label="Evasion" value={fmtNum(evasion)} delta={cmp ? calcDelta(evasion, cmp.evasion) : undefined} />
-        <StatRow label="Evade" value={`${fmtNum(evade)}%`} delta={cmp ? calcDelta(evade, cmp.evade_chance) : undefined} />
-        <StatRow label="Life Regen/s" value={fmtNum(lifeRegen, 1)} delta={cmp ? calcDelta(lifeRegen, cmp.life_regen) : undefined} />
-        {(stats?.es_regen ?? 0) > 0 && (
-          <StatRow label="ES Regen/s" value={fmtNum(stats?.es_regen ?? 0, 1)} />
-        )}
-        {(stats?.es_recharge_rate ?? 0) > 0 && (
-          <StatRow label="ES Recharge/s" value={fmtNum(stats?.es_recharge_rate ?? 0)} />
-        )}
-        {manaReservedPct > 0 && (
-          <StatRow label="Mana Reserved" value={`${fmtNum(manaReservedPct)}%`} />
-        )}
-      </StatSection>
+          <StatSection title="Defence" color="var(--color-defence)">
+            <StatRow label="Armour" value={fmtNum(armour)} delta={cmp ? calcDelta(armour, cmp.armour) : undefined} />
+            <StatRow
+              label="Evasion"
+              value={fmtNum(evasion)}
+              delta={cmp ? calcDelta(evasion, cmp.evasion) : undefined}
+            />
+            <StatRow
+              label="Evade"
+              value={`${fmtNum(evade)}%`}
+              delta={cmp ? calcDelta(evade, cmp.evade_chance) : undefined}
+            />
+            <StatRow
+              label="Life Regen/s"
+              value={fmtNum(lifeRegen, 1)}
+              delta={cmp ? calcDelta(lifeRegen, cmp.life_regen) : undefined}
+            />
+            {(stats?.es_regen ?? 0) > 0 && <StatRow label="ES Regen/s" value={fmtNum(stats?.es_regen ?? 0, 1)} />}
+            {(stats?.es_recharge_rate ?? 0) > 0 && (
+              <StatRow label="ES Recharge/s" value={fmtNum(stats?.es_recharge_rate ?? 0)} />
+            )}
+            {manaReservedPct > 0 && <StatRow label="Mana Reserved" value={`${fmtNum(manaReservedPct)}%`} />}
+          </StatSection>
 
-      <StatSection title="Resistances" color="var(--color-blood)">
-        {(() => {
-          const uncapped = [
-            { name: "Fire", val: fireRes, max: fireMax },
-            { name: "Cold", val: coldRes, max: coldMax },
-            { name: "Lightning", val: lightRes, max: lightMax },
-          ].filter(r => r.val < r.max);
-          return uncapped.length > 0 ? (
-            <div className="text-[9px] font-mono text-blood/80 bg-blood/10 rounded px-2 py-1 mb-1">
-              {uncapped.map(r => `${r.name} ${Math.round(r.max - r.val)}% short`).join(" | ")}
-            </div>
-          ) : null;
-        })()}
-        <ResRow label="Fire" current={fireRes} max={fireMax} />
-        <ResRow label="Cold" current={coldRes} max={coldMax} />
-        <ResRow label="Lightning" current={lightRes} max={lightMax} />
-        <ResRow label="Chaos" current={chaosRes} max={chaosMax} />
-        {chaosRes < -40 && (
-          <div className="text-[9px] font-mono text-purple-400/70 bg-purple-400/5 rounded px-1.5 py-0.5 mt-0.5">
-            Low chaos res ({Math.round(chaosRes)}%)
-          </div>
-        )}
-      </StatSection>
+          <StatSection title="Resistances" color="var(--color-blood)">
+            {(() => {
+              const uncapped = [
+                { name: "Fire", val: fireRes, max: fireMax },
+                { name: "Cold", val: coldRes, max: coldMax },
+                { name: "Lightning", val: lightRes, max: lightMax },
+              ].filter((r) => r.val < r.max);
+              return uncapped.length > 0 ? (
+                <div className="text-[9px] font-mono text-blood/80 bg-blood/10 rounded px-2 py-1 mb-1">
+                  {uncapped.map((r) => `${r.name} ${Math.round(r.max - r.val)}% short`).join(" | ")}
+                </div>
+              ) : null;
+            })()}
+            <ResRow label="Fire" current={fireRes} max={fireMax} />
+            <ResRow label="Cold" current={coldRes} max={coldMax} />
+            <ResRow label="Lightning" current={lightRes} max={lightMax} />
+            <ResRow label="Chaos" current={chaosRes} max={chaosMax} />
+            {chaosRes < -40 && (
+              <div className="text-[9px] font-mono text-purple-400/70 bg-purple-400/5 rounded px-1.5 py-0.5 mt-0.5">
+                Low chaos res ({Math.round(chaosRes)}%)
+              </div>
+            )}
+          </StatSection>
 
-      <StatSection title="Mitigation" color="var(--color-defence)">
-        <StatRow label="Atk Block" value={`${fmtNum(atkBlock)}%`} />
-        <StatRow label="Spell Block" value={`${fmtNum(spellBlock)}%`} />
-        <StatRow label="Suppression" value={`${fmtNum(suppress)}%`} />
-        <StatRow label="Phys Reduction" value={`${fmtNum(physRed)}%`} />
-      </StatSection>
-      {stats && <DefensiveLayers stats={stats} />}
-      </>)}
+          <StatSection title="Mitigation" color="var(--color-defence)">
+            <StatRow label="Atk Block" value={`${fmtNum(atkBlock)}%`} />
+            <StatRow label="Spell Block" value={`${fmtNum(spellBlock)}%`} />
+            <StatRow label="Suppression" value={`${fmtNum(suppress)}%`} />
+            <StatRow label="Phys Reduction" value={`${fmtNum(physRed)}%`} />
+          </StatSection>
+          {stats && <DefensiveLayers stats={stats} />}
+        </>
+      )}
 
       <BuildDiff />
     </aside>

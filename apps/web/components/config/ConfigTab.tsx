@@ -1,12 +1,8 @@
 "use client";
 
-import { useState, useMemo, memo, useCallback } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
+import { CONFIG_OPTIONS, CONFIG_SECTIONS, type ConfigOptionDef } from "@/data/config-options.generated";
 import { useBuildStore } from "@/stores/build-store";
-import {
-  CONFIG_OPTIONS,
-  CONFIG_SECTIONS,
-  type ConfigOptionDef,
-} from "@/data/config-options.generated";
 
 function stripTrailingColon(s: string): string {
   return s.endsWith(":") ? s.slice(0, -1).trim() : s.trim();
@@ -17,7 +13,7 @@ function isOptionVisible(
   activeSkills: Set<string>,
   activeConditions: Set<string>,
   activeFlags: Set<string>,
-  showAll: boolean
+  showAll: boolean,
 ): boolean {
   if (showAll) return true;
   if (!opt.visibility) return true;
@@ -37,13 +33,7 @@ function isOptionVisible(
   return true;
 }
 
-function ConfigSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function ConfigSection({ title, children }: { title: string; children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
@@ -55,9 +45,7 @@ function ConfigSection({
         <span className="text-[10px] text-text-dim group-hover:text-text-primary transition-colors">
           {collapsed ? "▸" : "▾"}
         </span>
-        <h3 className="text-[10px] font-mono font-bold uppercase tracking-widest text-accent-dim">
-          {title}
-        </h3>
+        <h3 className="text-[10px] font-mono font-bold uppercase tracking-widest text-accent-dim">{title}</h3>
       </button>
       {!collapsed && <div className="space-y-1">{children}</div>}
     </div>
@@ -77,15 +65,10 @@ const ConfigControl = memo(function ConfigControl({
 
   return (
     <div className="flex items-center justify-between gap-4 py-0.5 min-h-[28px]">
-      <label
-        htmlFor={opt.id}
-        className="text-xs font-mono text-text-primary leading-tight flex-1"
-      >
+      <label htmlFor={opt.id} className="text-xs font-mono text-text-primary leading-tight flex-1">
         {label}
         {opt.visibility?.ifSkill && (
-          <span className="text-text-dim/40 text-[9px] ml-1">
-            ({opt.visibility.ifSkill[0]})
-          </span>
+          <span className="text-text-dim/40 text-[9px] ml-1">({opt.visibility.ifSkill[0]})</span>
         )}
       </label>
 
@@ -155,8 +138,7 @@ function BuildInfoSection() {
 
   if (!stats) return null;
 
-  const fmtPantheon = (s: string) =>
-    s === "None" ? "Not selected" : s.replace(/([A-Z])/g, " $1").trim();
+  const fmtPantheon = (s: string) => (s === "None" ? "Not selected" : s.replace(/([A-Z])/g, " $1").trim());
 
   return (
     <ConfigSection title="Build Info">
@@ -168,33 +150,19 @@ function BuildInfoSection() {
       </div>
       <div className="flex items-center justify-between py-1">
         <span className="text-xs font-mono text-text-primary">Bandit</span>
-        <span className="text-xs font-mono text-text-dim">
-          {bandit === "None" ? "Kill All" : bandit}
-        </span>
+        <span className="text-xs font-mono text-text-dim">{bandit === "None" ? "Kill All" : bandit}</span>
       </div>
       <div className="flex items-center justify-between py-1">
-        <span className="text-xs font-mono text-text-primary">
-          Major Pantheon
-        </span>
-        <span className="text-xs font-mono text-text-dim">
-          {fmtPantheon(pantheonMajor)}
-        </span>
+        <span className="text-xs font-mono text-text-primary">Major Pantheon</span>
+        <span className="text-xs font-mono text-text-dim">{fmtPantheon(pantheonMajor)}</span>
       </div>
       <div className="flex items-center justify-between py-1">
-        <span className="text-xs font-mono text-text-primary">
-          Minor Pantheon
-        </span>
-        <span className="text-xs font-mono text-text-dim">
-          {fmtPantheon(pantheonMinor)}
-        </span>
+        <span className="text-xs font-mono text-text-primary">Minor Pantheon</span>
+        <span className="text-xs font-mono text-text-dim">{fmtPantheon(pantheonMinor)}</span>
       </div>
       <div className="flex items-center justify-between py-1">
-        <span className="text-xs font-mono text-text-primary">
-          Tree Version
-        </span>
-        <span className="text-xs font-mono text-text-dim">
-          {stats.tree_version || "3_29"}
-        </span>
+        <span className="text-xs font-mono text-text-primary">Tree Version</span>
+        <span className="text-xs font-mono text-text-dim">{stats.tree_version || "3_29"}</span>
       </div>
     </ConfigSection>
   );
@@ -284,7 +252,7 @@ export function ConfigTab() {
 
   const visibleOptions = useMemo(() => {
     let opts = CONFIG_OPTIONS.filter((opt) =>
-      isOptionVisible(opt, activeSkills, activeConditions, activeFlags, showAll)
+      isOptionVisible(opt, activeSkills, activeConditions, activeFlags, showAll),
     );
     if (configFilter.trim()) {
       const q = configFilter.toLowerCase();
@@ -303,10 +271,13 @@ export function ConfigTab() {
     return groups;
   }, [visibleOptions]);
 
-  const updateValue = useCallback((id: string, value: boolean | string | number) => {
-    setConfigOverride(id, value);
-    setConfigDirty(true);
-  }, [setConfigOverride]);
+  const updateValue = useCallback(
+    (id: string, value: boolean | string | number) => {
+      setConfigOverride(id, value);
+      setConfigDirty(true);
+    },
+    [setConfigOverride],
+  );
 
   const applyPreset = (preset: (typeof PRESETS)[number]) => {
     for (const opt of CONFIG_OPTIONS) {
@@ -328,18 +299,14 @@ export function ConfigTab() {
     <div className="h-full overflow-y-auto p-4">
       <div className="max-w-2xl">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-text-heading font-display text-lg">
-            Configuration
-          </h2>
+          <h2 className="text-text-heading font-display text-lg">Configuration</h2>
           <span className="text-[9px] font-mono text-text-dim/50">
             {visibleCount}/{totalCount} options
           </span>
         </div>
 
         <div className="flex items-center gap-1.5 mb-3">
-          <span className="text-[10px] font-mono text-text-dim mr-1">
-            Presets:
-          </span>
+          <span className="text-[10px] font-mono text-text-dim mr-1">Presets:</span>
           {PRESETS.map((preset) => (
             <button
               key={preset.name}
@@ -373,8 +340,7 @@ export function ConfigTab() {
 
         {!showAll && hiddenCount > 0 && (
           <p className="text-[9px] font-mono text-text-dim/40 mb-3">
-            {hiddenCount} skill-specific options hidden. Click "All" to show
-            everything.
+            {hiddenCount} skill-specific options hidden. Click "All" to show everything.
           </p>
         )}
 
@@ -391,10 +357,7 @@ export function ConfigTab() {
             >
               {evaluating ? "Calculating..." : "Recalculate"}
             </button>
-            <button
-              onClick={() => setConfigDirty(false)}
-              className="text-text-dim hover:text-text-primary ml-auto"
-            >
+            <button onClick={() => setConfigDirty(false)} className="text-text-dim hover:text-text-primary ml-auto">
               x
             </button>
           </div>
@@ -402,33 +365,25 @@ export function ConfigTab() {
 
         <BuildInfoSection />
 
-        {CONFIG_SECTIONS.filter((s) => sectionGroups[s]?.length).map(
-          (section) => (
-            <ConfigSection key={section} title={section}>
-              {sectionGroups[section].map((opt) => (
-                <ConfigControl
-                  key={opt.id}
-                  opt={opt}
-                  value={
-                    configOverrides[opt.id] !== undefined
-                      ? configOverrides[opt.id]
-                      : getDefaultValue(opt)
-                  }
-                  onChange={(val) => updateValue(opt.id, val)}
-                />
-              ))}
-            </ConfigSection>
-          )
-        )}
+        {CONFIG_SECTIONS.filter((s) => sectionGroups[s]?.length).map((section) => (
+          <ConfigSection key={section} title={section}>
+            {sectionGroups[section].map((opt) => (
+              <ConfigControl
+                key={opt.id}
+                opt={opt}
+                value={configOverrides[opt.id] !== undefined ? configOverrides[opt.id] : getDefaultValue(opt)}
+                onChange={(val) => updateValue(opt.id, val)}
+              />
+            ))}
+          </ConfigSection>
+        ))}
 
         <ConfigSection title="Custom Modifiers">
           <textarea
             value={customMods}
             onChange={(e) => {
               setCustomMods(e.target.value);
-              const lines = e.target.value
-                .split("\n")
-                .filter((l: string) => l.trim());
+              const lines = e.target.value.split("\n").filter((l: string) => l.trim());
               setConfigOverride("customMods", lines.join("|"));
               setConfigDirty(true);
             }}
@@ -444,8 +399,7 @@ export function ConfigTab() {
         </ConfigSection>
 
         <p className="text-text-dim text-[10px] font-mono mt-6">
-          Config changes will trigger re-evaluation when the engine is
-          connected.
+          Config changes will trigger re-evaluation when the engine is connected.
         </p>
       </div>
     </div>
