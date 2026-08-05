@@ -89,7 +89,7 @@ export function PowerReport() {
     setComputing(true);
 
     try {
-      const { isRustEngineReady, evaluateBuildRust, parseStatLine } = await import(
+      const { isRustEngineReady, evaluateBuildRust, parseStatLine, defaultRustInput } = await import(
         "@/engine/rust-bridge"
       );
 
@@ -102,23 +102,10 @@ export function PowerReport() {
       const treeData = await treeResp.json();
       const connectionMap = buildConnectionMap(treeData);
 
-      const baseInput = {
+      const baseInput = defaultRustInput({
         level: stats.level,
-        class_id: 0,
-        base_str: 20,
-        base_dex: 20,
-        base_int: 20,
-        modifiers: [] as Array<{ stat: string; value: number; mod_type: string }>,
-        allocated_keystones: [] as string[],
-        main_skill_id: "",
         ascendancy_name: stats.ascendancy || "",
-        enemy_level: 83,
-        enemy_fire_res: 0,
-        enemy_cold_res: 0,
-        enemy_lightning_res: 0,
-        enemy_chaos_res: 0,
-        enemy_is_boss: false,
-      };
+      });
 
       const baseOutput = evaluateBuildRust(baseInput);
       if (!baseOutput) {

@@ -39,9 +39,10 @@ export const useTreeStore = create<TreeState>((set) => ({
   redoStack: [],
   specs: [{ name: "Default", allocatedNodes: new Set<string>() }],
   activeSpecIndex: 0,
-  toggleNode: (nodeId) =>
+  toggleNode: (nodeId) => {
+    let next: Set<string>;
     set((s) => {
-      const next = new Set(s.allocatedNodes);
+      next = new Set(s.allocatedNodes);
       if (next.has(nodeId)) {
         next.delete(nodeId);
       } else {
@@ -52,7 +53,11 @@ export const useTreeStore = create<TreeState>((set) => ({
         undoStack: [...s.undoStack, s.allocatedNodes],
         redoStack: [],
       };
-    }),
+    });
+    import("@/stores/build-store").then(({ useBuildStore }) => {
+      useBuildStore.getState().recalcFromTree(useTreeStore.getState().allocatedNodes);
+    }).catch(() => {});
+  },
   allocateNode: (nodeId) =>
     set((s) => {
       if (s.allocatedNodes.has(nodeId)) return s;
