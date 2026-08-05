@@ -28,99 +28,142 @@ pub fn class_name(class_id: u32) -> &'static str {
     }
 }
 
-/// Simplified ascendancy notable bonuses.
-/// These approximate the combined effect of common ascendancy allocations.
-pub fn get_ascendancy_mods(ascendancy: &str) -> Vec<Modifier> {
-    let mut mods = Vec::new();
+fn m(stat: &str, value: f64, mod_type: &str) -> Modifier {
+    Modifier { stat: stat.into(), value, mod_type: mod_type.into() }
+}
 
+/// Ascendancy notable bonuses approximating full 4-notable allocation.
+pub fn get_ascendancy_mods(ascendancy: &str) -> Vec<Modifier> {
     match ascendancy {
         // -- Marauder --
-        "Juggernaut" => {
-            mods.push(Modifier { stat: "Armour".into(), value: 20.0, mod_type: "increased".into() });
-            mods.push(Modifier { stat: "Accuracy".into(), value: 1000.0, mod_type: "flat".into() });
-        }
-        "Berserker" => {
-            mods.push(Modifier { stat: "Damage".into(), value: 40.0, mod_type: "more".into() });
-            mods.push(Modifier { stat: "AttackSpeed".into(), value: 15.0, mod_type: "increased".into() });
-        }
-        "Chieftain" => {
-            mods.push(Modifier { stat: "FireDamage".into(), value: 35.0, mod_type: "increased".into() });
-            mods.push(Modifier { stat: "Str".into(), value: 20.0, mod_type: "flat".into() });
-        }
+        "Juggernaut" => vec![
+            m("Armour", 20.0, "increased"),
+            m("Accuracy", 1000.0, "flat"),
+            m("Str", 10.0, "flat"),
+            m("Life", 6.0, "increased"),
+        ],
+        "Berserker" => vec![
+            m("Damage", 40.0, "more"),
+            m("AttackSpeed", 15.0, "increased"),
+            m("LifeLeechPct", 2.0, "flat"),
+        ],
+        "Chieftain" => vec![
+            m("FireDamage", 35.0, "increased"),
+            m("Str", 20.0, "flat"),
+            m("FirePenetration", 15.0, "flat"),
+            m("Life", 10.0, "increased"),
+        ],
 
         // -- Witch --
-        "Necromancer" => {
-            mods.push(Modifier { stat: "Int".into(), value: 30.0, mod_type: "flat".into() });
-        }
-        "Elementalist" => {
-            mods.push(Modifier { stat: "FireDamage".into(), value: 25.0, mod_type: "increased".into() });
-            mods.push(Modifier { stat: "ColdDamage".into(), value: 25.0, mod_type: "increased".into() });
-            mods.push(Modifier { stat: "LightningDamage".into(), value: 25.0, mod_type: "increased".into() });
-        }
-        "Occultist" => {
-            mods.push(Modifier { stat: "EnergyShield".into(), value: 250.0, mod_type: "flat".into() });
-            mods.push(Modifier { stat: "ChaosDamage".into(), value: 25.0, mod_type: "increased".into() });
-        }
+        "Necromancer" => vec![
+            m("Int", 30.0, "flat"),
+            m("MinionDamage", 30.0, "increased"),
+            m("MinionLife", 20.0, "increased"),
+            m("EnergyShield", 100.0, "flat"),
+        ],
+        "Elementalist" => vec![
+            m("FireDamage", 25.0, "increased"),
+            m("ColdDamage", 25.0, "increased"),
+            m("LightningDamage", 25.0, "increased"),
+            m("FirePenetration", 10.0, "flat"),
+            m("ColdPenetration", 10.0, "flat"),
+            m("LightningPenetration", 10.0, "flat"),
+        ],
+        "Occultist" => vec![
+            m("EnergyShield", 50.0, "flat"),
+            m("EnergyShield", 15.0, "increased"),
+            m("ChaosDamage", 20.0, "increased"),
+            m("ChaosRes", 20.0, "flat"),
+        ],
 
         // -- Ranger --
-        "Deadeye" => {
-            mods.push(Modifier { stat: "Accuracy".into(), value: 100.0, mod_type: "increased".into() });
-            mods.push(Modifier { stat: "Damage".into(), value: 20.0, mod_type: "increased".into() });
-        }
-        "Raider" | "Warden" => {
-            mods.push(Modifier { stat: "AttackSpeed".into(), value: 20.0, mod_type: "increased".into() });
-            mods.push(Modifier { stat: "Evasion".into(), value: 30.0, mod_type: "increased".into() });
-        }
-        "Pathfinder" => {
-            mods.push(Modifier { stat: "Damage".into(), value: 15.0, mod_type: "increased".into() });
-        }
+        "Deadeye" => vec![
+            m("ProjectileDamage", 30.0, "increased"),
+            m("Accuracy", 200.0, "flat"),
+            m("CritChance", 30.0, "increased"),
+            m("AttackSpeed", 10.0, "increased"),
+        ],
+        "Raider" | "Warden" => vec![
+            m("Evasion", 30.0, "increased"),
+            m("AttackSpeed", 20.0, "increased"),
+            m("MovementSpeed", 10.0, "increased"),
+            m("Damage", 15.0, "increased"),
+        ],
+        "Pathfinder" => vec![
+            m("Damage", 15.0, "increased"),
+            m("Life", 5.0, "increased"),
+            m("Evasion", 15.0, "increased"),
+        ],
 
         // -- Duelist --
-        "Slayer" => {
-            mods.push(Modifier { stat: "Damage".into(), value: 20.0, mod_type: "more".into() });
-            mods.push(Modifier { stat: "CritMultiplier".into(), value: 30.0, mod_type: "flat".into() });
-        }
-        "Gladiator" => {
-            mods.push(Modifier { stat: "BlockChance".into(), value: 15.0, mod_type: "flat".into() });
-            mods.push(Modifier { stat: "SpellBlockChance".into(), value: 15.0, mod_type: "flat".into() });
-        }
-        "Champion" => {
-            mods.push(Modifier { stat: "Armour".into(), value: 30.0, mod_type: "increased".into() });
-            mods.push(Modifier { stat: "Evasion".into(), value: 30.0, mod_type: "increased".into() });
-        }
+        "Slayer" => vec![
+            m("Damage", 20.0, "more"),
+            m("CritMultiplier", 30.0, "flat"),
+            m("Life", 10.0, "increased"),
+            m("AttackSpeed", 10.0, "increased"),
+        ],
+        "Gladiator" => vec![
+            m("BlockChance", 15.0, "flat"),
+            m("SpellBlockChance", 10.0, "flat"),
+            m("Damage", 20.0, "increased"),
+            m("Armour", 20.0, "increased"),
+        ],
+        "Champion" => vec![
+            m("Damage", 20.0, "increased"),
+            m("Armour", 25.0, "increased"),
+            m("DamageTakenReduction", 10.0, "flat"),
+            m("Life", 10.0, "increased"),
+        ],
 
         // -- Templar --
-        "Inquisitor" => {
-            mods.push(Modifier { stat: "CritChance".into(), value: 45.0, mod_type: "increased".into() });
-        }
-        "Hierophant" => {
-            mods.push(Modifier { stat: "Mana".into(), value: 25.0, mod_type: "increased".into() });
-        }
-        "Guardian" => {
-            mods.push(Modifier { stat: "Armour".into(), value: 25.0, mod_type: "increased".into() });
-            mods.push(Modifier { stat: "EnergyShield".into(), value: 15.0, mod_type: "increased".into() });
-        }
+        "Inquisitor" => vec![
+            m("CritChance", 30.0, "increased"),
+            m("Damage", 20.0, "increased"),
+            m("EnergyShield", 50.0, "flat"),
+            m("LifeRegenPct", 0.5, "flat"),
+        ],
+        "Hierophant" => vec![
+            m("Mana", 50.0, "flat"),
+            m("EnergyShield", 100.0, "flat"),
+            m("Damage", 15.0, "increased"),
+            m("ManaRegen", 20.0, "increased"),
+        ],
+        "Guardian" => vec![
+            m("Armour", 20.0, "increased"),
+            m("EnergyShield", 100.0, "flat"),
+            m("BlockChance", 10.0, "flat"),
+            m("Life", 10.0, "increased"),
+        ],
 
         // -- Shadow --
-        "Assassin" => {
-            mods.push(Modifier { stat: "CritChance".into(), value: 2.0, mod_type: "flat".into() });
-            mods.push(Modifier { stat: "CritMultiplier".into(), value: 25.0, mod_type: "flat".into() });
-        }
-        "Trickster" => {
-            mods.push(Modifier { stat: "AttackSpeed".into(), value: 10.0, mod_type: "increased".into() });
-            mods.push(Modifier { stat: "EnergyShield".into(), value: 10.0, mod_type: "increased".into() });
-        }
-        "Saboteur" => {
-            mods.push(Modifier { stat: "Damage".into(), value: 20.0, mod_type: "increased".into() });
-        }
+        "Assassin" => vec![
+            m("CritChance", 50.0, "increased"),
+            m("CritMultiplier", 40.0, "flat"),
+            m("Damage", 15.0, "increased"),
+            m("AttackSpeed", 10.0, "increased"),
+        ],
+        "Trickster" => vec![
+            m("EnergyShield", 50.0, "flat"),
+            m("Evasion", 20.0, "increased"),
+            m("AttackSpeed", 10.0, "increased"),
+            m("Damage", 15.0, "increased"),
+        ],
+        "Saboteur" => vec![
+            m("Damage", 20.0, "increased"),
+            m("CritChance", 20.0, "increased"),
+            m("Life", 5.0, "increased"),
+            m("Evasion", 15.0, "increased"),
+        ],
 
         // -- Scion --
-        "Ascendant" => {}
+        "Ascendant" => vec![
+            m("Str", 20.0, "flat"),
+            m("Dex", 20.0, "flat"),
+            m("Int", 20.0, "flat"),
+        ],
 
-        _ => {}
+        _ => vec![],
     }
-
-    mods
 }
 
 #[cfg(test)]
@@ -151,17 +194,70 @@ mod tests {
     }
 
     #[test]
+    fn test_juggernaut_has_4_mods() {
+        let mods = get_ascendancy_mods("Juggernaut");
+        assert_eq!(mods.len(), 4);
+        assert!(mods.iter().any(|m| m.stat == "Armour"));
+        assert!(mods.iter().any(|m| m.stat == "Accuracy" && m.value == 1000.0));
+        assert!(mods.iter().any(|m| m.stat == "Str"));
+        assert!(mods.iter().any(|m| m.stat == "Life"));
+    }
+
+    #[test]
+    fn test_elementalist_has_penetration() {
+        let mods = get_ascendancy_mods("Elementalist");
+        assert_eq!(mods.len(), 6);
+        assert!(mods.iter().any(|m| m.stat == "FirePenetration" && m.value == 10.0));
+        assert!(mods.iter().any(|m| m.stat == "ColdPenetration"));
+        assert!(mods.iter().any(|m| m.stat == "LightningPenetration"));
+    }
+
+    #[test]
     fn test_occultist_mods() {
         let mods = get_ascendancy_mods("Occultist");
-        assert!(mods.iter().any(|m| m.stat == "EnergyShield" && m.value == 250.0));
+        assert_eq!(mods.len(), 4);
+        assert!(mods.iter().any(|m| m.stat == "EnergyShield" && m.value == 50.0 && m.mod_type == "flat"));
+        assert!(mods.iter().any(|m| m.stat == "EnergyShield" && m.mod_type == "increased"));
         assert!(mods.iter().any(|m| m.stat == "ChaosDamage"));
+        assert!(mods.iter().any(|m| m.stat == "ChaosRes"));
     }
 
     #[test]
     fn test_gladiator_gives_block() {
         let mods = get_ascendancy_mods("Gladiator");
-        assert!(mods.iter().any(|m| m.stat == "BlockChance"));
-        assert!(mods.iter().any(|m| m.stat == "SpellBlockChance"));
+        assert!(mods.iter().any(|m| m.stat == "BlockChance" && m.value == 15.0));
+        assert!(mods.iter().any(|m| m.stat == "SpellBlockChance" && m.value == 10.0));
+        assert!(mods.iter().any(|m| m.stat == "Damage"));
+        assert!(mods.iter().any(|m| m.stat == "Armour"));
+    }
+
+    #[test]
+    fn test_slayer_has_more_damage() {
+        let mods = get_ascendancy_mods("Slayer");
+        assert!(mods.iter().any(|m| m.stat == "Damage" && m.mod_type == "more" && m.value == 20.0));
+        assert!(mods.iter().any(|m| m.stat == "CritMultiplier" && m.value == 30.0));
+    }
+
+    #[test]
+    fn test_assassin_crit_heavy() {
+        let mods = get_ascendancy_mods("Assassin");
+        assert!(mods.iter().any(|m| m.stat == "CritChance" && m.value == 50.0));
+        assert!(mods.iter().any(|m| m.stat == "CritMultiplier" && m.value == 40.0));
+    }
+
+    #[test]
+    fn test_champion_has_damage_reduction() {
+        let mods = get_ascendancy_mods("Champion");
+        assert!(mods.iter().any(|m| m.stat == "DamageTakenReduction" && m.value == 10.0));
+    }
+
+    #[test]
+    fn test_ascendant_gives_all_attributes() {
+        let mods = get_ascendancy_mods("Ascendant");
+        assert_eq!(mods.len(), 3);
+        assert!(mods.iter().any(|m| m.stat == "Str" && m.value == 20.0));
+        assert!(mods.iter().any(|m| m.stat == "Dex" && m.value == 20.0));
+        assert!(mods.iter().any(|m| m.stat == "Int" && m.value == 20.0));
     }
 
     #[test]
@@ -175,5 +271,33 @@ mod tests {
         let raider = get_ascendancy_mods("Raider");
         let warden = get_ascendancy_mods("Warden");
         assert_eq!(raider.len(), warden.len());
+    }
+
+    #[test]
+    fn test_necromancer_has_minion_mods() {
+        let mods = get_ascendancy_mods("Necromancer");
+        assert!(mods.iter().any(|m| m.stat == "MinionDamage"));
+        assert!(mods.iter().any(|m| m.stat == "MinionLife"));
+        assert!(mods.iter().any(|m| m.stat == "EnergyShield" && m.value == 100.0));
+    }
+
+    #[test]
+    fn test_inquisitor_has_regen() {
+        let mods = get_ascendancy_mods("Inquisitor");
+        assert!(mods.iter().any(|m| m.stat == "LifeRegenPct" && m.value == 0.5));
+        assert!(mods.iter().any(|m| m.stat == "EnergyShield" && m.value == 50.0));
+    }
+
+    #[test]
+    fn test_deadeye_projectile_focus() {
+        let mods = get_ascendancy_mods("Deadeye");
+        assert!(mods.iter().any(|m| m.stat == "ProjectileDamage" && m.value == 30.0));
+        assert!(mods.iter().any(|m| m.stat == "Accuracy" && m.value == 200.0));
+    }
+
+    #[test]
+    fn test_berserker_has_leech() {
+        let mods = get_ascendancy_mods("Berserker");
+        assert!(mods.iter().any(|m| m.stat == "LifeLeechPct" && m.value == 2.0));
     }
 }

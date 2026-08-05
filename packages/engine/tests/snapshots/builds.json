@@ -1,0 +1,849 @@
+[
+  {
+    "input": {
+      "active_flasks": [
+        "Diamond Flask",
+        "Lion's Roar"
+      ],
+      "allocated_keystones": [],
+      "ascendancy_name": "Slayer",
+      "base_dex": 23,
+      "base_int": 14,
+      "base_str": 23,
+      "class_id": 4,
+      "conversion_phys_to_chaos": 0.0,
+      "conversion_phys_to_cold": 0.0,
+      "conversion_phys_to_fire": 0.0,
+      "conversion_phys_to_lightning": 0.0,
+      "endurance_charges": 0,
+      "enemy_chaos_res": 0.0,
+      "enemy_cold_res": 0.0,
+      "enemy_fire_res": 0.0,
+      "enemy_is_boss": false,
+      "enemy_level": 83,
+      "enemy_lightning_res": 0.0,
+      "equipped_uniques": [
+        "Starforge"
+      ],
+      "frenzy_charges": 3,
+      "have_arcane_surge": false,
+      "have_fortify": true,
+      "have_killed_recently": false,
+      "have_onslaught": false,
+      "have_tailwind": false,
+      "impale_chance": 0.0,
+      "is_dual_wield": false,
+      "is_leeching": false,
+      "level": 95,
+      "life_reserved_pct": 0.0,
+      "main_skill_id": "Cyclone",
+      "mana_reserved_pct": 0.0,
+      "minion_skill_id": "",
+      "modifiers": [
+        {
+          "mod_type": "flat",
+          "stat": "Life",
+          "value": 120.0
+        },
+        {
+          "mod_type": "increased",
+          "stat": "Life",
+          "value": 180.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "Str",
+          "value": 150.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "Dex",
+          "value": 60.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "Armour",
+          "value": 1500.0
+        },
+        {
+          "mod_type": "increased",
+          "stat": "Armour",
+          "value": 80.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "FireRes",
+          "value": 140.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "ColdRes",
+          "value": 135.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "LightningRes",
+          "value": 130.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "ChaosRes",
+          "value": 40.0
+        },
+        {
+          "mod_type": "increased",
+          "stat": "Damage",
+          "value": 80.0
+        },
+        {
+          "mod_type": "increased",
+          "stat": "PhysicalDamage",
+          "value": 60.0
+        },
+        {
+          "mod_type": "increased",
+          "stat": "AttackSpeed",
+          "value": 25.0
+        },
+        {
+          "mod_type": "increased",
+          "stat": "CritChance",
+          "value": 60.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "CritMultiplier",
+          "value": 80.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "Accuracy",
+          "value": 500.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "BlockChance",
+          "value": 20.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "LifeRegenPct",
+          "value": 1.5
+        },
+        {
+          "mod_type": "flat",
+          "stat": "LifeLeechPct",
+          "value": 0.8
+        }
+      ],
+      "on_full_life": true,
+      "on_low_life": false,
+      "power_charges": 0,
+      "support_gems": [
+        "Melee Physical Damage Support",
+        "Brutality Support",
+        "Faster Attacks Support",
+        "Increased Critical Strikes Support",
+        "Concentrated Effect Support"
+      ],
+      "weapon2_aps": 0.0,
+      "weapon2_crit": 0.0,
+      "weapon2_phys_max": 0.0,
+      "weapon2_phys_min": 0.0,
+      "weapon_aps": 1.35,
+      "weapon_base_type": "",
+      "weapon_crit": 5.0,
+      "weapon_phys_max": 380.0,
+      "weapon_phys_min": 120.0
+    },
+    "name": "Cyclone Slayer - Endgame Phys",
+    "snapshot": {
+      "armour": 8161.0,
+      "attack_speed": 2.95,
+      "bleed_dps": 7692.81,
+      "chaos_res": -20.0,
+      "cold_res": 75.0,
+      "combined_dps": 49206.73,
+      "crit_chance": 17.4,
+      "crit_multiplier": 260.0,
+      "dexterity": 83.0,
+      "energy_shield": 0.0,
+      "evasion": 16.0,
+      "fire_res": 75.0,
+      "hit_chance": 100.0,
+      "ignite_dps": 0.0,
+      "impale_dps": 0.0,
+      "intelligence": 14.0,
+      "life": 4269.0,
+      "life_regen": 64.04,
+      "lightning_res": 70.0,
+      "mana": 605.0,
+      "poison_dps": 0.0,
+      "strength": 173.0,
+      "total_dps": 41513.92,
+      "total_ehp": 53362.5
+    }
+  },
+  {
+    "input": {
+      "active_flasks": [
+        "Granite Flask",
+        "Basalt Flask"
+      ],
+      "allocated_keystones": [],
+      "ascendancy_name": "Juggernaut",
+      "base_dex": 14,
+      "base_int": 14,
+      "base_str": 32,
+      "class_id": 1,
+      "conversion_phys_to_chaos": 0.0,
+      "conversion_phys_to_cold": 0.0,
+      "conversion_phys_to_fire": 0.0,
+      "conversion_phys_to_lightning": 0.0,
+      "endurance_charges": 6,
+      "enemy_chaos_res": 0.0,
+      "enemy_cold_res": 0.0,
+      "enemy_fire_res": 0.0,
+      "enemy_is_boss": false,
+      "enemy_level": 83,
+      "enemy_lightning_res": 0.0,
+      "equipped_uniques": [
+        "Kaom's Heart"
+      ],
+      "frenzy_charges": 0,
+      "have_arcane_surge": false,
+      "have_fortify": false,
+      "have_killed_recently": false,
+      "have_onslaught": false,
+      "have_tailwind": false,
+      "impale_chance": 0.0,
+      "is_dual_wield": false,
+      "is_leeching": false,
+      "level": 92,
+      "life_reserved_pct": 0.0,
+      "main_skill_id": "RighteousFire",
+      "mana_reserved_pct": 0.0,
+      "minion_skill_id": "",
+      "modifiers": [
+        {
+          "mod_type": "flat",
+          "stat": "Life",
+          "value": 200.0
+        },
+        {
+          "mod_type": "increased",
+          "stat": "Life",
+          "value": 250.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "Str",
+          "value": 200.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "Armour",
+          "value": 3000.0
+        },
+        {
+          "mod_type": "increased",
+          "stat": "Armour",
+          "value": 150.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "FireRes",
+          "value": 169.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "ColdRes",
+          "value": 135.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "LightningRes",
+          "value": 135.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "ChaosRes",
+          "value": 60.0
+        },
+        {
+          "mod_type": "increased",
+          "stat": "FireDamage",
+          "value": 80.0
+        },
+        {
+          "mod_type": "increased",
+          "stat": "DamageOverTime",
+          "value": 60.0
+        },
+        {
+          "mod_type": "increased",
+          "stat": "Damage",
+          "value": 40.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "LifeRegenPct",
+          "value": 8.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "LifeRegen",
+          "value": 100.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "FireResMax",
+          "value": 3.0
+        }
+      ],
+      "on_full_life": true,
+      "on_low_life": false,
+      "power_charges": 0,
+      "support_gems": [
+        "Burning Damage Support",
+        "Efficacy Support",
+        "Elemental Focus Support"
+      ],
+      "weapon2_aps": 0.0,
+      "weapon2_crit": 0.0,
+      "weapon2_phys_max": 0.0,
+      "weapon2_phys_min": 0.0,
+      "weapon_aps": 0.0,
+      "weapon_base_type": "",
+      "weapon_crit": 0.0,
+      "weapon_phys_max": 0.0,
+      "weapon_phys_min": 0.0
+    },
+    "name": "RF Juggernaut - Endgame Tank",
+    "snapshot": {
+      "armour": 16330.0,
+      "attack_speed": 1.0,
+      "bleed_dps": 0.0,
+      "chaos_res": 0.0,
+      "cold_res": 75.0,
+      "combined_dps": 399.32,
+      "crit_chance": 5.0,
+      "crit_multiplier": 150.0,
+      "dexterity": 14.0,
+      "energy_shield": 0.0,
+      "evasion": 2.0,
+      "fire_res": 78.0,
+      "hit_chance": 100.0,
+      "ignite_dps": 0.0,
+      "impale_dps": 0.0,
+      "intelligence": 14.0,
+      "life": 6946.0,
+      "life_regen": 655.68,
+      "lightning_res": 75.0,
+      "mana": 587.0,
+      "poison_dps": 0.0,
+      "strength": 242.0,
+      "total_dps": 399.32,
+      "total_ehp": 69460.0
+    }
+  },
+  {
+    "input": {
+      "active_flasks": [],
+      "allocated_keystones": [
+        "Chaos Inoculation"
+      ],
+      "ascendancy_name": "Occultist",
+      "base_dex": 14,
+      "base_int": 32,
+      "base_str": 14,
+      "class_id": 3,
+      "conversion_phys_to_chaos": 0.0,
+      "conversion_phys_to_cold": 0.0,
+      "conversion_phys_to_fire": 0.0,
+      "conversion_phys_to_lightning": 0.0,
+      "endurance_charges": 0,
+      "enemy_chaos_res": 0.0,
+      "enemy_cold_res": 0.0,
+      "enemy_fire_res": 0.0,
+      "enemy_is_boss": false,
+      "enemy_level": 83,
+      "enemy_lightning_res": 0.0,
+      "equipped_uniques": [],
+      "frenzy_charges": 0,
+      "have_arcane_surge": false,
+      "have_fortify": false,
+      "have_killed_recently": false,
+      "have_onslaught": false,
+      "have_tailwind": false,
+      "impale_chance": 0.0,
+      "is_dual_wield": false,
+      "is_leeching": false,
+      "level": 94,
+      "life_reserved_pct": 0.0,
+      "main_skill_id": "Vortex",
+      "mana_reserved_pct": 0.0,
+      "minion_skill_id": "",
+      "modifiers": [
+        {
+          "mod_type": "flat",
+          "stat": "EnergyShield",
+          "value": 800.0
+        },
+        {
+          "mod_type": "increased",
+          "stat": "EnergyShield",
+          "value": 250.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "Int",
+          "value": 200.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "FireRes",
+          "value": 135.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "ColdRes",
+          "value": 135.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "LightningRes",
+          "value": 135.0
+        },
+        {
+          "mod_type": "increased",
+          "stat": "ColdDamage",
+          "value": 100.0
+        },
+        {
+          "mod_type": "increased",
+          "stat": "DamageOverTime",
+          "value": 80.0
+        },
+        {
+          "mod_type": "increased",
+          "stat": "SpellDamage",
+          "value": 60.0
+        },
+        {
+          "mod_type": "increased",
+          "stat": "Damage",
+          "value": 40.0
+        },
+        {
+          "mod_type": "increased",
+          "stat": "CritChance",
+          "value": 80.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "CritMultiplier",
+          "value": 60.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "SpellSuppression",
+          "value": 40.0
+        }
+      ],
+      "on_full_life": false,
+      "on_low_life": false,
+      "power_charges": 0,
+      "support_gems": [
+        "Controlled Destruction Support",
+        "Efficacy Support",
+        "Swift Affliction Support",
+        "Elemental Focus Support"
+      ],
+      "weapon2_aps": 0.0,
+      "weapon2_crit": 0.0,
+      "weapon2_phys_max": 0.0,
+      "weapon2_phys_min": 0.0,
+      "weapon_aps": 0.0,
+      "weapon_base_type": "",
+      "weapon_crit": 0.0,
+      "weapon_phys_max": 0.0,
+      "weapon_phys_min": 0.0
+    },
+    "name": "CI Vortex Occultist - ES DoT",
+    "snapshot": {
+      "armour": 2.0,
+      "attack_speed": 1.0,
+      "bleed_dps": 0.0,
+      "chaos_res": 75.0,
+      "cold_res": 75.0,
+      "combined_dps": 0.0,
+      "crit_chance": 9.0,
+      "crit_multiplier": 210.0,
+      "dexterity": 14.0,
+      "energy_shield": 3493.0,
+      "evasion": 2.0,
+      "fire_res": 75.0,
+      "hit_chance": 92.77,
+      "ignite_dps": 0.0,
+      "impale_dps": 0.0,
+      "intelligence": 232.0,
+      "life": 1.0,
+      "life_regen": 0.0,
+      "lightning_res": 75.0,
+      "mana": 708.0,
+      "poison_dps": 0.0,
+      "strength": 14.0,
+      "total_dps": -0.0,
+      "total_ehp": 4371.71
+    }
+  },
+  {
+    "input": {
+      "active_flasks": [],
+      "allocated_keystones": [],
+      "ascendancy_name": "Deadeye",
+      "base_dex": 32,
+      "base_int": 14,
+      "base_str": 14,
+      "class_id": 2,
+      "conversion_phys_to_chaos": 0.0,
+      "conversion_phys_to_cold": 0.0,
+      "conversion_phys_to_fire": 0.0,
+      "conversion_phys_to_lightning": 0.0,
+      "endurance_charges": 0,
+      "enemy_chaos_res": 0.0,
+      "enemy_cold_res": 0.0,
+      "enemy_fire_res": 0.0,
+      "enemy_is_boss": false,
+      "enemy_level": 83,
+      "enemy_lightning_res": 0.0,
+      "equipped_uniques": [],
+      "frenzy_charges": 4,
+      "have_arcane_surge": false,
+      "have_fortify": false,
+      "have_killed_recently": false,
+      "have_onslaught": true,
+      "have_tailwind": false,
+      "impale_chance": 0.0,
+      "is_dual_wield": false,
+      "is_leeching": false,
+      "level": 93,
+      "life_reserved_pct": 0.0,
+      "main_skill_id": "LightningArrow",
+      "mana_reserved_pct": 0.0,
+      "minion_skill_id": "",
+      "modifiers": [
+        {
+          "mod_type": "flat",
+          "stat": "Life",
+          "value": 80.0
+        },
+        {
+          "mod_type": "increased",
+          "stat": "Life",
+          "value": 150.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "Dex",
+          "value": 180.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "Evasion",
+          "value": 2000.0
+        },
+        {
+          "mod_type": "increased",
+          "stat": "Evasion",
+          "value": 120.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "FireRes",
+          "value": 135.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "ColdRes",
+          "value": 135.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "LightningRes",
+          "value": 135.0
+        },
+        {
+          "mod_type": "increased",
+          "stat": "Damage",
+          "value": 60.0
+        },
+        {
+          "mod_type": "increased",
+          "stat": "ProjectileDamage",
+          "value": 40.0
+        },
+        {
+          "mod_type": "increased",
+          "stat": "AttackSpeed",
+          "value": 30.0
+        },
+        {
+          "mod_type": "increased",
+          "stat": "CritChance",
+          "value": 100.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "CritMultiplier",
+          "value": 120.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "Accuracy",
+          "value": 800.0
+        },
+        {
+          "mod_type": "increased",
+          "stat": "LightningDamage",
+          "value": 50.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "LightningPenetration",
+          "value": 15.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "SpellSuppression",
+          "value": 60.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "AddedLightningMin",
+          "value": 10.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "AddedLightningMax",
+          "value": 200.0
+        }
+      ],
+      "on_full_life": false,
+      "on_low_life": false,
+      "power_charges": 3,
+      "support_gems": [
+        "Elemental Damage with Attacks Support",
+        "Added Cold Damage Support",
+        "Lightning Penetration Support",
+        "Faster Attacks Support",
+        "Increased Critical Damage Support"
+      ],
+      "weapon2_aps": 0.0,
+      "weapon2_crit": 0.0,
+      "weapon2_phys_max": 0.0,
+      "weapon2_phys_min": 0.0,
+      "weapon_aps": 1.5,
+      "weapon_base_type": "",
+      "weapon_crit": 5.0,
+      "weapon_phys_max": 90.0,
+      "weapon_phys_min": 30.0
+    },
+    "name": "Lightning Arrow Deadeye - Ele Bow",
+    "snapshot": {
+      "armour": 2.0,
+      "attack_speed": 3.8,
+      "bleed_dps": 485.58,
+      "chaos_res": -60.0,
+      "cold_res": 75.0,
+      "combined_dps": 16822.59,
+      "crit_chance": 17.5,
+      "crit_multiplier": 358.0,
+      "dexterity": 212.0,
+      "energy_shield": 0.0,
+      "evasion": 4492.0,
+      "fire_res": 75.0,
+      "hit_chance": 100.0,
+      "ignite_dps": 0.0,
+      "impale_dps": 0.0,
+      "intelligence": 14.0,
+      "life": 3073.0,
+      "life_regen": 0.0,
+      "lightning_res": 75.0,
+      "mana": 593.0,
+      "poison_dps": 0.0,
+      "strength": 14.0,
+      "total_dps": 16337.01,
+      "total_ehp": 9141.98
+    }
+  },
+  {
+    "input": {
+      "active_flasks": [],
+      "allocated_keystones": [],
+      "ascendancy_name": "Assassin",
+      "base_dex": 23,
+      "base_int": 23,
+      "base_str": 14,
+      "class_id": 6,
+      "conversion_phys_to_chaos": 0.0,
+      "conversion_phys_to_cold": 0.0,
+      "conversion_phys_to_fire": 0.0,
+      "conversion_phys_to_lightning": 0.0,
+      "endurance_charges": 0,
+      "enemy_chaos_res": 0.0,
+      "enemy_cold_res": 0.0,
+      "enemy_fire_res": 0.0,
+      "enemy_is_boss": false,
+      "enemy_level": 83,
+      "enemy_lightning_res": 0.0,
+      "equipped_uniques": [],
+      "frenzy_charges": 4,
+      "have_arcane_surge": false,
+      "have_fortify": false,
+      "have_killed_recently": false,
+      "have_onslaught": false,
+      "have_tailwind": false,
+      "impale_chance": 0.0,
+      "is_dual_wield": false,
+      "is_leeching": false,
+      "level": 92,
+      "life_reserved_pct": 0.0,
+      "main_skill_id": "BladeVortex",
+      "mana_reserved_pct": 0.0,
+      "minion_skill_id": "",
+      "modifiers": [
+        {
+          "mod_type": "flat",
+          "stat": "Life",
+          "value": 100.0
+        },
+        {
+          "mod_type": "increased",
+          "stat": "Life",
+          "value": 160.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "Dex",
+          "value": 120.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "Evasion",
+          "value": 1500.0
+        },
+        {
+          "mod_type": "increased",
+          "stat": "Evasion",
+          "value": 80.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "FireRes",
+          "value": 135.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "ColdRes",
+          "value": 120.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "LightningRes",
+          "value": 130.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "ChaosRes",
+          "value": 60.0
+        },
+        {
+          "mod_type": "increased",
+          "stat": "ChaosDamage",
+          "value": 60.0
+        },
+        {
+          "mod_type": "increased",
+          "stat": "Damage",
+          "value": 40.0
+        },
+        {
+          "mod_type": "increased",
+          "stat": "AttackSpeed",
+          "value": 20.0
+        },
+        {
+          "mod_type": "increased",
+          "stat": "CritChance",
+          "value": 80.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "CritMultiplier",
+          "value": 50.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "PoisonChance",
+          "value": 100.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "AddedChaosMin",
+          "value": 30.0
+        },
+        {
+          "mod_type": "flat",
+          "stat": "AddedChaosMax",
+          "value": 60.0
+        }
+      ],
+      "on_full_life": false,
+      "on_low_life": false,
+      "power_charges": 4,
+      "support_gems": [
+        "Deadly Ailments Support",
+        "Void Manipulation Support",
+        "Unbound Ailments Support"
+      ],
+      "weapon2_aps": 0.0,
+      "weapon2_crit": 0.0,
+      "weapon2_phys_max": 0.0,
+      "weapon2_phys_min": 0.0,
+      "weapon_aps": 1.8,
+      "weapon_base_type": "",
+      "weapon_crit": 6.5,
+      "weapon_phys_max": 160.0,
+      "weapon_phys_min": 40.0
+    },
+    "name": "Poison BV Assassin - DoT Stacker",
+    "snapshot": {
+      "armour": 2.0,
+      "attack_speed": 2.63,
+      "bleed_dps": 453.1,
+      "chaos_res": 0.0,
+      "cold_res": 60.0,
+      "combined_dps": 4228.48,
+      "crit_chance": 25.35,
+      "crit_multiplier": 240.0,
+      "dexterity": 143.0,
+      "energy_shield": 0.0,
+      "evasion": 2750.0,
+      "fire_res": 75.0,
+      "hit_chance": 100.0,
+      "ignite_dps": 0.0,
+      "impale_dps": 0.0,
+      "intelligence": 23.0,
+      "life": 3216.0,
+      "life_regen": 0.0,
+      "lightning_res": 70.0,
+      "mana": 591.0,
+      "poison_dps": 951.64,
+      "strength": 14.0,
+      "total_dps": 2823.74,
+      "total_ehp": 5431.61
+    }
+  }
+]
