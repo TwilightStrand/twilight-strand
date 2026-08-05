@@ -12,6 +12,21 @@ local function loadJewelFile(jewelTypeName)
 
 	local scriptPath = GetScriptPath()
 
+	-- Try pre-decompressed .bin file first (works in browser without Inflate)
+	local binPath = scriptPath .. jewelTypeName .. ".bin"
+	local binFile, binErr = io.open(binPath, "rb")
+	_tsc_jewel_log = (_tsc_jewel_log or "") .. "loadJewelFile:" .. binPath .. "=>" .. tostring(binFile ~= nil) .. " "
+	if binFile then
+		jewelData = binFile:read("*a")
+		binFile:close()
+		_tsc_jewel_log = _tsc_jewel_log .. "#=" .. (jewelData and #jewelData or 0) .. " "
+		if jewelData and #jewelData > 0 then
+			return jewelData
+		end
+	else
+		_tsc_jewel_log = _tsc_jewel_log .. "err=" .. tostring(binErr) .. " "
+	end
+
 	local fileHandle = NewFileSearch(scriptPath .. jewelTypeName .. ".bin")
 	local uncompressedFileAttr = { }
 	if fileHandle then

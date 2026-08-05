@@ -409,6 +409,41 @@ async function fetchAndMountFiles(
   return mounted;
 }
 
+// --------------- Timeless jewel binary data (lazy-loaded) ---------------
+const JEWEL_BIN_CACHE_PREFIX = "jewel-bin-v1-";
+const mountedJewelTypes = new Set<string>();
+
+async function mountTimelessJewelData(
+  f: import("wasmoon").default,
+  baseUrl: string,
+  jewelTypes: string[],
+): Promise<number> {
+  let mounted = 0;
+  for (const name of jewelTypes) {
+    if (mountedJewelTypes.has(name)) continue;
+
+    const cacheKey = JEWEL_BIN_CACHE_PREFIX + name;
+    let data = await idbGet(cacheKey) as ArrayBuffer | null;
+
+    if (!data) {
+      try {
+        const resp = await fetch(`${baseUrl}/Data/TimelessJewelData/${name}.bin`);
+        if (!resp.ok) continue;
+        data = await resp.arrayBuffer();
+        idbSet(cacheKey, data).catch(() => {});
+      } catch {
+        continue;
+      }
+    }
+
+    const mountPath = `/pob/Data/TimelessJewelData/${name}.bin`;
+    await f.mountFile(mountPath, new Uint8Array(data));
+    mountedJewelTypes.add(name);
+    mounted++;
+  }
+  return mounted;
+}
+
 async function preloadTreeData(
   luaEngine: Awaited<ReturnType<import("wasmoon").default["createEngine"]>>,
   luaFactory: import("wasmoon").default,
@@ -757,6 +792,57 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
 
     // Try PoB evaluation
     try {
+      // Pre-mount timeless jewel binary data before loading the build.
+      // The tree builder needs this data during PassiveSpec:BuildAllDependsAndPaths.
+      if (factory) {
+        const JEWEL_NAMES: Record<string, string> = {
+          "Glorious Vanity": "GloriousVanity",
+          "Lethal Pride": "LethalPride",
+          "Brutal Restraint": "BrutalRestraint",
+          "Militant Faith": "MilitantFaith",
+          "Elegant Hubris": "ElegantHubris",
+        };
+        const needed: string[] = [];
+        for (const [displayName, fileName] of Object.entries(JEWEL_NAMES)) {
+          if (xml.includes(displayName)) {
+            needed.push(fileName);
+          }
+        }
+        if (needed.length > 0) {
+          try {
+            progress(id, `Loading timeless jewel data (${needed.join(", ")})...`);
+            const count = await mountTimelessJewelData(factory, "/data/pob", needed);
+            console.log("[jewel-mount]", count, "files mounted for", needed.join(","));
+            console.log("[jewel-post-mount] count=" + count + " lua=" + !!lua);
+            if (count > 0 && lua) {
+              try {
+                await lua.doString(`
+                  _tsc_lut_clear = "no-data"
+                  pcall(function()
+                    if data and data.timelessJewelLUTs then
+                      local c = 0
+                      for k in pairs(data.timelessJewelLUTs) do c = c + 1 end
+                      _tsc_lut_clear = "found " .. c .. " LUTs, clearing"
+                      for k in pairs(data.timelessJewelLUTs) do
+                        data.timelessJewelLUTs[k] = nil
+                      end
+                    elseif data then
+                      _tsc_lut_clear = "data exists but no timelessJewelLUTs"
+                    end
+                  end)
+                `);
+                const lutClear = lua.global.get("_tsc_lut_clear");
+                console.log("[lut-clear]", String(lutClear ?? "UNSET"));
+              } catch (lutErr) {
+                console.warn("[lut-error]", lutErr instanceof Error ? lutErr.message : String(lutErr));
+              }
+            }
+          } catch (e) {
+            console.warn("[jewel-error]", e instanceof Error ? e.message : String(e));
+          }
+        }
+      }
+
       lua.global.set("_tsc_build_xml", xml);
 
       progress(id, "Loading build XML...");
@@ -775,6 +861,8 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
       `);
 
       const loadErr = lua.global.get("_tsc_eval_error");
+      const jewelLog = lua.global.get("_tsc_jewel_log");
+      if (jewelLog) console.log("[jewel-lua]", String(jewelLog));
       if (loadErr) {
         console.warn("PoB loadBuild error:", String(loadErr).substring(0, 500));
       }

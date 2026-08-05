@@ -1,7 +1,11 @@
 export type BuildInputKind =
-  | "tsc-code" | "pob-code" | "raw-xml"
-  | "pastebin-url" | "pobbin-url"
-  | "poe-profile-url" | "poe-ninja-url"
+  | "tsc-code"
+  | "pob-code"
+  | "raw-xml"
+  | "pastebin-url"
+  | "pobbin-url"
+  | "poe-profile-url"
+  | "poe-ninja-url"
   | "unknown";
 
 export function classifyBuildInput(input: string): BuildInputKind {
@@ -11,7 +15,7 @@ export function classifyBuildInput(input: string): BuildInputKind {
   if (trimmed.includes("pastebin.com/")) return "pastebin-url";
   if (trimmed.includes("pobb.in/")) return "pobbin-url";
   if (trimmed.includes("pathofexile.com/account/view-profile/")) return "poe-profile-url";
-  if (trimmed.includes("poe.ninja") && trimmed.includes("/char/")) return "poe-ninja-url";
+  if (trimmed.includes("poe.ninja") && (trimmed.includes("/char/") || trimmed.includes("/character/"))) return "poe-ninja-url";
   const cleaned = trimmed.replace(/\s/g, "");
   if (cleaned.length >= 40 && /^[A-Za-z0-9+/=_-]+$/.test(cleaned)) return "pob-code";
   return "unknown";
@@ -26,7 +30,7 @@ export function parseAccountCharFromUrl(input: string, kind: BuildInputKind): { 
     const simple = input.match(/view-profile\/([^/]+)/);
     return { account: simple ? decodeURIComponent(simple[1]) : "", character: "" };
   }
-  const match = input.match(/\/char\/([^/]+)\/([^/?#]+)/);
+  const match = input.match(/\/char(?:acter)?\/([^/]+)\/([^/?#]+)/);
   return match
     ? { account: decodeURIComponent(match[1]), character: decodeURIComponent(match[2]) }
     : { account: "", character: "" };
@@ -48,9 +52,17 @@ export function gggDataToXml(
 
   xml += `\t<Items>\n`;
   const slotMap: Record<string, string> = {
-    Helm: "Helmet", BodyArmour: "Body Armour", Gloves: "Gloves", Boots: "Boots",
-    Belt: "Belt", Amulet: "Amulet", Ring: "Ring 1", Ring2: "Ring 2",
-    Weapon: "Weapon 1", Weapon2: "Weapon 2", Offhand: "Weapon 2",
+    Helm: "Helmet",
+    BodyArmour: "Body Armour",
+    Gloves: "Gloves",
+    Boots: "Boots",
+    Belt: "Belt",
+    Amulet: "Amulet",
+    Ring: "Ring 1",
+    Ring2: "Ring 2",
+    Weapon: "Weapon 1",
+    Weapon2: "Weapon 2",
+    Offhand: "Weapon 2",
   };
 
   let flaskIdx = 1;
@@ -95,12 +107,12 @@ export function gggDataToXml(
     xml += `\t\t<Skill enabled="true" slot="${slotMap[invId] || ""}">\n`;
     for (const gem of socketedItems) {
       const props = (gem.properties as Array<Record<string, unknown>>) || [];
-      const gemLevel = props.find(p => (p.name as string) === "Level")?.values;
-      const gemQuality = props.find(p => (p.name as string) === "Quality")?.values;
+      const gemLevel = props.find((p) => (p.name as string) === "Level")?.values;
+      const gemQuality = props.find((p) => (p.name as string) === "Quality")?.values;
       const levelStr = String(((gemLevel as unknown[])?.[0] as unknown[])?.[0] || "20").replace(/[^\d]/g, "");
       const qualityStr = String(((gemQuality as unknown[])?.[0] as unknown[])?.[0] || "0").replace(/[^\d]/g, "");
 
-      xml += `\t\t\t<Gem level="${levelStr}" quality="${qualityStr}" skillId="${(gem.typeLine as string || "").replace(/ /g, "")}" nameSpec="${gem.typeLine || ""}" enabled="true"/>\n`;
+      xml += `\t\t\t<Gem level="${levelStr}" quality="${qualityStr}" skillId="${((gem.typeLine as string) || "").replace(/ /g, "")}" nameSpec="${gem.typeLine || ""}" enabled="true"/>\n`;
     }
     xml += `\t\t</Skill>\n`;
   }
