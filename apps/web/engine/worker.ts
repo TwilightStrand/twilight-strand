@@ -659,6 +659,7 @@ async function handleInit(id: number, _gameId: string): Promise<void> {
       _tsc_launch_ok = #errors == 0
       _tsc_boot_steps = table.concat(steps, "; ")
       _tsc_boot_errors = table.concat(errors, "; ")
+      _tsc_boot_info = (_tsc_launch_ok and "OK" or "PARTIAL") .. " | " .. table.concat(steps, "; ") .. " | ERR: " .. table.concat(errors, "; ")
     `);
 
     const launchOk = lua.global.get("_tsc_launch_ok");
@@ -666,6 +667,8 @@ async function handleInit(id: number, _gameId: string): Promise<void> {
     const bootErrors = lua.global.get("_tsc_boot_errors") ?? "";
     const hasMain = lua.global.get("_tsc_has_main");
     const hasModes = lua.global.get("_tsc_has_modes");
+
+    console.log("[boot]", launchOk ? "OK" : "PARTIAL", "steps:", bootSteps, "errors:", bootErrors, "main:", !!hasMain, "modes:", !!hasModes);
 
     if (launchOk) {
       progress(id, `PoB booted: ${bootSteps}`);
@@ -772,7 +775,7 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
 
       const loadErr = lua.global.get("_tsc_eval_error");
       if (loadErr) {
-        console.warn("PoB loadBuild error:", String(loadErr).substring(0, 300));
+        console.warn("PoB loadBuild error:", String(loadErr).substring(0, 500));
       }
 
       progress(id, "Running calculations...");
@@ -823,167 +826,27 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
         end
       `);
 
-      // Debug: log what the Lua engine computed
-      await lua.doString(`
-        local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
-        _tsc_debug_info = ""
-        if b then
-          _tsc_debug_info = _tsc_debug_info .. "build=yes "
-          if b.itemsTab then
-            local count = 0
-            if b.itemsTab.items then
-              for _ in pairs(b.itemsTab.items) do count = count + 1 end
-            end
-            _tsc_debug_info = _tsc_debug_info .. "items=" .. count .. " "
-          end
-          if b.configTab and b.configTab.input then
-            local cc = 0
-            for _ in pairs(b.configTab.input) do cc = cc + 1 end
-            _tsc_debug_info = _tsc_debug_info .. "configInputs=" .. cc .. " "
-            if b.configTab.input.usePowerCharges then
-              _tsc_debug_info = _tsc_debug_info .. "powerCharges=on "
-            end
-          end
-          if b.calcsTab and b.calcsTab.mainOutput then
-            local o = b.calcsTab.mainOutput
-            _tsc_debug_info = _tsc_debug_info .. "dps=" .. (o.CombinedDPS or 0) .. " es=" .. (o.EnergyShield or 0) .. " life=" .. (o.Life or 0)
-          else
-            _tsc_debug_info = _tsc_debug_info .. "NO_CALCS_OUTPUT"
-          end
-        else
-          _tsc_debug_info = "NO_BUILD"
-        end
-      `);
-      // Deep diagnostic: use pcall for each check to avoid silent errors
+      // Compact debug summary
       await lua.doString(`
         local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
         _tsc_debug_info = ""
         if not b then
           _tsc_debug_info = "NO_BUILD"
         else
-          _tsc_debug_info = "build=yes "
-
-          -- Items
           pcall(function()
-            local count = 0
-            if b.itemsTab and b.itemsTab.items then
-              for _ in pairs(b.itemsTab.items) do count = count + 1 end
-            end
-            _tsc_debug_info = _tsc_debug_info .. "items=" .. count .. " "
-          end)
-
-          -- Slotted items
-          pcall(function()
-            local slotted = 0
-            local slotNames = ""
-            if b.itemsTab and b.itemsTab.activeItemSet then
-              for slotName, data in pairs(b.itemsTab.activeItemSet) do
-                if type(data) == "table" and data.selItemId and data.selItemId > 0 then
-                  slotted = slotted + 1
-                elseif type(data) == "number" and data > 0 then
-                  slotted = slotted + 1
-                end
-              end
-            end
-            -- Also check orderedSlots for selItemId
-            if b.itemsTab and b.itemsTab.orderedSlots then
-              local osSlotted = 0
-              for _, slot in ipairs(b.itemsTab.orderedSlots) do
-                if slot.selItemId and slot.selItemId > 0 then
-                  osSlotted = osSlotted + 1
-                end
-              end
-              _tsc_debug_info = _tsc_debug_info .. "slotted=" .. slotted .. "/" .. osSlotted .. " "
-              _tsc_debug_info = _tsc_debug_info .. "ordSlots=" .. #b.itemsTab.orderedSlots .. " "
+            local o = b.calcsTab and b.calcsTab.mainOutput
+            if o then
+              _tsc_debug_info = "dps=" .. tostring(o.CombinedDPS or 0) .. " es=" .. tostring(o.EnergyShield or 0) .. " life=" .. tostring(o.Life or 0)
+              if o.FullDPS and o.FullDPS > 0 then _tsc_debug_info = _tsc_debug_info .. " full=" .. tostring(o.FullDPS) end
             else
-              _tsc_debug_info = _tsc_debug_info .. "slotted=" .. slotted .. " ordSlots=MISSING "
+              _tsc_debug_info = "NO_OUTPUT"
             end
           end)
-
-          -- Config
           pcall(function()
-            if b.configTab and b.configTab.input then
-              local cc = 0
-              for _ in pairs(b.configTab.input) do cc = cc + 1 end
-              _tsc_debug_info = _tsc_debug_info .. "cfg=" .. cc .. " "
-              if b.configTab.input.usePowerCharges then _tsc_debug_info = _tsc_debug_info .. "pwr=on " end
-              if b.configTab.input.useFrenzyCharges then _tsc_debug_info = _tsc_debug_info .. "frz=on " end
-            end
-          end)
-
-          -- Skills
-          pcall(function()
-            if b.skillsTab and b.skillsTab.socketGroupList then
-              _tsc_debug_info = _tsc_debug_info .. "skills=" .. #b.skillsTab.socketGroupList .. " "
-            end
-          end)
-
-          -- Main skill
-          pcall(function()
-            if b.mainSocketGroup then
-              _tsc_debug_info = _tsc_debug_info .. "mainGrp=" .. b.mainSocketGroup .. " "
-            end
-          end)
-
-          -- CalcsTab output
-          pcall(function()
-            if b.calcsTab and b.calcsTab.mainOutput then
-              local o = b.calcsTab.mainOutput
-              _tsc_debug_info = _tsc_debug_info .. "dps=" .. (o.CombinedDPS or 0)
-              _tsc_debug_info = _tsc_debug_info .. " es=" .. (o.EnergyShield or 0)
-              _tsc_debug_info = _tsc_debug_info .. " life=" .. (o.Life or 0)
-            else
-              _tsc_debug_info = _tsc_debug_info .. "NO_OUTPUT "
-            end
-          end)
-
-          -- Trace CalcSetup's slot iteration
-          pcall(function()
-            if b.itemsTab and b.itemsTab.orderedSlots then
-              local osCount = #b.itemsTab.orderedSlots
-              local withItem = 0
-              local withMods = 0
-              local sampleSlots = {}
-              for i, slot in ipairs(b.itemsTab.orderedSlots) do
-                local itemId = slot.selItemId or 0
-                if itemId > 0 then
-                  withItem = withItem + 1
-                  local item = b.itemsTab.items[itemId]
-                  if item then
-                    local modCount = 0
-                    if item.modList then
-                      pcall(function()
-                        -- ModList stores mods as self[1], self[2], etc.
-                        local i = 1
-                        while rawget(item.modList, i) do
-                          modCount = modCount + 1
-                          i = i + 1
-                        end
-                      end)
-                    end
-                    if modCount > 0 then withMods = withMods + 1 end
-                    if #sampleSlots < 4 then
-                      local itemName = item.name or item.baseName or "?"
-                      table.insert(sampleSlots, (slot.slotName or "?") .. ":" .. modCount .. "m")
-                    end
-                  end
-                end
-              end
-              _tsc_debug_info = _tsc_debug_info .. " ordSlots=" .. osCount
-              _tsc_debug_info = _tsc_debug_info .. " slotsWithItem=" .. withItem
-              _tsc_debug_info = _tsc_debug_info .. " slotsWithMods=" .. withMods
-              if #sampleSlots > 0 then
-                _tsc_debug_info = _tsc_debug_info .. " [" .. table.concat(sampleSlots, ",") .. "]"
-              end
-            else
-              _tsc_debug_info = _tsc_debug_info .. " ordSlots=MISSING"
-            end
-          end)
-
-          -- Check targetVersion
-          pcall(function()
-            if b.targetVersion then
-              _tsc_debug_info = _tsc_debug_info .. " ver=" .. tostring(b.targetVersion)
+            if b.calcsTab and b.calcsTab.mainEnv and b.calcsTab.mainEnv.modDB then
+              local n, t = 0, 0
+              for _, list in pairs(b.calcsTab.mainEnv.modDB.mods) do n = n + 1; t = t + #list end
+              _tsc_debug_info = _tsc_debug_info .. " modDB=" .. n .. "/" .. t
             end
           end)
         end
