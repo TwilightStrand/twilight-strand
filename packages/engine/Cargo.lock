@@ -304,6 +304,7 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde-wasm-bindgen",
+ "serde_json",
  "tsify-next",
  "wasm-bindgen",
  "wasm-bindgen-test",

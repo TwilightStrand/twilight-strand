@@ -392,4 +392,219 @@ mod tests {
             out2.total_dps
         );
     }
+
+    // ---- Support gems flow through BuildInput --------------------------------
+
+    #[test]
+    fn support_gems_increase_dps() {
+        let mut base = marauder(90);
+        base.main_skill_id = "GroundSlam".into();
+        let base_dps = evaluate_build(base.clone()).total_dps;
+
+        let mut with_support = base;
+        with_support.support_gems = vec!["Melee Physical Damage Support".into()];
+        let supported_dps = evaluate_build(with_support).total_dps;
+
+        assert!(supported_dps > base_dps * 1.3,
+            "Support should increase DPS: {} vs {}", supported_dps, base_dps);
+    }
+
+    #[test]
+    fn multiple_supports_stack() {
+        let mut input = marauder(90);
+        input.main_skill_id = "GroundSlam".into();
+        input.support_gems = vec![
+            "Melee Physical Damage Support".into(),
+            "Faster Attacks Support".into(),
+        ];
+        let out = evaluate_build(input);
+        assert!(out.total_dps > 200.0, "Stacked supports should give decent DPS: {}", out.total_dps);
+    }
+
+    // ---- Unique items flow through BuildInput --------------------------------
+
+    #[test]
+    fn equipped_unique_applies_mods() {
+        let mut base = marauder(90);
+        let base_life = evaluate_build(base.clone()).life;
+
+        base.equipped_uniques = vec!["Kaom's Heart".into()];
+        let with_kaom = evaluate_build(base).life;
+
+        assert!(with_kaom > base_life + 400.0,
+            "Kaom's Heart should add ~500 life: {} vs {}", with_kaom, base_life);
+    }
+
+    // ---- Flask effects flow through BuildInput --------------------------------
+
+    #[test]
+    fn active_flask_applies_mods() {
+        let mut base = marauder(90);
+        let base_out = evaluate_build(base.clone());
+
+        base.active_flasks = vec!["Diamond Flask".into()];
+        let with_flask = evaluate_build(base);
+
+        assert!(with_flask.crit_chance > base_out.crit_chance,
+            "Diamond flask should increase crit: {} vs {}", with_flask.crit_chance, base_out.crit_chance);
+    }
+
+    // ---- Weapon data flows through BuildInput ---------------------------------
+
+    #[test]
+    fn weapon_base_damage_increases_dps() {
+        let mut base = marauder(90);
+        base.main_skill_id = "GroundSlam".into();
+        let base_dps = evaluate_build(base.clone()).total_dps;
+
+        let mut with_weapon = base;
+        with_weapon.weapon_phys_min = 100.0;
+        with_weapon.weapon_phys_max = 200.0;
+        with_weapon.weapon_aps = 1.5;
+        with_weapon.weapon_crit = 6.0;
+        let weapon_dps = evaluate_build(with_weapon).total_dps;
+
+        assert!(weapon_dps > base_dps,
+            "Weapon should increase DPS: {} vs {}", weapon_dps, base_dps);
+    }
+
+    #[test]
+    fn weapon_aps_affects_attack_speed() {
+        let mut input = marauder(90);
+        input.weapon_aps = 2.0;
+        input.weapon_phys_min = 50.0;
+        input.weapon_phys_max = 100.0;
+        let out = evaluate_build(input);
+        assert!(out.attack_speed >= 2.0, "Weapon APS should set base speed: {}", out.attack_speed);
+    }
+
+    // ---- Full build: supports + uniques + weapon + tree ----------------------
+
+    #[test]
+    fn full_build_all_inputs() {
+        let mut input = marauder(90);
+        input.main_skill_id = "GroundSlam".into();
+        input.ascendancy_name = "Juggernaut".into();
+        input.support_gems = vec![
+            "Melee Physical Damage Support".into(),
+            "Brutality Support".into(),
+        ];
+        input.equipped_uniques = vec!["Starforge".into()];
+        input.active_flasks = vec!["Lion's Roar".into()];
+        input.weapon_phys_min = 100.0;
+        input.weapon_phys_max = 350.0;
+        input.weapon_aps = 1.35;
+        input.weapon_crit = 5.0;
+        input.modifiers = vec![
+            m("Life", 80.0, "flat"),
+            m("Life", 120.0, "increased"),
+            m("Str", 100.0, "flat"),
+            m("Armour", 1000.0, "flat"),
+            m("FireRes", 135.0, "flat"),
+            m("ColdRes", 130.0, "flat"),
+            m("LightningRes", 125.0, "flat"),
+        ];
+
+        let out = evaluate_build(input);
+
+        assert!(out.life > 2500.0, "Full build life: {}", out.life);
+        assert!(out.total_dps > 3000.0, "Full build DPS: {}", out.total_dps);
+        assert!(out.armour > 1000.0, "Full build armour: {}", out.armour);
+        assert!(out.fire_res >= 75.0, "Full build fire res: {}", out.fire_res);
+    }
+
+    // ---- Impale DPS ---------------------------------------------------------
+
+    #[test]
+    fn impale_adds_dps_for_phys_builds() {
+        let mut input = marauder(90);
+        input.main_skill_id = "GroundSlam".into();
+        input.modifiers = vec![
+            m("Damage", 500.0, "flat"),
+            m("PhysicalDamage", 50.0, "increased"),
+        ];
+        input.impale_chance = 100.0;
+        let out = evaluate_build(input);
+        assert!(out.impale_dps > 0.0, "Impale DPS should be > 0 with 100% chance: {}", out.impale_dps);
+        assert!(out.combined_dps > out.total_dps, "Combined should include impale: {} vs {}", out.combined_dps, out.total_dps);
+    }
+
+    #[test]
+    fn impale_zero_without_chance() {
+        let mut input = marauder(90);
+        input.main_skill_id = "GroundSlam".into();
+        input.modifiers = vec![m("Damage", 500.0, "flat")];
+        let out = evaluate_build(input);
+        assert_eq!(out.impale_dps, 0.0, "Impale should be 0 without chance");
+    }
+
+    #[test]
+    fn impale_stat_parser() {
+        let mods = parse_stat_line("40% chance to Impale Enemies on Hit with Attacks");
+        assert!(mods.iter().any(|m_| m_.stat == "ImpaleChance" && m_.value == 40.0), "mods: {:?}", mods);
+    }
+
+    // ---- Gain as extra damage -----------------------------------------------
+
+    #[test]
+    fn gain_as_extra_fire_increases_dps() {
+        let mut base_input = marauder(90);
+        base_input.modifiers = vec![
+            m("Damage", 500.0, "flat"),
+        ];
+        let base_dps = evaluate_build(base_input.clone()).total_dps;
+
+        base_input.modifiers.push(m("PhysGainAsFire", 20.0, "flat"));
+        let with_gain = evaluate_build(base_input).total_dps;
+        assert!(with_gain > base_dps, "Gain as extra fire should increase DPS: {} vs {}", with_gain, base_dps);
+    }
+
+    #[test]
+    fn gain_as_extra_parsed_from_text() {
+        let mods = parse_stat_line("Gain 25% of Physical Damage as Extra Fire Damage");
+        assert!(mods.iter().any(|m_| m_.stat == "PhysGainAsFire" && m_.value == 25.0), "mods: {:?}", mods);
+    }
+
+    #[test]
+    fn gain_as_extra_chaos_parsed() {
+        let mods = parse_stat_line("Gain 15% of Physical Damage as Extra Chaos Damage");
+        assert!(mods.iter().any(|m_| m_.stat == "PhysGainAsChaos" && m_.value == 15.0), "mods: {:?}", mods);
+    }
+
+    // ---- Buff effects -------------------------------------------------------
+
+    #[test]
+    fn onslaught_increases_attack_speed() {
+        let mut base = marauder(90);
+        let base_out = evaluate_build(base.clone());
+
+        base.have_onslaught = true;
+        let with_onslaught = evaluate_build(base);
+        assert!(with_onslaught.attack_speed > base_out.attack_speed,
+            "Onslaught should increase attack speed: {} vs {}", with_onslaught.attack_speed, base_out.attack_speed);
+    }
+
+    #[test]
+    fn tailwind_increases_attack_speed() {
+        let mut base = marauder(90);
+        let base_out = evaluate_build(base.clone());
+
+        base.have_tailwind = true;
+        let with_tailwind = evaluate_build(base);
+        assert!(with_tailwind.attack_speed > base_out.attack_speed,
+            "Tailwind should increase attack speed: {} vs {}", with_tailwind.attack_speed, base_out.attack_speed);
+    }
+
+    #[test]
+    fn arcane_surge_increases_spell_damage() {
+        let mut base = witch(90);
+        base.main_skill_id = "Fireball".into();
+        base.modifiers = vec![m("Damage", 200.0, "flat")];
+        let base_dps = evaluate_build(base.clone()).total_dps;
+
+        base.have_arcane_surge = true;
+        let with_surge = evaluate_build(base).total_dps;
+        assert!(with_surge > base_dps,
+            "Arcane Surge should increase spell DPS: {} vs {}", with_surge, base_dps);
+    }
 }

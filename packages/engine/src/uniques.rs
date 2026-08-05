@@ -38,6 +38,20 @@ pub fn get_unique_effects(item_name: &str) -> Vec<Modifier> {
         mods.push(Modifier { stat: "ColdRes".into(), value: 15.0, mod_type: "flat".into() });
         mods.push(Modifier { stat: "LightningRes".into(), value: 15.0, mod_type: "flat".into() });
     }
+    if name.contains("inpulsa") {
+        mods.push(Modifier { stat: "Damage".into(), value: 40.0, mod_type: "increased".into() });
+        mods.push(Modifier { stat: "Life".into(), value: 70.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "LightningDamage".into(), value: 25.0, mod_type: "increased".into() });
+    }
+    if name.contains("replica farrul") {
+        mods.push(Modifier { stat: "Damage".into(), value: 15.0, mod_type: "more".into() });
+        mods.push(Modifier { stat: "Armour".into(), value: 1500.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "Evasion".into(), value: 1500.0, mod_type: "flat".into() });
+    }
+    if name.contains("dialla's malefaction") {
+        mods.push(Modifier { stat: "Damage".into(), value: 30.0, mod_type: "increased".into() });
+        mods.push(Modifier { stat: "EnergyShield".into(), value: 100.0, mod_type: "flat".into() });
+    }
 
     // === WEAPONS ===
     if name.contains("tulfall") {
@@ -62,6 +76,21 @@ pub fn get_unique_effects(item_name: &str) -> Vec<Modifier> {
         mods.push(Modifier { stat: "SpellDamage".into(), value: 120.0, mod_type: "increased".into() });
         mods.push(Modifier { stat: "CritChance".into(), value: 80.0, mod_type: "increased".into() });
     }
+    if name.contains("starforge") {
+        mods.push(Modifier { stat: "Damage".into(), value: 600.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "AttackSpeed".into(), value: 5.0, mod_type: "increased".into() });
+        mods.push(Modifier { stat: "Life".into(), value: 100.0, mod_type: "flat".into() });
+    }
+    if name.contains("windripper") {
+        mods.push(Modifier { stat: "Damage".into(), value: 200.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "CritChance".into(), value: 40.0, mod_type: "increased".into() });
+        mods.push(Modifier { stat: "AttackSpeed".into(), value: 10.0, mod_type: "increased".into() });
+    }
+    if name.contains("mjolner") || name.contains("mjölner") {
+        mods.push(Modifier { stat: "LightningDamage".into(), value: 60.0, mod_type: "increased".into() });
+        mods.push(Modifier { stat: "Str".into(), value: 25.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "Damage".into(), value: 150.0, mod_type: "flat".into() });
+    }
 
     // === HELMETS ===
     if name.contains("crown of the inward eye") {
@@ -79,6 +108,10 @@ pub fn get_unique_effects(item_name: &str) -> Vec<Modifier> {
         mods.push(Modifier { stat: "Armour".into(), value: 400.0, mod_type: "flat".into() });
         mods.push(Modifier { stat: "FireDamage".into(), value: 30.0, mod_type: "increased".into() });
         mods.push(Modifier { stat: "ColdRes".into(), value: 30.0, mod_type: "flat".into() });
+    }
+    if name.contains("heatshiver") {
+        mods.push(Modifier { stat: "Damage".into(), value: 30.0, mod_type: "more".into() });
+        mods.push(Modifier { stat: "ColdDamage".into(), value: 40.0, mod_type: "increased".into() });
     }
 
     // === AMULETS ===
@@ -102,6 +135,15 @@ pub fn get_unique_effects(item_name: &str) -> Vec<Modifier> {
     if name.contains("eyes of the greatwolf") {
         mods.push(Modifier { stat: "Damage".into(), value: 50.0, mod_type: "increased".into() });
     }
+    if name.contains("crystallised omniscience") {
+        mods.push(Modifier { stat: "FirePenetration".into(), value: 20.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "ColdPenetration".into(), value: 20.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "LightningPenetration".into(), value: 20.0, mod_type: "flat".into() });
+    }
+    if name.contains("badge of the brotherhood") {
+        mods.push(Modifier { stat: "AttackSpeed".into(), value: 35.0, mod_type: "increased".into() });
+        mods.push(Modifier { stat: "CritChance".into(), value: 50.0, mod_type: "increased".into() });
+    }
 
     // === RINGS ===
     if name.contains("mark of the shaper") {
@@ -117,6 +159,16 @@ pub fn get_unique_effects(item_name: &str) -> Vec<Modifier> {
     }
     if name.contains("circle of") {
         mods.push(Modifier { stat: "Damage".into(), value: 25.0, mod_type: "increased".into() });
+    }
+    if name.contains("nimis") {
+        mods.push(Modifier { stat: "Damage".into(), value: 30.0, mod_type: "more".into() });
+        mods.push(Modifier { stat: "CritMultiplier".into(), value: 30.0, mod_type: "flat".into() });
+    }
+    if name.contains("ventor's gamble") {
+        mods.push(Modifier { stat: "FireRes".into(), value: 30.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "ColdRes".into(), value: 30.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "LightningRes".into(), value: 30.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "Life".into(), value: 40.0, mod_type: "flat".into() });
     }
 
     // === BOOTS ===
@@ -143,6 +195,15 @@ pub fn get_unique_effects(item_name: &str) -> Vec<Modifier> {
     }
     if name.contains("command of the pit") {
         mods.push(Modifier { stat: "Accuracy".into(), value: 1000.0, mod_type: "flat".into() });
+    }
+    if name.contains("hands of the high templar") {
+        mods.push(Modifier { stat: "Life".into(), value: 80.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "EnergyShield".into(), value: 60.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "CritChance".into(), value: 30.0, mod_type: "increased".into() });
+    }
+    if name.contains("gravebind") {
+        mods.push(Modifier { stat: "Life".into(), value: 40.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "Str".into(), value: 20.0, mod_type: "flat".into() });
     }
 
     // === BELTS ===
@@ -177,6 +238,9 @@ pub fn get_unique_effects(item_name: &str) -> Vec<Modifier> {
         mods.push(Modifier { stat: "ColdRes".into(), value: 25.0, mod_type: "flat".into() });
         mods.push(Modifier { stat: "LightningRes".into(), value: 25.0, mod_type: "flat".into() });
     }
+    if name.contains("the squire") || name == "squire" {
+        mods.push(Modifier { stat: "Damage".into(), value: 40.0, mod_type: "more".into() });
+    }
 
     // === JEWELS ===
     if name.contains("thread of hope") {
@@ -190,6 +254,24 @@ pub fn get_unique_effects(item_name: &str) -> Vec<Modifier> {
     if name.contains("unnatural instinct") {
         mods.push(Modifier { stat: "Damage".into(), value: 15.0, mod_type: "increased".into() });
         mods.push(Modifier { stat: "Life".into(), value: 30.0, mod_type: "flat".into() });
+    }
+    if name.contains("the interrogation") {
+        mods.push(Modifier { stat: "CritMultiplier".into(), value: 50.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "Damage".into(), value: 20.0, mod_type: "increased".into() });
+    }
+    if name.contains("melding of the flesh") {
+        mods.push(Modifier { stat: "FireRes".into(), value: -70.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "ColdRes".into(), value: -70.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "LightningRes".into(), value: -70.0, mod_type: "flat".into() });
+    }
+    if name.contains("original sin") {
+        mods.push(Modifier { stat: "ChaosPenetration".into(), value: 25.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "Damage".into(), value: 30.0, mod_type: "increased".into() });
+    }
+    if name.contains("replica dreamfeather") {
+        mods.push(Modifier { stat: "Damage".into(), value: 60.0, mod_type: "increased".into() });
+        mods.push(Modifier { stat: "Evasion".into(), value: 300.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "AttackSpeed".into(), value: 15.0, mod_type: "increased".into() });
     }
 
     mods
@@ -272,5 +354,71 @@ mod tests {
         let mods = get_unique_effects("Thread of Hope");
         assert_eq!(mods.len(), 3);
         assert!(mods.iter().all(|m| m.value == -10.0));
+    }
+
+    #[test]
+    fn test_starforge() {
+        let mods = get_unique_effects("Starforge");
+        assert!(mods.iter().any(|m| m.stat == "Damage" && m.value == 600.0 && m.mod_type == "flat"));
+        assert!(mods.iter().any(|m| m.stat == "AttackSpeed" && m.value == 5.0));
+        assert!(mods.iter().any(|m| m.stat == "Life" && m.value == 100.0));
+    }
+
+    #[test]
+    fn test_nimis() {
+        let mods = get_unique_effects("Nimis");
+        assert!(mods.iter().any(|m| m.stat == "Damage" && m.mod_type == "more" && m.value == 30.0));
+        assert!(mods.iter().any(|m| m.stat == "CritMultiplier" && m.value == 30.0));
+    }
+
+    #[test]
+    fn test_crystallised_omniscience() {
+        let mods = get_unique_effects("Crystallised Omniscience");
+        assert_eq!(mods.len(), 3);
+        assert!(mods.iter().any(|m| m.stat == "FirePenetration" && m.value == 20.0));
+        assert!(mods.iter().any(|m| m.stat == "ColdPenetration" && m.value == 20.0));
+        assert!(mods.iter().any(|m| m.stat == "LightningPenetration" && m.value == 20.0));
+    }
+
+    #[test]
+    fn test_melding_of_the_flesh() {
+        let mods = get_unique_effects("Melding of the Flesh");
+        assert_eq!(mods.len(), 3);
+        assert!(mods.iter().all(|m| m.value == -70.0));
+        assert!(mods.iter().any(|m| m.stat == "FireRes"));
+        assert!(mods.iter().any(|m| m.stat == "ColdRes"));
+        assert!(mods.iter().any(|m| m.stat == "LightningRes"));
+    }
+
+    #[test]
+    fn test_inpulsa() {
+        let mods = get_unique_effects("Inpulsa's Broken Heart");
+        assert!(mods.iter().any(|m| m.stat == "Damage" && m.value == 40.0 && m.mod_type == "increased"));
+        assert!(mods.iter().any(|m| m.stat == "Life" && m.value == 70.0));
+        assert!(mods.iter().any(|m| m.stat == "LightningDamage" && m.value == 25.0));
+    }
+
+    #[test]
+    fn test_windripper() {
+        let mods = get_unique_effects("Windripper");
+        assert!(mods.iter().any(|m| m.stat == "Damage" && m.value == 200.0 && m.mod_type == "flat"));
+        assert!(mods.iter().any(|m| m.stat == "CritChance"));
+        assert!(mods.iter().any(|m| m.stat == "AttackSpeed"));
+    }
+
+    #[test]
+    fn test_ventors_gamble() {
+        let mods = get_unique_effects("Ventor's Gamble");
+        assert_eq!(mods.len(), 4);
+        assert!(mods.iter().any(|m| m.stat == "Life" && m.value == 40.0));
+        assert!(mods.iter().any(|m| m.stat == "FireRes" && m.value == 30.0));
+    }
+
+    #[test]
+    fn test_mjolner() {
+        let mods = get_unique_effects("Mjolner");
+        assert!(mods.iter().any(|m| m.stat == "LightningDamage" && m.value == 60.0));
+        assert!(mods.iter().any(|m| m.stat == "Str" && m.value == 25.0));
+        assert!(mods.iter().any(|m| m.stat == "Damage" && m.value == 150.0 && m.mod_type == "flat"));
     }
 }
