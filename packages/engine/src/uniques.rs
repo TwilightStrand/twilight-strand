@@ -242,6 +242,196 @@ pub fn get_unique_effects(item_name: &str) -> Vec<Modifier> {
         mods.push(Modifier { stat: "Damage".into(), value: 40.0, mod_type: "more".into() });
     }
 
+    // === FLASKS ===
+    if name.contains("bottled faith") {
+        mods.push(Modifier { stat: "CritChance".into(), value: 100.0, mod_type: "increased".into() });
+        mods.push(Modifier { stat: "Damage".into(), value: 10.0, mod_type: "increased".into() });
+    }
+    if name.contains("dying sun") {
+        mods.push(Modifier { stat: "FireDamage".into(), value: 20.0, mod_type: "increased".into() });
+    }
+    if name.contains("taste of hate") {
+        mods.push(Modifier { stat: "ColdRes".into(), value: 20.0, mod_type: "flat".into() });
+    }
+    if name.contains("the wise oak") {
+        mods.push(Modifier { stat: "FirePenetration".into(), value: 10.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "ColdPenetration".into(), value: 10.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "LightningPenetration".into(), value: 10.0, mod_type: "flat".into() });
+    }
+    if name.contains("atziri's promise") {
+        mods.push(Modifier { stat: "ChaosDamage".into(), value: 15.0, mod_type: "increased".into() });
+        mods.push(Modifier { stat: "ChaosRes".into(), value: 35.0, mod_type: "flat".into() });
+    }
+    if name.contains("lion's roar") {
+        mods.push(Modifier { stat: "Damage".into(), value: 25.0, mod_type: "more".into() });
+        mods.push(Modifier { stat: "Armour".into(), value: 3000.0, mod_type: "flat".into() });
+    }
+    if name.contains("cinderswallow") {
+        mods.push(Modifier { stat: "Damage".into(), value: 10.0, mod_type: "increased".into() });
+    }
+    if name.contains("divine flesh") || name.contains("divination distillate") {
+        mods.push(Modifier { stat: "FireRes".into(), value: 6.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "ColdRes".into(), value: 6.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "LightningRes".into(), value: 6.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "ChaosRes".into(), value: 6.0, mod_type: "flat".into() });
+    }
+
+    // === BODY ARMOUR (additional) ===
+    if name.contains("hyrri's ire") {
+        mods.push(Modifier { stat: "Evasion".into(), value: 2000.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "SpellSuppressionChance".into(), value: 14.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "Dex".into(), value: 25.0, mod_type: "flat".into() });
+    }
+    if name.contains("farrul's fur") {
+        mods.push(Modifier { stat: "Armour".into(), value: 1500.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "Evasion".into(), value: 1500.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "Life".into(), value: 100.0, mod_type: "flat".into() });
+    }
+    if name.contains("the covenant") {
+        mods.push(Modifier { stat: "SpellDamage".into(), value: 50.0, mod_type: "increased".into() });
+        mods.push(Modifier { stat: "EnergyShield".into(), value: 200.0, mod_type: "flat".into() });
+    }
+    if name.contains("cloak of defiance") {
+        mods.push(Modifier { stat: "Mana".into(), value: 100.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "EnergyShield".into(), value: 50.0, mod_type: "flat".into() });
+    }
+    if name.contains("atziri's splendour") {
+        mods.push(Modifier { stat: "Armour".into(), value: 400.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "EnergyShield".into(), value: 100.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "Evasion".into(), value: 400.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "Life".into(), value: 70.0, mod_type: "flat".into() });
+    }
+    if name.contains("lightning coil") {
+        mods.push(Modifier { stat: "Armour".into(), value: 200.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "Life".into(), value: 60.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "LightningRes".into(), value: -60.0, mod_type: "flat".into() });
+    }
+    if name.contains("tinkerskin") {
+        mods.push(Modifier { stat: "Evasion".into(), value: 200.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "Life".into(), value: 80.0, mod_type: "flat".into() });
+    }
+
+    // === SHIELDS (additional) ===
+    if name.contains("dawnbreaker") {
+        mods.push(Modifier { stat: "Armour".into(), value: 300.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "FireRes".into(), value: 25.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "BlockChance".into(), value: 5.0, mod_type: "flat".into() });
+    }
+
+    // === BOOTS (additional) ===
+    if name.contains("sin trek") {
+        mods.push(Modifier { stat: "EnergyShield".into(), value: 100.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "Dex".into(), value: 30.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "Int".into(), value: 30.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "MovementSpeed".into(), value: 30.0, mod_type: "increased".into() });
+    }
+    if name.contains("ralakesh's impatience") {
+        mods.push(Modifier { stat: "Life".into(), value: 60.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "MovementSpeed".into(), value: 20.0, mod_type: "increased".into() });
+    }
+    if name.contains("alberon's warpath") {
+        mods.push(Modifier { stat: "Str".into(), value: 18.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "Armour".into(), value: 180.0, mod_type: "flat".into() });
+    }
+    if name.contains("garukhan's flight") {
+        mods.push(Modifier { stat: "Evasion".into(), value: 200.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "MovementSpeed".into(), value: 30.0, mod_type: "increased".into() });
+    }
+
+    // === BELTS (additional) ===
+    if name.contains("cyclopean coil") {
+        mods.push(Modifier { stat: "Life".into(), value: 80.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "Str".into(), value: 15.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "Dex".into(), value: 15.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "Int".into(), value: 15.0, mod_type: "flat".into() });
+    }
+    if name.contains("the magnate") || name.contains("perseverance") {
+        mods.push(Modifier { stat: "Damage".into(), value: 40.0, mod_type: "increased".into() });
+        mods.push(Modifier { stat: "Life".into(), value: 50.0, mod_type: "flat".into() });
+    }
+
+    // === RINGS (additional) ===
+    if name.contains("the taming") {
+        mods.push(Modifier { stat: "Damage".into(), value: 30.0, mod_type: "increased".into() });
+        mods.push(Modifier { stat: "FireRes".into(), value: 20.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "ColdRes".into(), value: 20.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "LightningRes".into(), value: 20.0, mod_type: "flat".into() });
+    }
+    if name.contains("precursor's emblem") {
+        mods.push(Modifier { stat: "Life".into(), value: 50.0, mod_type: "flat".into() });
+    }
+    if name.contains("call of the brotherhood") {
+        mods.push(Modifier { stat: "Int".into(), value: 15.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "LightningRes".into(), value: 30.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "ColdRes".into(), value: 30.0, mod_type: "flat".into() });
+    }
+    if name.contains("essence worm") {
+        mods.push(Modifier { stat: "FireRes".into(), value: -20.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "ColdRes".into(), value: -20.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "LightningRes".into(), value: -20.0, mod_type: "flat".into() });
+    }
+
+    // === HELMETS (additional) ===
+    if name.contains("devoto's devotion") {
+        mods.push(Modifier { stat: "Armour".into(), value: 200.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "Dex".into(), value: 20.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "AttackSpeed".into(), value: 16.0, mod_type: "increased".into() });
+        mods.push(Modifier { stat: "MovementSpeed".into(), value: 20.0, mod_type: "increased".into() });
+    }
+    if name.contains("the vertex") {
+        mods.push(Modifier { stat: "EnergyShield".into(), value: 250.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "Evasion".into(), value: 200.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "ChaosRes".into(), value: 36.0, mod_type: "flat".into() });
+    }
+    if name.contains("fractal thoughts") {
+        mods.push(Modifier { stat: "CritMultiplier".into(), value: 30.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "Life".into(), value: 80.0, mod_type: "flat".into() });
+    }
+
+    // === AMULETS (additional) ===
+    if name.contains("astramentis") {
+        mods.push(Modifier { stat: "Str".into(), value: 80.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "Dex".into(), value: 80.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "Int".into(), value: 80.0, mod_type: "flat".into() });
+    }
+    if name.contains("marylene's fallacy") {
+        mods.push(Modifier { stat: "CritMultiplier".into(), value: 150.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "CritChance".into(), value: -40.0, mod_type: "increased".into() });
+    }
+    if name.contains("impresence") {
+        mods.push(Modifier { stat: "Life".into(), value: 50.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "Armour".into(), value: 400.0, mod_type: "flat".into() });
+    }
+    if name.contains("the jinxed juju") {
+        mods.push(Modifier { stat: "Life".into(), value: 50.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "Damage".into(), value: 15.0, mod_type: "increased".into() });
+    }
+
+    // === WEAPONS (additional) ===
+    if name.contains("paradoxica") {
+        mods.push(Modifier { stat: "Damage".into(), value: 100.0, mod_type: "more".into() });
+        mods.push(Modifier { stat: "AttackSpeed".into(), value: 20.0, mod_type: "increased".into() });
+    }
+    if name.contains("cospri's malice") {
+        mods.push(Modifier { stat: "ColdDamage".into(), value: 50.0, mod_type: "increased".into() });
+        mods.push(Modifier { stat: "CritChance".into(), value: 60.0, mod_type: "increased".into() });
+    }
+    if name.contains("saviour") {
+        mods.push(Modifier { stat: "Damage".into(), value: 50.0, mod_type: "more".into() });
+        mods.push(Modifier { stat: "CritChance".into(), value: 30.0, mod_type: "increased".into() });
+    }
+    if name.contains("dreamfeather") && !name.contains("replica") {
+        mods.push(Modifier { stat: "Damage".into(), value: 60.0, mod_type: "increased".into() });
+        mods.push(Modifier { stat: "Evasion".into(), value: 300.0, mod_type: "flat".into() });
+    }
+    if name.contains("ahn's might") {
+        mods.push(Modifier { stat: "Damage".into(), value: 400.0, mod_type: "flat".into() });
+        mods.push(Modifier { stat: "Accuracy".into(), value: 100.0, mod_type: "increased".into() });
+    }
+    if name.contains("rebuke of the vaal") {
+        mods.push(Modifier { stat: "Damage".into(), value: 500.0, mod_type: "flat".into() });
+    }
+
     // === JEWELS ===
     if name.contains("thread of hope") {
         mods.push(Modifier { stat: "FireRes".into(), value: -10.0, mod_type: "flat".into() });

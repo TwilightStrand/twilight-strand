@@ -120,6 +120,118 @@ pub fn get_support_modifiers(support_name: &str) -> Vec<Modifier> {
         mods.push(more("Damage", 39.0));
     }
 
+    // --- Added damage (additional) ---
+    if name.contains("added chaos damage") {
+        mods.push(flat("AddedChaosMin", 95.0));
+        mods.push(flat("AddedChaosMax", 143.0));
+    }
+
+    // --- Projectile supports ---
+    if name.contains("greater multiple projectiles") || name.contains("gmp") {
+        mods.push(more("Damage", -26.0));
+    }
+    if name.contains("lesser multiple projectiles") || name.contains("lmp") {
+        mods.push(more("Damage", -10.0));
+    }
+    if name.contains("chain") && !name.contains("unchain") {
+        mods.push(more("Damage", -18.0));
+    }
+    if name.contains("fork") {
+        mods.push(more("Damage", -21.0));
+    }
+
+    // --- Melee supports ---
+    if name.contains("ancestral call") {
+        mods.push(more("Damage", -10.0));
+    }
+    if name.contains("close combat") {
+        mods.push(more("Damage", 49.0));
+    }
+    if name.contains("ruthless") {
+        mods.push(more("Damage", 32.0));
+    }
+    if name.contains("pulverise") {
+        mods.push(more("Damage", 34.0));
+        mods.push(more("AttackSpeed", -15.0));
+    }
+
+    // --- Gem level support ---
+    if name.contains("empower") {
+        mods.push(more("Damage", 30.0));
+    }
+    if name.contains("enhance") {
+        // Quality bonus; no direct damage
+    }
+
+    // --- Elemental supports ---
+    if name.contains("trinity") {
+        mods.push(more("Damage", 41.0));
+        mods.push(flat("FirePenetration", 15.0));
+        mods.push(flat("ColdPenetration", 15.0));
+        mods.push(flat("LightningPenetration", 15.0));
+    }
+    if name.contains("hypothermia") {
+        mods.push(more("ColdDamage", 39.0));
+    }
+    if name.contains("immolate") {
+        mods.push(flat("AddedFireMin", 140.0));
+        mods.push(flat("AddedFireMax", 210.0));
+    }
+
+    // --- ES/life supports ---
+    if name.contains("energy leech") {
+        mods.push(more("Damage", 39.0));
+    }
+    if name.contains("lifetap") {
+        mods.push(more("Damage", 19.0));
+    }
+
+    // --- Trigger supports ---
+    if name.contains("cast on critical strike") || name.contains("cast on crit") {
+        mods.push(more("Damage", -21.0));
+    }
+    if name.contains("cast when damage taken") {
+        mods.push(more("Damage", -44.0));
+    }
+
+    // --- DoT supports (additional) ---
+    if name.contains("cruelty") {
+        mods.push(more("DamageOverTime", 39.0));
+    }
+
+    // --- Crit supports (additional) ---
+    if name.contains("nightblade") {
+        mods.push(Modifier { stat: "CritMultiplier".into(), value: 60.0, mod_type: "flat".into() });
+    }
+    if name.contains("power charge on critical strike") || name.contains("pcoc") {
+        mods.push(Modifier { stat: "CritChance".into(), value: 44.0, mod_type: "increased".into() });
+    }
+
+    // --- Minion supports (additional) ---
+    if name.contains("feeding frenzy") || name.contains("predator") {
+        mods.push(more("Damage", 29.0)); // minion damage, simplified
+    }
+    if name.contains("elemental army") {
+        mods.push(flat("FirePenetration", 10.0));
+        mods.push(flat("ColdPenetration", 10.0));
+        mods.push(flat("LightningPenetration", 10.0));
+    }
+
+    // --- Awakened variants ---
+    if name.contains("awakened") {
+        if name.contains("melee physical") {
+            mods.push(more("PhysicalDamage", 5.0));
+        } else if name.contains("elemental damage with attacks") {
+            mods.push(more("FireDamage", 5.0));
+            mods.push(more("ColdDamage", 5.0));
+            mods.push(more("LightningDamage", 5.0));
+        } else if name.contains("brutality") {
+            mods.push(more("PhysicalDamage", 5.0));
+        } else {
+            mods.push(more("Damage", 5.0));
+        }
+    }
+
     mods
 }
 

@@ -33,11 +33,16 @@ export class TreeRenderer {
   private atlases: Map<string, SpriteAtlas> = new Map();
   private allocatedNodes: Set<string> = new Set();
   private spriteSheets: Map<string, SpriteSheet> = new Map();
+  private groupBgImages: Map<string, HTMLImageElement> = new Map();
   private nodePower: Map<string, number> = new Map();
   private nodePowerMode: "off" | "dps" | "defence" | "both" = "off";
   private searchResults: Set<string> = new Set();
   private hoveredNode: string | null = null;
   private animations: Array<{ x: number; y: number; startTime: number; type: "allocate" | "deallocate" }> = [];
+  private staticCanvas: HTMLCanvasElement | null = null;
+  private staticCtx: CanvasRenderingContext2D | null = null;
+  private staticDirty = true;
+  private lastStaticCam: { x: number; y: number; zoom: number } = { x: 0, y: 0, zoom: 0 };
 
   constructor(canvas: HTMLCanvasElement, tree: TreeData) {
     this.canvas = canvas;
@@ -103,6 +108,25 @@ export class TreeRenderer {
         }
       }
     }
+
+    // Load group background images
+    const bgFiles = ["PSGroupBackground1.png", "PSGroupBackground2.png", "PSGroupBackground3.png"];
+    const bgLoads = bgFiles.map(async (name) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.src = `/data/pob/TreeData/${name}`;
+      await new Promise<void>((resolve) => {
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+      });
+      return { name, img };
+    });
+    const bgResults = await Promise.all(bgLoads);
+    for (const { name, img } of bgResults) {
+      if (img.complete && img.naturalWidth > 0) {
+        this.groupBgImages.set(name, img);
+      }
+    }
   }
 
   private resolveUrl(url: string): string {
@@ -114,16 +138,23 @@ export class TreeRenderer {
   }
 
   setAllocatedNodes(nodes: Set<string>): void {
-    this.allocatedNodes = nodes;
+    if (nodes !== this.allocatedNodes) {
+      this.allocatedNodes = nodes;
+      this.staticDirty = true;
+    }
   }
 
   setSearchResults(results: Set<string>): void {
-    this.searchResults = results;
+    if (results !== this.searchResults) {
+      this.searchResults = results;
+      this.staticDirty = true;
+    }
   }
 
   setNodePower(power: Map<string, number>, mode: "off" | "dps" | "defence" | "both"): void {
     this.nodePower = power;
     this.nodePowerMode = mode;
+    this.staticDirty = true;
   }
 
   setHoveredNode(nodeId: string | null): void {
@@ -155,12 +186,65 @@ export class TreeRenderer {
     const cw = w / this.dpr;
     const ch = h / this.dpr;
 
-    ctx.fillStyle = COLOR_BG;
-    ctx.fillRect(0, 0, cw, ch);
+    // Check if camera moved enough to invalidate static cache
+    const camChanged =
+      this.lastStaticCam.x !== camera.x ||
+      this.lastStaticCam.y !== camera.y ||
+      this.lastStaticCam.zoom !== camera.zoom;
 
-    this.drawClassStartAreas(ctx, camera, cw, ch);
-    this.drawConnections(ctx, camera, cw, ch);
-    this.drawNodes(ctx, camera, cw, ch);
+    if (camChanged || this.staticDirty) {
+      this.lastStaticCam = { x: camera.x, y: camera.y, zoom: camera.zoom };
+
+      // Render static layer (backgrounds + connections + nodes)
+      if (!this.staticCanvas || this.staticCanvas.width !== w || this.staticCanvas.height !== h) {
+        this.staticCanvas = document.createElement("canvas");
+        this.staticCanvas.width = w;
+        this.staticCanvas.height = h;
+        this.staticCtx = this.staticCanvas.getContext("2d");
+      }
+
+      const sctx = this.staticCtx!;
+      sctx.clearRect(0, 0, w, h);
+      sctx.save();
+      sctx.scale(this.dpr, this.dpr);
+
+      sctx.fillStyle = COLOR_BG;
+      sctx.fillRect(0, 0, cw, ch);
+
+      this.drawGroupBackgrounds(sctx, camera, cw, ch);
+      this.drawClassStartAreas(sctx, camera, cw, ch);
+      this.drawConnections(sctx, camera, cw, ch);
+      this.drawNodes(sctx, camera, cw, ch);
+
+      sctx.restore();
+      this.staticDirty = false;
+    }
+
+    // Composite static layer
+    ctx.resetTransform();
+    if (this.staticCanvas) {
+      ctx.drawImage(this.staticCanvas, 0, 0);
+    }
+
+    // Draw hover highlight on top (dynamic, not cached)
+    ctx.scale(this.dpr, this.dpr);
+    if (this.hoveredNode) {
+      const hNode = this.tree.nodes.get(this.hoveredNode);
+      if (hNode) {
+        const hPos = worldToScreen(camera, hNode.x, hNode.y, cw, ch);
+        const hRadius = this.getNodeRadius(hNode) * camera.zoom;
+        ctx.strokeStyle = "rgba(6, 182, 212, 0.9)";
+        ctx.lineWidth = Math.max(2, hRadius * 0.15);
+        ctx.shadowColor = "rgba(6, 182, 212, 0.5)";
+        ctx.shadowBlur = hRadius * 0.6;
+        ctx.beginPath();
+        ctx.arc(hPos.x, hPos.y, hRadius + 2, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.shadowColor = "transparent";
+        ctx.shadowBlur = 0;
+      }
+    }
+
     this.drawAnimations(ctx, camera, cw, ch);
 
     ctx.restore();
@@ -179,6 +263,56 @@ export class TreeRenderer {
       sy + radius > 0 &&
       sy - radius < ch
     );
+  }
+
+  private drawGroupBackgrounds(
+    ctx: CanvasRenderingContext2D,
+    cam: Camera,
+    cw: number,
+    ch: number
+  ): void {
+    if (this.groupBgImages.size === 0) return;
+
+    const orbitRadii = this.tree.constants.orbitRadii;
+
+    for (const [, group] of this.tree.groups) {
+      if (!group.background) continue;
+
+      const { x: sx, y: sy } = worldToScreen(cam, group.x, group.y, cw, ch);
+
+      // Size based on the group's max orbit radius
+      const maxOrbit = Math.max(...group.orbits, 0);
+      const worldRadius = (orbitRadii[maxOrbit] ?? 150) + 60;
+      const screenRadius = worldRadius * cam.zoom;
+
+      if (!this.isVisible(sx, sy, screenRadius, cw, ch)) continue;
+      if (screenRadius < 4) continue;
+
+      const bgImage = group.background.image;
+      let imgName: string;
+      if (bgImage.includes("3") || bgImage.includes("Large")) {
+        imgName = "PSGroupBackground3.png";
+      } else if (bgImage.includes("2") || bgImage.includes("Medium")) {
+        imgName = "PSGroupBackground2.png";
+      } else {
+        imgName = "PSGroupBackground1.png";
+      }
+
+      const img = this.groupBgImages.get(imgName);
+      if (!img) continue;
+
+      const size = screenRadius * 2;
+      const halfImage = group.background.isHalfImage;
+
+      ctx.save();
+      ctx.globalAlpha = 0.15;
+      if (halfImage) {
+        ctx.drawImage(img, sx - size / 2, sy - size, size, size);
+      } else {
+        ctx.drawImage(img, sx - size / 2, sy - size / 2, size, size);
+      }
+      ctx.restore();
+    }
   }
 
   private drawClassStartAreas(
@@ -217,6 +351,19 @@ export class TreeRenderer {
     cw: number,
     ch: number
   ): void {
+    // Batch connections by visual style to minimize stroke() calls
+    const batches: Array<{
+      style: string;
+      width: number;
+      path: Path2D;
+    }> = [];
+
+    const batchMap = new Map<string, { style: string; width: number; path: Path2D }>();
+
+    const pad = 200;
+    const hoverBatch = new Path2D();
+    let hasHover = false;
+
     for (const conn of this.tree.connections) {
       const fromNode = this.tree.nodes.get(conn.from);
       const toNode = this.tree.nodes.get(conn.to);
@@ -225,7 +372,6 @@ export class TreeRenderer {
       const from = worldToScreen(cam, fromNode.x, fromNode.y, cw, ch);
       const to = worldToScreen(cam, toNode.x, toNode.y, cw, ch);
 
-      const pad = 200;
       if (
         Math.max(from.x, to.x) < -pad ||
         Math.min(from.x, to.x) > cw + pad ||
@@ -233,32 +379,65 @@ export class TreeRenderer {
         Math.min(from.y, to.y) > ch + pad
       ) continue;
 
-      const fromAlloc = this.allocatedNodes.has(conn.from);
-      const toAlloc = this.allocatedNodes.has(conn.to);
-      const bothAllocated = fromAlloc && toAlloc;
-      const oneAllocated = fromAlloc || toAlloc;
-
-      const isAscendancy = !!(fromNode.ascendancyName || toNode.ascendancyName);
       const isHoverConn = this.hoveredNode !== null &&
         (conn.from === this.hoveredNode || conn.to === this.hoveredNode);
 
       if (isHoverConn) {
-        ctx.strokeStyle = "rgba(6, 182, 212, 0.8)";
-        ctx.lineWidth = Math.max(2, 2.5 * cam.zoom);
-      } else if (bothAllocated) {
-        ctx.strokeStyle = isAscendancy ? "rgba(212, 160, 36, 0.9)" : COLOR_LINE_ALLOCATED;
-        ctx.lineWidth = Math.max(1.5, 2.5 * cam.zoom);
-      } else if (oneAllocated) {
-        ctx.strokeStyle = isAscendancy ? "rgba(212, 160, 36, 0.3)" : "rgba(200, 180, 100, 0.35)";
-        ctx.lineWidth = Math.max(1, 1.5 * cam.zoom);
-      } else {
-        ctx.strokeStyle = isAscendancy ? "rgba(212, 160, 36, 0.12)" : COLOR_LINE;
-        ctx.lineWidth = Math.max(1, 1 * cam.zoom);
+        hoverBatch.moveTo(from.x, from.y);
+        hoverBatch.lineTo(to.x, to.y);
+        hasHover = true;
+        continue;
       }
-      ctx.beginPath();
-      ctx.moveTo(from.x, from.y);
-      ctx.lineTo(to.x, to.y);
-      ctx.stroke();
+
+      const fromAlloc = this.allocatedNodes.has(conn.from);
+      const toAlloc = this.allocatedNodes.has(conn.to);
+      const bothAllocated = fromAlloc && toAlloc;
+      const oneAllocated = fromAlloc || toAlloc;
+      const isAscendancy = !!(fromNode.ascendancyName || toNode.ascendancyName);
+
+      let key: string;
+      if (bothAllocated) {
+        key = isAscendancy ? "alloc-asc" : "alloc";
+      } else if (oneAllocated) {
+        key = isAscendancy ? "half-asc" : "half";
+      } else {
+        key = isAscendancy ? "none-asc" : "none";
+      }
+
+      let batch = batchMap.get(key);
+      if (!batch) {
+        let style: string;
+        let width: number;
+        if (bothAllocated) {
+          style = isAscendancy ? "rgba(212, 160, 36, 0.9)" : COLOR_LINE_ALLOCATED;
+          width = Math.max(1.5, 2.5 * cam.zoom);
+        } else if (oneAllocated) {
+          style = isAscendancy ? "rgba(212, 160, 36, 0.3)" : "rgba(200, 180, 100, 0.35)";
+          width = Math.max(1, 1.5 * cam.zoom);
+        } else {
+          style = isAscendancy ? "rgba(212, 160, 36, 0.12)" : COLOR_LINE;
+          width = Math.max(1, 1 * cam.zoom);
+        }
+        batch = { style, width, path: new Path2D() };
+        batchMap.set(key, batch);
+        batches.push(batch);
+      }
+
+      batch.path.moveTo(from.x, from.y);
+      batch.path.lineTo(to.x, to.y);
+    }
+
+    // Draw batched: unallocated first, then partial, then full, then hover on top
+    for (const batch of batches) {
+      ctx.strokeStyle = batch.style;
+      ctx.lineWidth = batch.width;
+      ctx.stroke(batch.path);
+    }
+
+    if (hasHover) {
+      ctx.strokeStyle = "rgba(6, 182, 212, 0.8)";
+      ctx.lineWidth = Math.max(2, 2.5 * cam.zoom);
+      ctx.stroke(hoverBatch);
     }
   }
 
@@ -271,32 +450,65 @@ export class TreeRenderer {
     const minZoomForLabels = 0.15;
     const minZoomForIcons = 0.06;
 
+    // Two-pass: batch unallocated normal nodes, then draw special/allocated individually
+    const normalRadius = NODE_RADIUS_NORMAL * cam.zoom;
+    const normalFillPath = new Path2D();
+    const normalBorderPath = new Path2D();
+    let hasNormalNodes = false;
+
+    // Collect deferred items for second pass
+    const deferred: Array<{ nid: string; node: TreeNode; sx: number; sy: number; radius: number; allocated: boolean }> = [];
+
     for (const [nid, node] of this.tree.nodes) {
       if (node.classStartIndex !== undefined && !node.name) continue;
 
       const screenPos = worldToScreen(cam, node.x, node.y, cw, ch);
       const radius = this.getNodeRadius(node) * cam.zoom;
 
-      if (!this.isVisible(screenPos.x, screenPos.y, radius + 4, cw, ch))
-        continue;
-
+      if (!this.isVisible(screenPos.x, screenPos.y, radius + 4, cw, ch)) continue;
       if (radius < 1) continue;
 
       const allocated = this.allocatedNodes.has(nid);
+      const isSpecial = node.isNotable || node.isKeystone || node.isMastery ||
+        node.isJewelSocket || node.ascendancyName || allocated ||
+        (this.nodePowerMode !== "off" && this.nodePower.has(nid));
 
+      if (!isSpecial) {
+        // Batch into a single path
+        normalFillPath.moveTo(screenPos.x + normalRadius, screenPos.y);
+        normalFillPath.arc(screenPos.x, screenPos.y, normalRadius, 0, Math.PI * 2);
+        normalBorderPath.moveTo(screenPos.x + normalRadius + 0.5, screenPos.y);
+        normalBorderPath.arc(screenPos.x, screenPos.y, normalRadius + 0.5, 0, Math.PI * 2);
+        hasNormalNodes = true;
+      } else {
+        deferred.push({ nid, node, sx: screenPos.x, sy: screenPos.y, radius, allocated });
+      }
+    }
+
+    // Draw batched normal nodes (single fill + stroke)
+    if (hasNormalNodes) {
+      ctx.fillStyle = COLOR_NODE_NORMAL;
+      ctx.fill(normalFillPath);
+      ctx.strokeStyle = COLOR_NODE_BORDER;
+      ctx.lineWidth = Math.max(0.5, normalRadius * 0.06);
+      ctx.stroke(normalBorderPath);
+    }
+
+    // Draw special/allocated nodes individually
+    for (const { nid, node, sx, sy, radius, allocated } of deferred) {
       if (this.nodePowerMode !== "off" && !allocated) {
         const power = this.nodePower.get(nid);
         if (power !== undefined) {
-          this.drawHeatmapGlow(ctx, screenPos.x, screenPos.y, radius, power);
+          this.drawHeatmapGlow(ctx, sx, sy, radius, power);
         }
       }
 
       if (node.isJewelSocket) {
-        this.drawJewelSocket(ctx, screenPos.x, screenPos.y, radius, allocated);
+        this.drawJewelSocket(ctx, sx, sy, radius, allocated);
       } else if (node.isMastery) {
-        this.drawMasteryStar(ctx, screenPos.x, screenPos.y, radius, allocated);
+        this.drawMasteryStar(ctx, sx, sy, radius, allocated);
       } else {
-        this.drawNodeCircle(ctx, screenPos.x, screenPos.y, radius, node, allocated);
+        this.drawNodeCircle(ctx, sx, sy, radius, node, allocated);
       }
 
       if (this.searchResults.size > 0 && this.searchResults.has(nid)) {
@@ -306,26 +518,32 @@ export class TreeRenderer {
         ctx.shadowColor = "rgba(0, 200, 255, 0.6)";
         ctx.shadowBlur = radius * 0.8;
         ctx.beginPath();
-        ctx.arc(screenPos.x, screenPos.y, radius + 2, 0, Math.PI * 2);
+        ctx.arc(sx, sy, radius + 2, 0, Math.PI * 2);
         ctx.stroke();
         ctx.restore();
       }
+    }
 
-      if (cam.zoom >= minZoomForIcons && node.icon) {
-        this.drawNodeIcon(ctx, screenPos.x, screenPos.y, radius, node, allocated);
+    // Icons and labels in a separate pass (text rendering is expensive, group it)
+    if (cam.zoom >= minZoomForIcons) {
+      for (const { node, sx, sy, radius, allocated } of deferred) {
+        if (node.icon) {
+          this.drawNodeIcon(ctx, sx, sy, radius, node, allocated);
+        }
       }
+    }
 
-      if (cam.zoom >= minZoomForLabels && node.name && (node.isNotable || node.isKeystone)) {
-        ctx.fillStyle = allocated
-          ? "rgba(255, 230, 150, 0.9)"
-          : "rgba(180, 190, 210, 0.7)";
-        ctx.font = `${Math.max(9, 11 * cam.zoom / 0.15)}px ui-sans-serif, system-ui, sans-serif`;
-        ctx.textAlign = "center";
-        ctx.fillText(
-          node.name,
-          screenPos.x,
-          screenPos.y + radius + Math.max(10, 14 * cam.zoom / 0.15)
-        );
+    if (cam.zoom >= minZoomForLabels) {
+      const fontSize = Math.max(9, 11 * cam.zoom / 0.15);
+      ctx.font = `${fontSize}px ui-sans-serif, system-ui, sans-serif`;
+      ctx.textAlign = "center";
+      for (const { node, sx, sy, radius, allocated } of deferred) {
+        if (node.name && (node.isNotable || node.isKeystone)) {
+          ctx.fillStyle = allocated
+            ? "rgba(255, 230, 150, 0.9)"
+            : "rgba(180, 190, 210, 0.7)";
+          ctx.fillText(node.name, sx, sy + radius + Math.max(10, 14 * cam.zoom / 0.15));
+        }
       }
     }
   }
@@ -518,23 +736,18 @@ export class TreeRenderer {
 
     const iconSize = radius * 1.8;
 
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(x, y, radius * 0.9, 0, Math.PI * 2);
-    ctx.clip();
-
-    ctx.drawImage(
-      atlas.image,
-      coord.x,
-      coord.y,
-      coord.w,
-      coord.h,
-      x - iconSize / 2,
-      y - iconSize / 2,
-      iconSize,
-      iconSize
-    );
-    ctx.restore();
+    if (iconSize > 16) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(x, y, radius * 0.9, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.drawImage(atlas.image, coord.x, coord.y, coord.w, coord.h,
+        x - iconSize / 2, y - iconSize / 2, iconSize, iconSize);
+      ctx.restore();
+    } else {
+      ctx.drawImage(atlas.image, coord.x, coord.y, coord.w, coord.h,
+        x - iconSize / 2, y - iconSize / 2, iconSize, iconSize);
+    }
   }
 
   private getHeatColor(value: number): string {

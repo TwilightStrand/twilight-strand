@@ -108,17 +108,25 @@ pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
     }
 
     // --- Armour / Evasion ---------------------------------------------------
-    if let Some(val) = extract_value(line, "to armour") {
-        mods.push(flat("Armour", val));
-    }
-    if let Some(val) = extract_pct(line, "increased armour") {
-        mods.push(increased("Armour", val));
-    }
-    if let Some(val) = extract_value(line, "to evasion rating") {
-        mods.push(flat("Evasion", val));
-    }
-    if let Some(val) = extract_pct(line, "increased evasion rating") {
-        mods.push(increased("Evasion", val));
+    {
+        let lower = line.to_lowercase();
+        let is_combined = (lower.contains("armour") && lower.contains("evasion"))
+            || (lower.contains("evasion") && lower.contains("energy shield"));
+
+        if !is_combined {
+            if let Some(val) = extract_value(line, "to armour") {
+                mods.push(flat("Armour", val));
+            }
+            if let Some(val) = extract_pct(line, "increased armour") {
+                mods.push(increased("Armour", val));
+            }
+            if let Some(val) = extract_value(line, "to evasion rating") {
+                mods.push(flat("Evasion", val));
+            }
+            if let Some(val) = extract_pct(line, "increased evasion rating") {
+                mods.push(increased("Evasion", val));
+            }
+        }
     }
 
     // --- Per-type damage ----------------------------------------------------
@@ -368,8 +376,10 @@ pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
     }
 
     // --- Crit ---------------------------------------------------------------
-    if let Some(val) = extract_pct(line, "increased critical strike chance") {
-        mods.push(increased("CritChance", val));
+    if !line.to_lowercase().contains("global") {
+        if let Some(val) = extract_pct(line, "increased critical strike chance") {
+            mods.push(increased("CritChance", val));
+        }
     }
     if let Some(val) = extract_pct_value(line, "to critical strike multiplier") {
         mods.push(flat("CritMultiplier", val));
@@ -515,6 +525,119 @@ pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
     }
     if let Some(val) = extract_pct(line, "increased energy shield recharge rate") {
         mods.push(increased("ESRechargeRate", val));
+    }
+
+    // --- Conversion --------------------------------------------------------
+    {
+        let lower = line.to_lowercase();
+        if lower.contains("converted to") {
+            if lower.contains("physical") && lower.contains("fire") {
+                if let Some(val) = extract_pct(line, "of physical damage converted to fire damage") {
+                    mods.push(flat("ConvPhysToFire", val));
+                }
+            }
+            if lower.contains("physical") && lower.contains("cold") {
+                if let Some(val) = extract_pct(line, "of physical damage converted to cold damage") {
+                    mods.push(flat("ConvPhysToCold", val));
+                }
+            }
+            if lower.contains("physical") && lower.contains("lightning") {
+                if let Some(val) = extract_pct(line, "of physical damage converted to lightning damage") {
+                    mods.push(flat("ConvPhysToLightning", val));
+                }
+            }
+            if lower.contains("physical") && lower.contains("chaos") {
+                if let Some(val) = extract_pct(line, "of physical damage converted to chaos damage") {
+                    mods.push(flat("ConvPhysToChaos", val));
+                }
+            }
+            if lower.contains("cold") && lower.contains("fire") && !lower.contains("physical") {
+                if let Some(val) = extract_pct(line, "of cold damage converted to fire damage") {
+                    mods.push(flat("ConvColdToFire", val));
+                }
+            }
+            if lower.contains("lightning") && lower.contains("cold") && !lower.contains("physical") {
+                if let Some(val) = extract_pct(line, "of lightning damage converted to cold damage") {
+                    mods.push(flat("ConvLightningToCold", val));
+                }
+            }
+        }
+    }
+
+    // --- Spell Suppression (alternate wording) -----------------------------
+    if let Some(val) = extract_pct_value(line, "to spell suppression chance") {
+        mods.push(flat("SpellSuppression", val));
+    }
+
+    // --- Fortify -----------------------------------------------------------
+    if let Some(val) = extract_pct(line, "increased fortification") {
+        mods.push(increased("Fortify", val));
+    }
+
+    // --- Gem levels --------------------------------------------------------
+    {
+        let lower = line.to_lowercase();
+        if lower.contains("to level of all") && lower.contains("skill gems") {
+            if let Some(val) = extract_value(line, "to level of all") {
+                mods.push(flat("GemLevel", val));
+                mods.push(more("Damage", val * 8.0));
+            }
+        }
+    }
+
+    // --- Totem / Brand / Trap / Mine damage --------------------------------
+    {
+        let lower = line.to_lowercase();
+        if !lower.contains("minion") {
+            if let Some(val) = extract_pct(line, "increased totem damage") {
+                mods.push(increased("Damage", val));
+            }
+            if let Some(val) = extract_pct(line, "increased trap damage") {
+                mods.push(increased("Damage", val));
+            }
+            if let Some(val) = extract_pct(line, "increased mine damage") {
+                mods.push(increased("Damage", val));
+            }
+            if let Some(val) = extract_pct(line, "increased brand damage") {
+                mods.push(increased("Damage", val));
+            }
+        }
+    }
+
+    // --- Flask effect -------------------------------------------------------
+    if let Some(val) = extract_pct(line, "increased flask effect") {
+        mods.push(increased("FlaskEffect", val));
+    }
+
+    // --- Cooldown recovery --------------------------------------------------
+    if let Some(val) = extract_pct(line, "increased cooldown recovery rate") {
+        mods.push(increased("CooldownRecovery", val));
+    }
+
+    // --- Spell block -------------------------------------------------------
+    if let Some(val) = extract_pct_value(line, "chance to block spell damage") {
+        mods.push(flat("SpellBlockChance", val));
+    }
+
+    // --- Elemental ailment avoidance ----------------------------------------
+    if let Some(val) = extract_pct_value(line, "chance to avoid elemental ailments") {
+        mods.push(flat("AilmentAvoidance", val));
+    }
+
+    // --- Stun avoidance ----------------------------------------------------
+    if let Some(val) = extract_pct_value(line, "chance to avoid being stunned") {
+        mods.push(flat("StunAvoidance", val));
+    }
+
+    // --- Life on hit / kill -------------------------------------------------
+    if let Some(val) = extract_value(line, "life gained on hit") {
+        mods.push(flat("LifeOnHit", val));
+    }
+    if let Some(val) = extract_value(line, "life gained on kill") {
+        mods.push(flat("LifeOnKill", val));
+    }
+    if let Some(val) = extract_value(line, "mana gained on kill") {
+        mods.push(flat("ManaOnKill", val));
     }
 
     mods

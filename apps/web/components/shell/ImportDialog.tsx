@@ -4,13 +4,63 @@ import { useState, useRef, useEffect } from "react";
 import { useBuildStore } from "@/stores/build-store";
 import { BuildCard } from "./BuildCard";
 import { GuideViewer } from "@/components/guide/GuideViewer";
+import { GuideEditor } from "@/components/guide/GuideEditor";
 import { ALL_GUIDES } from "@/data/guides";
+import type { BuildGuide } from "@/engine/guide-types";
 
 interface PoECharacter {
   name: string;
   class: string;
   level: number;
   league: string;
+}
+
+function GuideSection({ onImport }: { onImport: (code: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [customGuides, setCustomGuides] = useState<BuildGuide[]>(() => {
+    try {
+      const saved = localStorage.getItem("tsc-custom-guides");
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+
+  const saveGuide = (guide: BuildGuide) => {
+    const updated = [...customGuides, guide];
+    setCustomGuides(updated);
+    try { localStorage.setItem("tsc-custom-guides", JSON.stringify(updated)); } catch {}
+    setEditing(false);
+  };
+
+  if (editing) {
+    return <GuideEditor onSave={saveGuide} onClose={() => setEditing(false)} />;
+  }
+
+  const allGuides = [...ALL_GUIDES, ...customGuides];
+
+  return (
+    <div className="max-h-96 overflow-y-auto space-y-4">
+      <div className="flex justify-end">
+        <button
+          onClick={() => setEditing(true)}
+          className="text-[10px] font-mono text-accent hover:text-accent/80 px-2 py-0.5 border border-accent/30 rounded"
+        >
+          + Create Guide
+        </button>
+      </div>
+      {allGuides.map((guide, i) => (
+        <GuideViewer
+          key={i}
+          guide={guide}
+          onImport={onImport}
+        />
+      ))}
+      {allGuides.length === 0 && (
+        <p className="text-xs font-mono text-text-dim/60 text-center py-6">
+          No guides available yet. Click "+ Create Guide" to make one.
+        </p>
+      )}
+    </div>
+  );
 }
 
 export function ImportDialog({
@@ -189,23 +239,9 @@ export function ImportDialog({
         )}
 
         {mode === "guide" && (
-          <div className="max-h-96 overflow-y-auto space-y-4">
-            {ALL_GUIDES.map((guide, i) => (
-              <GuideViewer
-                key={i}
-                guide={guide}
-                onImport={(code) => {
-                  importBuild(code);
-                  onClose();
-                }}
-              />
-            ))}
-            {ALL_GUIDES.length === 0 && (
-              <p className="text-xs font-mono text-text-dim/60 text-center py-6">
-                No guides available yet. Check back soon.
-              </p>
-            )}
-          </div>
+          <GuideSection
+            onImport={(code) => { importBuild(code); onClose(); }}
+          />
         )}
 
         {mode === "code" && <p className="text-text-dim text-xs font-mono mb-3">
