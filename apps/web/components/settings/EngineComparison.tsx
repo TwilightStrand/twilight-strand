@@ -14,31 +14,29 @@ export function EngineComparison() {
   const significant = divergences.filter((d) => Math.abs(d.pctDiff) > 5);
   const matched = divergences.filter((d) => Math.abs(d.pctDiff) <= 1);
   const close = divergences.filter((d) => Math.abs(d.pctDiff) > 1 && Math.abs(d.pctDiff) <= 5);
+  const debugInfo = (stats as Record<string, unknown>)?._debug as string | undefined;
 
   return (
     <div>
       <h3 className="text-xs font-mono font-bold uppercase tracking-widest text-text-dim mb-2">
         Dual Engine Validation
       </h3>
+      {debugInfo && (
+        <div className="bg-amber-400/5 border border-amber-400/20 rounded px-2 py-1 mb-2 text-[9px] font-mono text-amber-400/80 break-all">
+          {debugInfo}
+        </div>
+      )}
       <div className="bg-bg-card border border-border-card rounded-lg p-3">
         {divergences.length === 0 ? (
           <p className="text-[10px] font-mono text-text-dim/60 text-center py-2">
-            {rustEvalTime === null
-              ? "Rust engine not loaded; import a build to compare"
-              : "Waiting for evaluation..."}
+            {rustEvalTime === null ? "Rust engine not loaded; import a build to compare" : "Waiting for evaluation..."}
           </p>
         ) : (
           <>
             <div className="flex items-center gap-3 mb-2 text-[10px] font-mono text-text-dim">
-              <span>
-                Lua: {luaEvalTime ?? "?"}ms
-              </span>
-              <span>
-                Rust: {rustEvalTime ?? "?"}ms
-              </span>
-              <span>
-                {rustModCount} mods parsed
-              </span>
+              <span>Lua: {luaEvalTime ?? "?"}ms</span>
+              <span>Rust: {rustEvalTime ?? "?"}ms</span>
+              <span>{rustModCount} mods parsed</span>
             </div>
 
             <div className="flex gap-2 mb-2 text-[10px] font-mono">
@@ -56,25 +54,14 @@ export function EngineComparison() {
               </div>
               {divergences.map((d) => {
                 const absPct = Math.abs(d.pctDiff);
-                const color =
-                  absPct <= 1
-                    ? "text-green-400"
-                    : absPct <= 5
-                      ? "text-amber-400"
-                      : "text-red-400";
+                const color = absPct <= 1 ? "text-green-400" : absPct <= 5 ? "text-amber-400" : "text-red-400";
                 return (
                   <div key={d.stat} className="flex text-[10px] font-mono">
                     <span className="flex-1 text-text-dim truncate">{d.stat}</span>
-                    <span className="w-20 text-right tabular-nums text-text-primary">
-                      {formatVal(d.lua)}
-                    </span>
-                    <span className="w-20 text-right tabular-nums text-text-primary">
-                      {formatVal(d.rust)}
-                    </span>
+                    <span className="w-20 text-right tabular-nums text-text-primary">{formatVal(d.lua)}</span>
+                    <span className="w-20 text-right tabular-nums text-text-primary">{formatVal(d.rust)}</span>
                     <span className={`w-14 text-right tabular-nums ${color}`}>
-                      {absPct < 0.1
-                        ? "="
-                        : `${d.pctDiff > 0 ? "+" : ""}${d.pctDiff.toFixed(1)}%`}
+                      {absPct < 0.1 ? "=" : `${d.pctDiff > 0 ? "+" : ""}${d.pctDiff.toFixed(1)}%`}
                     </span>
                   </div>
                 );
