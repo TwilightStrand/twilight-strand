@@ -69,8 +69,30 @@ const LUA_SHIMS = `
     return nil
   end
 
-  -- Inflate/Deflate stubs
-  Inflate = function(d) return "" end
+  -- Inflate: read pre-decompressed .bin file instead of decompressing at runtime.
+  -- PoB calls Inflate(io.open("...zip","rb"):read("*a")); since we can't decompress
+  -- in WASM, we track the last opened .zip path and read the .bin equivalent.
+  _tsc_last_opened_zip = nil
+  _tsc_inflate_log = ""
+  Inflate = function(d)
+    _tsc_inflate_log = _tsc_inflate_log .. "called:zip=" .. tostring(_tsc_last_opened_zip) .. " "
+    if _tsc_last_opened_zip then
+      local binPath = _tsc_last_opened_zip:gsub("%.zip$", ".bin"):gsub("%.zip%.part%d*$", ".bin")
+      local f, err = io.open(binPath, "rb")
+      _tsc_inflate_log = _tsc_inflate_log .. "bin=" .. binPath .. " f=" .. tostring(f ~= nil) .. " "
+      if f then
+        local data = f:read("*a")
+        f:close()
+        _tsc_inflate_log = _tsc_inflate_log .. "#=" .. (data and #data or 0) .. " "
+        if data and #data > 0 then
+          return data
+        end
+      else
+        _tsc_inflate_log = _tsc_inflate_log .. "err=" .. tostring(err) .. " "
+      end
+    end
+    return ""
+  end
   Deflate = function(d) return "" end
 
   -- Module loading
@@ -266,11 +288,17 @@ const LUA_SHIMS = `
     -- Block known missing files to avoid errors in update/install code
     local basename = path:match("([^/]+)$") or path
     if _tsc_missing_files[basename] then return nil, "file not available in browser" end
+    -- Track .zip opens for the Inflate shim
+    if path:match("%.zip") then
+      _tsc_last_opened_zip = path
+    end
     -- Try /pob/ prefix for relative paths
     local f, e = _orig_io_open(path, mode)
     if f then return f, e end
     if not path:match("^/") then
-      f, e = _orig_io_open("/pob/" .. path, mode)
+      local prefixed = "/pob/" .. path
+      if prefixed:match("%.zip") then _tsc_last_opened_zip = prefixed end
+      f, e = _orig_io_open(prefixed, mode)
       if f then return f, e end
     end
     return nil, e
@@ -438,6 +466,9 @@ async function mountTimelessJewelData(
 
     const mountPath = `/pob/Data/TimelessJewelData/${name}.bin`;
     await f.mountFile(mountPath, new Uint8Array(data));
+    // Also mount a dummy .zip so PoB's unpatched loadJewelFile can open it,
+    // triggering our Inflate shim which reads from the .bin instead.
+    await f.mountFile(`/pob/Data/TimelessJewelData/${name}.zip`, "PLACEHOLDER");
     mountedJewelTypes.add(name);
     mounted++;
   }
@@ -866,6 +897,70 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
       if (loadErr) {
         console.warn("PoB loadBuild error:", String(loadErr).substring(0, 500));
       }
+
+      // Diagnose timeless jewel state after build load
+      await lua.doString(`
+        _tsc_jewel_diag = ""
+        pcall(function()
+          local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
+          if not b then _tsc_jewel_diag = "NO_BUILD"; return end
+          if not b.itemsTab then _tsc_jewel_diag = "NO_ITEMS_TAB"; return end
+
+          -- Find timeless jewels in items
+          for id, item in pairs(b.itemsTab.items) do
+            if item.base and item.base.subType == "Timeless" then
+              _tsc_jewel_diag = _tsc_jewel_diag .. "item=" .. (item.title or item.name or "?")
+              _tsc_jewel_diag = _tsc_jewel_diag .. " radIdx=" .. tostring(item.jewelRadiusIndex)
+              if item.jewelData then
+                _tsc_jewel_diag = _tsc_jewel_diag .. " jdConq=" .. tostring(item.jewelData.conqueredBy ~= nil)
+                if item.jewelData.conqueredBy then
+                  _tsc_jewel_diag = _tsc_jewel_diag .. " seed=" .. tostring(item.jewelData.conqueredBy.id)
+                  _tsc_jewel_diag = _tsc_jewel_diag .. " type=" .. tostring(item.jewelData.conqueredBy.conqueror and item.jewelData.conqueredBy.conqueror.type or "nil")
+                end
+              else
+                _tsc_jewel_diag = _tsc_jewel_diag .. " NO_JEWEL_DATA"
+              end
+              _tsc_jewel_diag = _tsc_jewel_diag .. " | "
+            end
+          end
+
+          -- Check spec for conquered nodes
+          if b.spec then
+            local conquered = 0
+            for id, node in pairs(b.spec.nodes) do
+              if node.conqueredBy then conquered = conquered + 1 end
+            end
+            _tsc_jewel_diag = _tsc_jewel_diag .. "conqueredNodes=" .. conquered
+
+            -- Check a jewel socket for nodesInRadius
+            if b.spec.tree and b.spec.tree.sockets then
+              local socketCount = 0
+              local hasRadius = 0
+              for _, socket in pairs(b.spec.tree.sockets) do
+                socketCount = socketCount + 1
+                if socket.nodesInRadius then hasRadius = hasRadius + 1 end
+              end
+              _tsc_jewel_diag = _tsc_jewel_diag .. " sockets=" .. socketCount .. " withRadius=" .. hasRadius
+            end
+          end
+
+          -- Check data.timelessJewelLUTs
+          if data and data.timelessJewelLUTs then
+            local lutInfo = {}
+            for k, v in pairs(data.timelessJewelLUTs) do
+              local dataLen = v.data and #v.data or 0
+              lutInfo[#lutInfo+1] = k .. "=" .. dataLen
+            end
+            _tsc_jewel_diag = _tsc_jewel_diag .. " LUTs=[" .. table.concat(lutInfo, ",") .. "]"
+          else
+            _tsc_jewel_diag = _tsc_jewel_diag .. " LUTs=nil"
+          end
+        end)
+      `);
+      const jewelDiag = lua.global.get("_tsc_jewel_diag");
+      console.log("[jewel-diag]", String(jewelDiag ?? "UNSET"));
+      const inflateLog = lua.global.get("_tsc_inflate_log");
+      if (inflateLog) console.log("[inflate]", String(inflateLog));
 
       progress(id, "Running calculations...");
       await lua.doString(`
