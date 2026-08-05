@@ -33,6 +33,9 @@ importers:
       '@neondatabase/serverless':
         specifier: ^0.10.4
         version: 0.10.4
+      '@tsc/build-codec':
+        specifier: workspace:*
+        version: link:../../packages/build-codec
       '@tsc/pob-codec':
         specifier: workspace:*
         version: link:../../packages/pob-codec
@@ -96,6 +99,22 @@ importers:
         version: 4.3.3
       typescript:
         specifier: ^5.8.0
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.0
+        version: 3.2.7(@types/node@22.20.1)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
+
+  packages/build-codec:
+    dependencies:
+      pako:
+        specifier: ^3.0.1
+        version: 3.0.1
+    devDependencies:
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.25)(typescript@5.9.3)
+      typescript:
+        specifier: ^5.9.0
         version: 5.9.3
       vitest:
         specifier: ^3.2.0
