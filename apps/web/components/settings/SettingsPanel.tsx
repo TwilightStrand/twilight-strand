@@ -6,6 +6,8 @@ import { useBuildStore } from "@/stores/build-store";
 import { NotesPanel } from "@/components/shell/NotesPanel";
 import { Changelog } from "./Changelog";
 import { EngineComparison } from "./EngineComparison";
+import { MetaStats } from "./MetaStats";
+import { AVAILABLE_LOCALES, getLocale, setLocale } from "@/lib/i18n";
 
 export function SettingsPanel() {
   const theme = useUiStore((s) => s.theme);
@@ -36,7 +38,7 @@ export function SettingsPanel() {
             <div className="flex items-center justify-between text-xs font-mono">
               <span className="text-text-primary">Theme</span>
               <div className="flex gap-1">
-                {(["dark", "light"] as const).map((t) => (
+                {(["dark", "light", "astral", "nostalgia"] as const).map((t) => (
                   <button
                     key={t}
                     onClick={() => setTheme(t)}
@@ -69,6 +71,25 @@ export function SettingsPanel() {
                     }`}
                   >
                     {fmt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between text-xs font-mono">
+              <span className="text-text-primary">Language</span>
+              <div className="flex gap-1">
+                {AVAILABLE_LOCALES.map((loc) => (
+                  <button
+                    key={loc.value}
+                    onClick={() => { setLocale(loc.value); window.location.reload(); }}
+                    className={`px-2.5 py-1 rounded transition-colors ${
+                      getLocale() === loc.value
+                        ? "bg-accent/20 text-accent border border-accent/30"
+                        : "text-text-dim hover:text-text-primary border border-transparent"
+                    }`}
+                  >
+                    {loc.label}
                   </button>
                 ))}
               </div>
@@ -135,6 +156,10 @@ export function SettingsPanel() {
         </div>
 
         <EngineComparison />
+
+        <div className="bg-bg-card border border-border-card rounded-lg p-3">
+          <MetaStats />
+        </div>
 
         <Changelog />
       </div>

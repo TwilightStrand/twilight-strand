@@ -451,6 +451,37 @@ export function ClusterSearch() {
               <span className="w-10 text-right tabular-nums text-purple-400/70 shrink-0" title={`Rarity: ${r.rarity}/5 (higher = rarer)`}>
                 R{r.rarity}
               </span>
+              <button
+                onClick={() => {
+                  const items = [...useBuildStore.getState().items];
+                  const slot = items.some(it => it.slot === "Jewel 1") ? "Jewel 2" : "Jewel 1";
+                  const mods = [
+                    `Adds ${enchantFilter} Passive Skills`,
+                    ...r.taken.map(n => `1 Added Passive Skill is ${n}`),
+                    `Added Small Passive Skills grant: ${r.base.smallPassiveStat}`,
+                  ];
+                  const newItem = {
+                    slot,
+                    name: `${r.base.name} ${r.base.type === "large" ? "Large" : r.base.type === "medium" ? "Medium" : "Small"} Cluster Jewel`,
+                    base: `${r.base.type === "large" ? "Large" : r.base.type === "medium" ? "Medium" : "Small"} Cluster Jewel`,
+                    rarity: "Magic" as const,
+                    mods,
+                    quality: 0,
+                    sockets: "",
+                  };
+                  const idx = items.findIndex(it => it.slot === slot);
+                  if (idx >= 0) items[idx] = newItem;
+                  else items.push(newItem);
+                  useBuildStore.setState({ items });
+                  import("@/components/shell/Toast").then(m =>
+                    m.useToastStore.getState().addToast(`Applied to ${slot}`, "info")
+                  );
+                }}
+                className="text-[9px] text-accent/60 hover:text-accent ml-1 shrink-0"
+                title="Add this cluster to your build"
+              >
+                Apply
+              </button>
             </div>
           ))}
         </div>

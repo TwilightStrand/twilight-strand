@@ -1,6 +1,8 @@
 import type { BuildStats, ItemData, SkillGroup } from "./types";
 import type { RustBuildInput, RustModifier, RustCalcOutput } from "./rust-bridge";
 import type { TreeNode } from "@/components/tree/tree-data";
+import { parseClusterJewel } from "./cluster-jewel";
+import { CLUSTER_NOTABLES } from "@/data/cluster-data.generated";
 
 const CLASS_IDS: Record<string, number> = {
   Scion: 0,
@@ -52,6 +54,15 @@ const WEAPON1_SLOTS = ["Weapon 1", "Weapon 1Swap"];
 const WEAPON2_SLOTS = ["Weapon 2", "Weapon 2Swap"];
 const FLASK_SLOTS = ["Flask 1", "Flask 2", "Flask 3", "Flask 4", "Flask 5"];
 
+const AURA_NAMES = new Set([
+  "Anger", "Clarity", "Defiance Banner", "Determination", "Discipline",
+  "Dread Banner", "Grace", "Haste", "Hatred", "Malevolence", "Precision",
+  "Pride", "Purity of Elements", "Purity of Fire", "Purity of Ice",
+  "Purity of Lightning", "Vitality", "War Banner", "Wrath", "Zealotry",
+]);
+
+const WHILE_AFFECTED_RE = /\s+while affected by\s+.+$/i;
+
 interface WeaponStats {
   base: string;
   physMin: number;
@@ -98,14 +109,54 @@ export function convertToRustInput(
   const keystones: string[] = [];
   const equippedUniques: string[] = [];
 
-  // Item mods → modifiers + unique detection
+  // Detect active auras from skill groups
+  const activeAuras = new Set<string>();
+  for (const group of skills) {
+    if (!group.enabled) continue;
+    for (const gem of group.gems) {
+      if (gem.enabled && AURA_NAMES.has(gem.name)) {
+        activeAuras.add(gem.name.toLowerCase());
+      }
+    }
+  }
+
+  // Item mods → modifiers + unique detection + cluster jewel resolution
   for (const item of items) {
     if (item.rarity === "UNIQUE" || item.rarity === "Unique") {
       equippedUniques.push(item.name);
     }
 
+    // Resolve cluster jewel notables to their actual stats
+    const cluster = parseClusterJewel(item.mods);
+    if (cluster) {
+      for (const node of cluster.nodes) {
+        if (node.type === "notable" && node.name) {
+          const notable = CLUSTER_NOTABLES[node.name];
+          if (notable) {
+            for (const stat of notable.stats) {
+              const parsed = parseStatLine(stat);
+              modifiers.push(...parsed);
+            }
+          }
+        } else if (node.type === "small") {
+          for (const stat of node.stats) {
+            const parsed = parseStatLine(stat);
+            modifiers.push(...parsed);
+          }
+        }
+      }
+      continue;
+    }
+
     for (const mod of item.mods) {
-      const parsed = parseStatLine(mod);
+      let line = mod;
+      const affectedMatch = mod.match(/while affected by (.+)$/i);
+      if (affectedMatch) {
+        const aura = affectedMatch[1].trim().toLowerCase();
+        if (!activeAuras.has(aura)) continue;
+        line = mod.replace(WHILE_AFFECTED_RE, "");
+      }
+      const parsed = parseStatLine(line);
       modifiers.push(...parsed);
     }
   }

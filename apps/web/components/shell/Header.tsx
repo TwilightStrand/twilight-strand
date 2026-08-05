@@ -6,6 +6,7 @@ import type { TabId } from "@/stores/ui-store";
 import { useBuildStore } from "@/stores/build-store";
 import { useTreeStore } from "@/stores/tree-store";
 import { BuildCard } from "./BuildCard";
+import { initLocale, t } from "@/lib/i18n";
 import { AuthButton } from "./AuthButton";
 import { toast } from "./Toast";
 
@@ -113,9 +114,11 @@ export function Header() {
   const skills = useBuildStore((s) => s.skills);
   const initEngine = useBuildStore((s) => s.initEngine);
   const buildName = useBuildStore((s) => s.buildName);
+  const hasCode = useBuildStore((s) => !!s.code);
   const allocNodes = useTreeStore((s) => s.allocatedNodes);
 
   useEffect(() => {
+    initLocale();
     initEngine();
   }, [initEngine]);
 
@@ -224,7 +227,7 @@ export function Header() {
             `}
           >
             <span className="text-xs">{TAB_ICONS[tab]}</span>
-            {TAB_LABELS[tab]}
+            {t(TAB_LABELS[tab])}
             {(() => {
               const badge = tabBadge(tab);
               return badge ? (
@@ -337,7 +340,7 @@ export function Header() {
             useBuildStore.getState().saveToCloud();
             toast("Build saved");
           }}
-          disabled={!useBuildStore.getState().code}
+          disabled={!hasCode}
           className="text-xs font-mono text-text-dim hover:text-accent transition-colors px-2 py-1 rounded hover:bg-bg-hover disabled:opacity-30 disabled:cursor-not-allowed hidden sm:inline-block"
         >
           Save
