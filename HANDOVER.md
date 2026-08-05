@@ -1,96 +1,84 @@
 # Session Handover - Twilight Strand Collective Build Planner
 
 **Date:** 2026-08-05
-**Repo:** 151 commits
-**Status:** Production-ready MVP with Rust-first dual engine, binary codec, universal import/export, k3s deploy ready
+**Repo:** 160+ commits
+**Status:** v0.2.0 complete. Activity bar UX. Lua engine accuracy under investigation.
 
 ## Quick Stats
 
 | Metric | Count |
 |--------|-------|
-| Commits | 151+ |
-| React components | 48 |
-| Rust engine modules | 18 (7,501+ lines) |
+| React components | 51 |
+| Rust engine | 18 modules, 7,501+ lines |
 | Rust tests | 292 |
 | TS tests | 114 (+ 14 codec tests) |
 | API routes | 9 |
-| Generated game data | 53 cluster bases, 300 notables, 1,160 gems, 1,202 uniques, 3,397 tree nodes, 576 config options |
+| Generated data | clusters, gems, uniques, config (576), corruption implicits (371) |
 | Unique items (Rust) | 95+ |
 | Support gems (Rust) | 50+ |
 | Keystones (Rust) | 40 |
-| Type errors | 0 |
+| Themes | 4 (Dark, Light, Astral, Nostalgia) |
+| Languages | 4 (EN, ZH, KO, RU) |
 
-## Architecture
+## Layout
 
-### Dual Engine (Rust-first)
+Activity bar (48px vertical, left edge) + thin status bar (36px) replaces old tab header. Paper doll equipment view available. Stats sidebar with hero tiles (DPS, Life, EHP).
 
-Three-phase eval pipeline:
-1. Client-side XML parse for instant display
-2. Rust WASM eval for accurate stats (sub-ms)
-3. Lua eval in background for ground-truth validation
+## Active Investigation: Lua Engine DPS Accuracy
 
-After Lua finishes, `runDivergenceCheck` compares stat-by-stat. Tree node clicks use Rust only for real-time recalc.
+**Problem:** Lua PoB engine in WASM shows 1.8M DPS for a build that PoB Desktop calculates at 130M. ES: 2,958 vs 11,050.
 
-| Engine | Speed | Purpose |
-|--------|-------|---------|
-| Lua (wasmoon) | ~15s boot, ~8s eval | Full PoB accuracy, validation |
-| Rust (WASM) | 50k evals/sec | Heatmap, optimizer, power report, node toggle |
-
-### Rust Engine Coverage
-
-| Category | Count | Details |
-|----------|-------|---------|
-| Unique items | 59 | Custom effect logic per item |
-| Support gems | 28 | Level-20 more/increased modifiers |
-| Keystones | 26 | CI, EO, RT, Acrobatics, etc. |
-| Ascendancy classes | 19 | 7 classes, ~2-3 ascendancies each |
-| Stat parser patterns | ~50 | Mod description line parsing |
-| Watcher's Eye mods | 28 | 10 auras covered |
-| Damage pipeline | Full | 5-type conversion chain, ailment DoT (bleed/poison/ignite), hit chance, impale |
-| Snapshot builds | 5 | Cyclone Slayer, RF Jugg, CI Vortex Occ, LA Deadeye, Poison BV Assassin |
-| Archetype benchmarks | 7 | + Champion Impale, Fire Elementalist |
-
-### Import/Export
-
-**Import:** TSC codes (`tsc1_`), PoB codes, raw XML, pastebin URLs, pobb.in URLs, GGG character profiles, poe.ninja build URLs.
-**Export:** TSC binary, PoB code, raw XML, JSON, pastebin upload.
-
-### Build Codec (`@tsc/build-codec`)
-
-Binary format: `tsc1_` prefix + deflate + base64url. 2-3x smaller than XML, lossless roundtrip. Varint integers, length-prefixed strings, bitmask flags. Schema-versioned, forward compatible. 14 tests.
-
-### Config Tab
-
-68 options across 9 categories (General, Charges, Combat, Buffs, Enemy, Flasks, Skill Options, Defences, Map Mods, Minions). Presets for Mapping/Bossing/Uber Boss. Map presets. Custom modifier text input. Filter/search.
-
-### EngineComparison
-
-Live Lua vs Rust stat table. Per-stat values with %diff. Color-coded: green (<=1%), amber (1-5%), red (>5%).
-
-## Data Pipeline
-
-All game data auto-generated from PoB Lua source files.
-
-```bash
-pnpm data:fetch    # Download PoB files from GitHub
-pnpm data:gen      # Generate TypeScript from Lua sources
+**Debug state (from instrumentation):**
+```
+build=yes items=89 slotted=1 cfg=45 pwr=on frz=on skills=6
+mainGrp=1 ordSlots=131 itemsWithMods=64 hasItemModData=yes
+dps=1819534 es=2958 life=1 ver=3_0
 ```
 
-Generated files: `cluster-data.generated.ts`, `gem-data.generated.ts`, `unique-data.generated.ts`.
+**What works:** Build loads, config applies (charges on), resistances correct (81/71/81/-35), CI detected (Life=1), block correct (29%), tree nodes allocated (113/121).
 
-## Deploy
+**What fails:** Item mods (64 items have mods) don't flow into CalcSetup's calculation environment. modDB only has 8 entries. Items exist in orderedSlots but CalcSetup isn't processing them.
 
-**GH Actions** builds Docker image, pushes to GHCR on every push to main.
+**Next steps:**
+1. Check `orderedSlots[i].selItemId` via new debug (slotsWithItem, slotsWithMods)
+2. If slots have items, check why CalcSetup skips them
+3. Likely cause: `item.modList` is a PoB ModList class object that wasmoon's `ipairs` can't iterate
+4. Test build: https://pobb.in/MwTyQN55T8tE
 
-**k3s manifests** in `deploy/k3s/`:
-```bash
-kubectl apply -f namespace.yml
-kubectl apply -f secrets.yml     # from secrets.yml.example
-kubectl apply -f postgres.yml    # optional, for auth
-kubectl apply -f app.yml         # 2 replicas + ingress + TLS
-```
+## What Was Built This Session
 
-Works without Postgres (localStorage saves, auth returns 503 gracefully).
+### v0.2.0 Roadmap (all P0/P1/P2 complete)
+- Config tab: 576 auto-generated options from PoB ConfigOptions.lua
+- Watcher's Eye aura-conditional mod wiring
+- Cluster jewel notable resolution
+- 35 new uniques, 20 supports, 15 keystones in Rust engine
+- Expanded stat_parser (conversion, spell block, gem levels, etc.)
+- Smart tree pathing with BFS travel cost
+- TreeDiff, TimelessSearch, UniqueRanker, UpgradeSuggester, MetaStats
+- PowerReport respec-candidate mode
+- i18n (zh/ko/ru), 2 new leveling guides, GuideEditor
+- Binary corruption implicit data (371 mods)
+
+### UX Overhaul
+- Activity bar (VS Code pattern) replaces horizontal tabs
+- Thin status bar replaces dense header
+- Paper doll equipment layout (PoE character panel)
+- Blueprint dot-grid background
+- Hero stat tiles in sidebar
+- Better empty states with tab-specific hints
+- Mobile expandable stat grid
+- Header actions collapsed to dropdown
+
+### Performance
+- Tree renderer: connection batching (5k to ~5 strokes), node batching, off-screen canvas caching, sprite clip skip at low zoom
+- Lazy-loaded gem/unique data (900KB out of bundle)
+- Lua boot split (44MB essential vs 138MB deferred)
+- ConfigControl memoized, camera state throttled
+
+### Docs
+- CONTRIBUTING.md rewritten
+- contributing/UX.md with design principles, patterns from Blender/Figma/VS Code research
+- SPEC.md for activity bar + paper doll
 
 ## Dev Commands
 
@@ -98,56 +86,19 @@ Works without Postgres (localStorage saves, auth returns 503 gracefully).
 pnpm dev              # Dev server (port 3003)
 pnpm test             # TS tests
 pnpm engine:test      # Rust tests (292)
-pnpm test:all         # All tests
 pnpm typecheck        # TypeScript check
-pnpm data:gen         # Regenerate game data
-pnpm worker:build     # Rebuild Lua worker
+pnpm data:gen         # Regenerate all game data
+node apps/web/scripts/build-worker.mjs  # Rebuild Lua worker (required after worker.ts changes)
 ```
-
-## Known Issues
-
-1. Turbopack caches stale modules sometimes; delete `.next/cache`
-2. Auth needs server restart after first dep install
-3. Rust engine covers 59/500+ uniques, 28 support gems, 26 keystones
-4. Cluster optimizer prices are estimates unless "Check $" is clicked
-5. Item/skill editor changes don't auto-recalculate (need re-import)
-
-## What's Next (v0.2.0 Roadmap)
-
-### P0 - Competitive parity
-- [ ] Full config option coverage (match PoB Desktop)
-- [ ] Jewel effect simulation (regular + cluster)
-- [ ] Watcher's Eye mod support (28 mods in Rust, needs UI wiring)
-- [ ] Expand Rust engine: more uniques (59/500+), supports (28/?), keystones (26/?)
-- [ ] Full Rust engine parity with Lua (mirror phase)
-
-### P1 - Differentiators
-- [ ] Smart tree pathing (auto-route optimizer)
-- [ ] Marginal value analysis (stat sensitivity per node)
-- [ ] Meta statistics from poe.ninja data
-- [ ] Timeless jewel seed search
-- [ ] Cluster jewel optimizer with real trade prices (partially built)
-- [ ] Build diff between tree versions (patch comparison)
-
-### P2 - Polish
-- [ ] Crafting bench simulation
-- [ ] Unique ranking per slot
-- [ ] Leveling guide for more builds
-- [ ] i18n (Chinese, Korean, Russian)
-- [ ] More themes
-- [ ] Community guide authoring
 
 ## Key Files
 
-- `apps/web/stores/build-store.ts` - Three-phase eval pipeline, config overrides
-- `apps/web/engine/worker.ts` - Lua engine (wasmoon + PoB boot)
-- `apps/web/engine/bridge.ts` - Main thread <-> Worker messaging
-- `apps/web/engine/rust-bridge.ts` - Rust WASM bridge
-- `apps/web/engine/rust-converter.ts` - Converts parsed builds to Rust input
-- `apps/web/engine/import-export.ts` - Universal import/export
-- `packages/engine/src/lib.rs` - Rust stat calculator (1,535 lines)
-- `packages/engine/src/stat_parser.rs` - Mod line parser (1,082 lines)
-- `packages/engine/src/damage.rs` - 5-type conversion chain + ailments
-- `packages/build-codec/src/codec.ts` - Binary build format
-- `apps/web/data/*.generated.ts` - Auto-generated game data
-- `apps/web/components/settings/EngineComparison.tsx` - Dual engine divergence viewer
+- `apps/web/app/page.tsx` - Main layout (ActivityBar + StatusBar + sidebar + content)
+- `apps/web/components/shell/ActivityBar.tsx` - Vertical icon nav
+- `apps/web/components/shell/StatusBar.tsx` - Thin top bar
+- `apps/web/components/items/PaperDoll.tsx` - Spatial equipment layout
+- `apps/web/engine/worker.ts` - Lua engine worker (with debug instrumentation)
+- `apps/web/engine/rust-converter.ts` - XML to Rust engine bridge
+- `apps/web/engine/pob-xml-parser.ts` - Client-side XML parser (extracts config)
+- `packages/engine/src/lib.rs` - Rust stat calculator
+- `contributing/UX.md` - Design principles

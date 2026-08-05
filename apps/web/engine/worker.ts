@@ -937,37 +937,47 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
             end
           end)
 
-          -- Check orderedSlots (critical for item processing)
+          -- Trace CalcSetup's slot iteration
           pcall(function()
             if b.itemsTab and b.itemsTab.orderedSlots then
-              _tsc_debug_info = _tsc_debug_info .. " ordSlots=" .. #b.itemsTab.orderedSlots
+              local osCount = #b.itemsTab.orderedSlots
+              local withItem = 0
+              local withMods = 0
+              local sampleSlots = {}
+              for i, slot in ipairs(b.itemsTab.orderedSlots) do
+                local itemId = slot.selItemId or 0
+                if itemId > 0 then
+                  withItem = withItem + 1
+                  local item = b.itemsTab.items[itemId]
+                  if item then
+                    local modCount = 0
+                    if item.modList then
+                      pcall(function()
+                        for _ in ipairs(item.modList) do modCount = modCount + 1 end
+                      end)
+                    end
+                    if modCount > 0 then withMods = withMods + 1 end
+                    if #sampleSlots < 3 then
+                      table.insert(sampleSlots, slot.slotName .. "=" .. itemId .. "(" .. modCount .. "mods)")
+                    end
+                  end
+                end
+              end
+              _tsc_debug_info = _tsc_debug_info .. " ordSlots=" .. osCount
+              _tsc_debug_info = _tsc_debug_info .. " slotsWithItem=" .. withItem
+              _tsc_debug_info = _tsc_debug_info .. " slotsWithMods=" .. withMods
+              if #sampleSlots > 0 then
+                _tsc_debug_info = _tsc_debug_info .. " [" .. table.concat(sampleSlots, ",") .. "]"
+              end
             else
               _tsc_debug_info = _tsc_debug_info .. " ordSlots=MISSING"
             end
           end)
 
-          -- Check if any item has a modList
-          pcall(function()
-            if b.itemsTab and b.itemsTab.items then
-              local withMods = 0
-              for id, item in pairs(b.itemsTab.items) do
-                if item.modList and next(item.modList) then
-                  withMods = withMods + 1
-                end
-              end
-              _tsc_debug_info = _tsc_debug_info .. " itemsWithMods=" .. withMods
-            end
-          end)
-
-          -- Check targetVersion and data availability
+          -- Check targetVersion
           pcall(function()
             if b.targetVersion then
               _tsc_debug_info = _tsc_debug_info .. " ver=" .. tostring(b.targetVersion)
-            end
-            if data and data.itemMods then
-              _tsc_debug_info = _tsc_debug_info .. " hasItemModData=yes"
-            else
-              _tsc_debug_info = _tsc_debug_info .. " hasItemModData=NO"
             end
           end)
         end
