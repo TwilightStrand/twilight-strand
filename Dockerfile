@@ -6,6 +6,7 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json apps/web/
 COPY packages/pob-codec/package.json packages/pob-codec/
+COPY packages/build-codec/package.json packages/build-codec/
 RUN pnpm install --frozen-lockfile
 
 FROM base AS builder
@@ -13,7 +14,10 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
 COPY --from=deps /app/packages/pob-codec/node_modules ./packages/pob-codec/node_modules
+COPY --from=deps /app/packages/build-codec/node_modules ./packages/build-codec/node_modules
 COPY . .
+RUN cd packages/pob-codec && npx tsup
+RUN cd packages/build-codec && npx tsup src/index.ts --format esm,cjs --dts
 RUN node apps/web/scripts/build-worker.mjs
 RUN node apps/web/scripts/convert-tree-lua.mjs 3_29
 RUN cd apps/web && npx next build
