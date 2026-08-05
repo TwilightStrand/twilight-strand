@@ -1010,7 +1010,7 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
         end
       `);
 
-      // Compact debug summary
+      // Comprehensive debug for DPS gap analysis
       await lua.doString(`
         local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
         _tsc_debug_info = ""
@@ -1026,11 +1026,72 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
               _tsc_debug_info = "NO_OUTPUT"
             end
           end)
+          -- Allocated nodes from spec + XML hash count
+          do
+            local ok2, err2 = pcall(function()
+              if b.spec and b.spec.allocNodes then
+                local nc = 0; for _ in pairs(b.spec.allocNodes) do nc = nc + 1 end
+                _tsc_debug_info = _tsc_debug_info .. " nodes=" .. nc
+              end
+              -- Count hashes from the XML (tree tab stores them)
+              if b.spec and b.spec.hashList then
+                _tsc_debug_info = _tsc_debug_info .. " xmlHashes=" .. #b.spec.hashList
+              end
+              -- Thread of Hope / Intuitive Leap check
+              if b.itemsTab and b.itemsTab.items then
+                local leapLikes = 0
+                for _, item in pairs(b.itemsTab.items) do
+                  if item.jewelData and item.jewelData.intuitiveLeapLike then
+                    leapLikes = leapLikes + 1
+                  end
+                end
+                if leapLikes > 0 then _tsc_debug_info = _tsc_debug_info .. " leapLikes=" .. leapLikes end
+              end
+            end)
+            if not ok2 then _tsc_debug_info = _tsc_debug_info .. " NODES_ERR=" .. tostring(err2) end
+          end
+          -- Main skill details
+          do
+            local ok2, err2 = pcall(function()
+              if b.calcsTab and b.calcsTab.mainEnv and b.calcsTab.mainEnv.player then
+                local ms = b.calcsTab.mainEnv.player.mainSkill
+                if ms then
+                  _tsc_debug_info = _tsc_debug_info .. " skill=" .. tostring(ms.activeEffect and ms.activeEffect.grantedEffect and ms.activeEffect.grantedEffect.name or "?")
+                  _tsc_debug_info = _tsc_debug_info .. " part=" .. tostring(ms.skillPart)
+                  _tsc_debug_info = _tsc_debug_info .. " stages=" .. tostring(ms.activeStageCount)
+                  if ms.skillData then
+                    _tsc_debug_info = _tsc_debug_info .. " dpsMult=" .. tostring(ms.skillData.dpsMultiplier)
+                    _tsc_debug_info = _tsc_debug_info .. " hitTimeOvr=" .. tostring(ms.skillData.hitTimeOverride)
+                    _tsc_debug_info = _tsc_debug_info .. " stagesMax=" .. tostring(ms.skillData.stagesMax)
+                  end
+                end
+              else
+                _tsc_debug_info = _tsc_debug_info .. " mainEnv=nil"
+              end
+            end)
+            if not ok2 then _tsc_debug_info = _tsc_debug_info .. " SKILL_ERR=" .. tostring(err2) end
+          end
+          -- Per-skill group DPS
           pcall(function()
-            if b.calcsTab and b.calcsTab.mainEnv and b.calcsTab.mainEnv.modDB then
-              local n, t = 0, 0
-              for _, list in pairs(b.calcsTab.mainEnv.modDB.mods) do n = n + 1; t = t + #list end
-              _tsc_debug_info = _tsc_debug_info .. " modDB=" .. n .. "/" .. t
+            if b.calcsTab and b.calcsTab.mainOutput and b.calcsTab.mainOutput.SkillDPS then
+              local parts = {}
+              for _, entry in ipairs(b.calcsTab.mainOutput.SkillDPS) do
+                if type(entry) == "table" and entry.name then
+                  parts[#parts+1] = entry.name .. "=" .. string.format("%.0f", entry.dps or 0) .. (entry.count and entry.count > 1 and ("x" .. entry.count) or "")
+                end
+              end
+              if #parts > 0 then _tsc_debug_info = _tsc_debug_info .. " skillDPS=[" .. table.concat(parts, ",") .. "]" end
+            end
+          end)
+          -- Timeless jewel LUT state
+          pcall(function()
+            if data and data.timelessJewelLUTs then
+              local parts = {}
+              for k, v in pairs(data.timelessJewelLUTs) do
+                local dataLen = v.data and #v.data or 0
+                parts[#parts+1] = k .. "=" .. dataLen
+              end
+              _tsc_debug_info = _tsc_debug_info .. " LUTs=[" .. table.concat(parts, ",") .. "]"
             end
           end)
           pcall(function()
