@@ -21,6 +21,8 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: cd packages/pob-codec && pnpm build
+      - run: cd packages/build-codec && pnpm build
       - run: pnpm test
 
   build-and-push:

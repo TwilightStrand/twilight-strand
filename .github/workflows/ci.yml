@@ -17,7 +17,8 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: cd packages/build-codec && npx tsup src/index.ts --format esm,cjs --dts
+      - run: cd packages/pob-codec && pnpm build
+      - run: cd packages/build-codec && pnpm build
       - run: cd apps/web && npx tsc --noEmit
       - run: node apps/web/scripts/build-worker.mjs
 
@@ -31,6 +32,8 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: cd packages/pob-codec && pnpm build
+      - run: cd packages/build-codec && pnpm build
       - run: pnpm test
 
   e2e:
@@ -46,6 +49,8 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@v1
       - run: pnpm install --frozen-lockfile
       - run: cd packages/pob-codec && pnpm build
+      - run: cd packages/build-codec && pnpm build
+      - run: bash packages/pob-data/fetch-pob.sh
       - run: node apps/web/scripts/build-worker.mjs
       - run: node apps/web/scripts/e2e-test.mjs
 
@@ -60,6 +65,8 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: cd packages/pob-codec && pnpm build
+      - run: cd packages/build-codec && pnpm build
       - run: node apps/web/scripts/build-worker.mjs
       - run: node apps/web/scripts/convert-tree-lua.mjs 3_29
       - run: cd apps/web && npx next build
