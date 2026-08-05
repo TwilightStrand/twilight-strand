@@ -1,0 +1,201 @@
+syntax = "proto3";
+
+package tsc;
+
+// Canonical build format for Twilight Strand Collective.
+// 10x smaller than PoB XML. Schema-versioned for forward compatibility.
+
+message Modifier {
+  string stat = 1;
+  double value = 2;
+  string mod_type = 3; // "flat", "increased", "more"
+}
+
+message WeaponData {
+  string base_type = 1;
+  double phys_min = 2;
+  double phys_max = 3;
+  double aps = 4;
+  double crit = 5;
+}
+
+message BuildInput {
+  // Core
+  uint32 level = 1;
+  uint32 class_id = 2;
+  string ascendancy_name = 3;
+  string main_skill_id = 4;
+
+  // Base attributes (0 = use class defaults)
+  uint32 base_str = 10;
+  uint32 base_dex = 11;
+  uint32 base_int = 12;
+
+  // Modifiers from items + tree + other sources
+  repeated Modifier modifiers = 20;
+  repeated string allocated_keystones = 21;
+
+  // Gems
+  repeated string support_gems = 30;
+  string minion_skill_id = 31;
+
+  // Equipment
+  repeated string equipped_uniques = 40;
+  repeated string active_flasks = 41;
+  WeaponData weapon = 42;
+  WeaponData weapon2 = 43;
+  bool is_dual_wield = 44;
+
+  // Charges
+  uint32 power_charges = 50;
+  uint32 frenzy_charges = 51;
+  uint32 endurance_charges = 52;
+
+  // Conditions
+  bool on_full_life = 60;
+  bool on_low_life = 61;
+  bool is_leeching = 62;
+  bool have_fortify = 63;
+  bool have_killed_recently = 64;
+  bool have_onslaught = 65;
+  bool have_tailwind = 66;
+  bool have_arcane_surge = 67;
+
+  // Conversion
+  double conversion_phys_to_fire = 70;
+  double conversion_phys_to_cold = 71;
+  double conversion_phys_to_lightning = 72;
+  double conversion_phys_to_chaos = 73;
+
+  // Enemy
+  uint32 enemy_level = 80;
+  double enemy_fire_res = 81;
+  double enemy_cold_res = 82;
+  double enemy_lightning_res = 83;
+  double enemy_chaos_res = 84;
+  bool enemy_is_boss = 85;
+
+  // Reservation
+  double mana_reserved_pct = 90;
+  double life_reserved_pct = 91;
+
+  // Impale
+  double impale_chance = 95;
+
+  // Allocated tree node IDs (for full build restore)
+  repeated uint32 allocated_nodes = 100;
+  uint32 main_socket_group = 101;
+  string tree_version = 102;
+}
+
+message CalcOutput {
+  // Pool
+  double life = 1;
+  double energy_shield = 2;
+  double mana = 3;
+  double ward = 4;
+
+  // Attributes
+  double strength = 10;
+  double dexterity = 11;
+  double intelligence = 12;
+
+  // Defence
+  double armour = 20;
+  double evasion = 21;
+  double evade_chance = 22;
+  double block_chance = 23;
+  double spell_block = 24;
+  double suppression = 25;
+  double phys_reduction = 26;
+  double total_ehp = 27;
+
+  // Resistance
+  double fire_res = 30;
+  double cold_res = 31;
+  double lightning_res = 32;
+  double chaos_res = 33;
+
+  // Offence
+  double total_dps = 40;
+  double combined_dps = 41;
+  double crit_chance = 42;
+  double crit_multiplier = 43;
+  double attack_speed = 44;
+  double accuracy = 45;
+  double hit_chance = 46;
+
+  // Ailments
+  double bleed_dps = 50;
+  double poison_dps = 51;
+  double ignite_dps = 52;
+  double impale_dps = 53;
+
+  // Recovery
+  double life_regen = 60;
+  double mana_regen = 61;
+  double es_regen = 62;
+  double es_recharge_rate = 63;
+  double life_leech_rate = 64;
+  double es_leech_rate = 65;
+
+  // Unreserved
+  double mana_unreserved = 70;
+  double life_unreserved = 71;
+  double mana_reserved_percent = 72;
+
+  // Minions / triggers
+  double total_dps_with_minions = 80;
+  double trigger_rate = 81;
+}
+
+// Level snapshot for level scrubbing - only stores deltas from base
+message LevelSnapshot {
+  uint32 level = 1;
+  repeated uint32 allocated_nodes = 2;    // full node set at this level
+  repeated Modifier added_modifiers = 3;  // mods gained at this level (from new gear/gems)
+  string main_skill_id = 4;              // if skill changes at this level
+  repeated string support_gems = 5;      // if supports change
+}
+
+// Full shareable build: input + metadata + level progression
+message SharedBuild {
+  BuildInput build = 1;                   // endgame snapshot
+  string name = 2;
+  string notes = 3;
+  uint64 created_at = 4;
+  string author = 5;
+  uint32 schema_version = 6;             // bump when breaking changes occur
+
+  repeated SkillGroup skill_groups = 10;
+  repeated Item items = 11;
+
+  // Level progression for scrubbing (optional, only in guides)
+  repeated LevelSnapshot level_snapshots = 20;
+}
+
+message SkillGroup {
+  string slot = 1;
+  bool enabled = 2;
+  string label = 3;
+  repeated Gem gems = 4;
+}
+
+message Gem {
+  string name = 1;
+  uint32 level = 2;
+  uint32 quality = 3;
+  bool enabled = 4;
+  string skill_id = 5;
+  bool is_support = 6;
+}
+
+message Item {
+  string slot = 1;
+  string name = 2;
+  string base = 3;
+  string rarity = 4;
+  repeated string mods = 5;
+  uint32 quality = 6;
+  string sockets = 7;
+}
