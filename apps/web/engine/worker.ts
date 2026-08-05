@@ -854,8 +854,125 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
           _tsc_debug_info = "NO_BUILD"
         end
       `);
+      // Deep diagnostic: use pcall for each check to avoid silent errors
+      await lua.doString(`
+        local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
+        _tsc_debug_info = ""
+        if not b then
+          _tsc_debug_info = "NO_BUILD"
+        else
+          _tsc_debug_info = "build=yes "
+
+          -- Items
+          pcall(function()
+            local count = 0
+            if b.itemsTab and b.itemsTab.items then
+              for _ in pairs(b.itemsTab.items) do count = count + 1 end
+            end
+            _tsc_debug_info = _tsc_debug_info .. "items=" .. count .. " "
+          end)
+
+          -- Slotted items
+          pcall(function()
+            local slotted = 0
+            local slotNames = ""
+            if b.itemsTab and b.itemsTab.activeItemSet then
+              for slotName, data in pairs(b.itemsTab.activeItemSet) do
+                if type(data) == "table" and data.selItemId and data.selItemId > 0 then
+                  slotted = slotted + 1
+                elseif type(data) == "number" and data > 0 then
+                  slotted = slotted + 1
+                end
+              end
+            end
+            -- Also check orderedSlots for selItemId
+            if b.itemsTab and b.itemsTab.orderedSlots then
+              local osSlotted = 0
+              for _, slot in ipairs(b.itemsTab.orderedSlots) do
+                if slot.selItemId and slot.selItemId > 0 then
+                  osSlotted = osSlotted + 1
+                end
+              end
+              _tsc_debug_info = _tsc_debug_info .. "slotted=" .. slotted .. "/" .. osSlotted .. " "
+              _tsc_debug_info = _tsc_debug_info .. "ordSlots=" .. #b.itemsTab.orderedSlots .. " "
+            else
+              _tsc_debug_info = _tsc_debug_info .. "slotted=" .. slotted .. " ordSlots=MISSING "
+            end
+          end)
+
+          -- Config
+          pcall(function()
+            if b.configTab and b.configTab.input then
+              local cc = 0
+              for _ in pairs(b.configTab.input) do cc = cc + 1 end
+              _tsc_debug_info = _tsc_debug_info .. "cfg=" .. cc .. " "
+              if b.configTab.input.usePowerCharges then _tsc_debug_info = _tsc_debug_info .. "pwr=on " end
+              if b.configTab.input.useFrenzyCharges then _tsc_debug_info = _tsc_debug_info .. "frz=on " end
+            end
+          end)
+
+          -- Skills
+          pcall(function()
+            if b.skillsTab and b.skillsTab.socketGroupList then
+              _tsc_debug_info = _tsc_debug_info .. "skills=" .. #b.skillsTab.socketGroupList .. " "
+            end
+          end)
+
+          -- Main skill
+          pcall(function()
+            if b.mainSocketGroup then
+              _tsc_debug_info = _tsc_debug_info .. "mainGrp=" .. b.mainSocketGroup .. " "
+            end
+          end)
+
+          -- CalcsTab output
+          pcall(function()
+            if b.calcsTab and b.calcsTab.mainOutput then
+              local o = b.calcsTab.mainOutput
+              _tsc_debug_info = _tsc_debug_info .. "dps=" .. (o.CombinedDPS or 0)
+              _tsc_debug_info = _tsc_debug_info .. " es=" .. (o.EnergyShield or 0)
+              _tsc_debug_info = _tsc_debug_info .. " life=" .. (o.Life or 0)
+            else
+              _tsc_debug_info = _tsc_debug_info .. "NO_OUTPUT "
+            end
+          end)
+
+          -- Check orderedSlots (critical for item processing)
+          pcall(function()
+            if b.itemsTab and b.itemsTab.orderedSlots then
+              _tsc_debug_info = _tsc_debug_info .. " ordSlots=" .. #b.itemsTab.orderedSlots
+            else
+              _tsc_debug_info = _tsc_debug_info .. " ordSlots=MISSING"
+            end
+          end)
+
+          -- Check if any item has a modList
+          pcall(function()
+            if b.itemsTab and b.itemsTab.items then
+              local withMods = 0
+              for id, item in pairs(b.itemsTab.items) do
+                if item.modList and next(item.modList) then
+                  withMods = withMods + 1
+                end
+              end
+              _tsc_debug_info = _tsc_debug_info .. " itemsWithMods=" .. withMods
+            end
+          end)
+
+          -- Check targetVersion and data availability
+          pcall(function()
+            if b.targetVersion then
+              _tsc_debug_info = _tsc_debug_info .. " ver=" .. tostring(b.targetVersion)
+            end
+            if data and data.itemMods then
+              _tsc_debug_info = _tsc_debug_info .. " hasItemModData=yes"
+            else
+              _tsc_debug_info = _tsc_debug_info .. " hasItemModData=NO"
+            end
+          end)
+        end
+      `);
       const debugInfo = String(lua.global.get("_tsc_debug_info") ?? "");
-      // Expose debug info via the stats result
       (stats as Record<string, unknown>)._debug = debugInfo;
 
       // Apply any manual config overrides on top of what the XML set
