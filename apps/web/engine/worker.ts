@@ -780,7 +780,7 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
         -- Phase 1: Run OnFrame cycles to let the mode switch happen and
         -- the build fully initialize (parse XML, load items, tree, config).
         -- PoB's SetMode is deferred; the actual init happens across frames.
-        local maxInitFrames = 20
+        local maxInitFrames = 40
         for i = 1, maxInitFrames do
           if mainObject and mainObject.OnFrame then
             pcall(runCallback, "OnFrame")
@@ -800,7 +800,7 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
 
         -- Phase 3: Run more frames for the full calc pipeline to complete.
         -- Wait until CombinedDPS stabilizes across consecutive frames.
-        local maxCalcFrames = 60
+        local maxCalcFrames = 200
         local lastDPS = -1
         local stableCount = 0
         for i = 1, maxCalcFrames do
@@ -822,6 +822,41 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
           end
         end
       `);
+
+      // Debug: log what the Lua engine computed
+      await lua.doString(`
+        local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
+        _tsc_debug_info = ""
+        if b then
+          _tsc_debug_info = _tsc_debug_info .. "build=yes "
+          if b.itemsTab then
+            local count = 0
+            if b.itemsTab.items then
+              for _ in pairs(b.itemsTab.items) do count = count + 1 end
+            end
+            _tsc_debug_info = _tsc_debug_info .. "items=" .. count .. " "
+          end
+          if b.configTab and b.configTab.input then
+            local cc = 0
+            for _ in pairs(b.configTab.input) do cc = cc + 1 end
+            _tsc_debug_info = _tsc_debug_info .. "configInputs=" .. cc .. " "
+            if b.configTab.input.usePowerCharges then
+              _tsc_debug_info = _tsc_debug_info .. "powerCharges=on "
+            end
+          end
+          if b.calcsTab and b.calcsTab.mainOutput then
+            local o = b.calcsTab.mainOutput
+            _tsc_debug_info = _tsc_debug_info .. "dps=" .. (o.CombinedDPS or 0) .. " es=" .. (o.EnergyShield or 0) .. " life=" .. (o.Life or 0)
+          else
+            _tsc_debug_info = _tsc_debug_info .. "NO_CALCS_OUTPUT"
+          end
+        else
+          _tsc_debug_info = "NO_BUILD"
+        end
+      `);
+      const debugInfo = String(lua.global.get("_tsc_debug_info") ?? "");
+      // Expose debug info via the stats result
+      (stats as Record<string, unknown>)._debug = debugInfo;
 
       // Apply any manual config overrides on top of what the XML set
       if (config && Object.keys(config).length > 0) {
