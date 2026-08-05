@@ -1,11 +1,48 @@
 use crate::Modifier;
 
+/// Strip `(X-Y)` range notation to midpoint value, e.g. "(5-10)" -> "8"
+fn strip_ranges(line: &str) -> String {
+    let mut result = String::with_capacity(line.len());
+    let mut chars = line.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '(' {
+            let mut inner = String::new();
+            for ic in chars.by_ref() {
+                if ic == ')' { break; }
+                inner.push(ic);
+            }
+            if let Some(dash_idx) = inner.find('-') {
+                let left = inner[..dash_idx].trim();
+                let right = inner[dash_idx + 1..].trim();
+                if let (Ok(lo), Ok(hi)) = (left.parse::<f64>(), right.parse::<f64>()) {
+                    let mid = ((lo + hi) / 2.0 * 10.0).round() / 10.0;
+                    if mid == mid.floor() {
+                        result.push_str(&format!("{}", mid as i64));
+                    } else {
+                        result.push_str(&format!("{}", mid));
+                    }
+                    continue;
+                }
+            }
+            result.push('(');
+            result.push_str(&inner);
+            result.push(')');
+        } else {
+            result.push(c);
+        }
+    }
+    result
+}
+
 /// Parse a PoE stat description line into zero or more Modifiers.
 pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
     let line = line.trim();
     if line.is_empty() {
         return vec![];
     }
+
+    // Pre-pass: replace (X-Y) ranges with midpoint
+    let line = &strip_ranges(line);
 
     let mut mods = Vec::new();
 
@@ -192,11 +229,141 @@ pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
         mods.push(flat("AddedChaosMax", max));
     }
 
+    // --- Projectile / Area / Melee damage ------------------------------------
+    {
+        let lower = line.to_lowercase();
+        let is_minion = lower.contains("minions") || lower.contains("allies");
+        if !is_minion {
+            if let Some(val) = extract_pct(line, "increased projectile damage") {
+                mods.push(increased("ProjectileDamage", val));
+            }
+            if let Some(val) = extract_pct(line, "increased area damage") {
+                mods.push(increased("AreaDamage", val));
+            }
+            if let Some(val) = extract_pct(line, "increased melee damage") {
+                mods.push(increased("MeleeDamage", val));
+            }
+            if let Some(val) = extract_pct(line, "increased elemental damage with attack skills") {
+                mods.push(increased("Damage", val));
+            }
+            if let Some(val) = extract_pct(line, "increased projectile speed") {
+                mods.push(increased("ProjectileSpeed", val));
+            }
+        }
+    }
+
+    // --- Combined Evasion and Armour / Evasion and Energy Shield -----------
+    {
+        let lower = line.to_lowercase();
+        if lower.contains("evasion") && lower.contains("armour") && lower.contains("increased") {
+            if let Some(val) = extract_pct(line, "increased evasion rating and armour") {
+                mods.push(increased("Evasion", val));
+                mods.push(increased("Armour", val));
+            } else if let Some(val) = extract_pct(line, "increased armour and evasion") {
+                mods.push(increased("Armour", val));
+                mods.push(increased("Evasion", val));
+            }
+        }
+        if lower.contains("evasion") && lower.contains("energy shield") && lower.contains("increased") {
+            if let Some(val) = extract_pct(line, "increased evasion and energy shield") {
+                mods.push(increased("Evasion", val));
+                mods.push(increased("EnergyShield", val));
+            }
+        }
+    }
+
+    // --- Max resistances ---------------------------------------------------
+    if let Some(val) = extract_pct_value(line, "to all maximum elemental resistances") {
+        mods.push(flat("FireResMax", val));
+        mods.push(flat("ColdResMax", val));
+        mods.push(flat("LightningResMax", val));
+    } else {
+        if let Some(val) = extract_pct_value(line, "to maximum fire resistance") {
+            mods.push(flat("FireResMax", val));
+        }
+        if let Some(val) = extract_pct_value(line, "to maximum cold resistance") {
+            mods.push(flat("ColdResMax", val));
+        }
+        if let Some(val) = extract_pct_value(line, "to maximum lightning resistance") {
+            mods.push(flat("LightningResMax", val));
+        }
+    }
+
+    // --- DoT Multiplier ----------------------------------------------------
+    if let Some(val) = extract_pct_value(line, "to damage over time multiplier") {
+        mods.push(flat("DamageOverTimeMulti", val));
+    }
+
+    // --- Life Regen --------------------------------------------------------
+    {
+        let lower = line.to_lowercase();
+        if lower.contains("regenerate") && lower.contains("life per second") {
+            if let Some(val) = extract_pct(line, "of life per second") {
+                mods.push(flat("LifeRegenPct", val));
+            } else if let Some(val) = extract_value(line, "life per second") {
+                mods.push(flat("LifeRegen", val));
+            }
+        }
+    }
+
+    // --- Mana Regen --------------------------------------------------------
+    if let Some(val) = extract_pct(line, "increased mana regeneration rate") {
+        mods.push(increased("ManaRegen", val));
+    }
+
+    // --- Movement Speed ----------------------------------------------------
+    if let Some(val) = extract_pct(line, "increased movement speed") {
+        mods.push(increased("MovementSpeed", val));
+    }
+
+    // --- Leech -------------------------------------------------------------
+    {
+        let lower = line.to_lowercase();
+        if lower.contains("leeched as life") {
+            if let Some(val) = extract_pct(line, "of attack damage leeched as life") {
+                mods.push(flat("LifeLeechPct", val));
+            } else if let Some(val) = extract_pct(line, "of physical attack damage leeched as life") {
+                mods.push(flat("LifeLeechPct", val));
+            } else if let Some(val) = extract_pct(line, "of damage leeched as life") {
+                mods.push(flat("LifeLeechPct", val));
+            }
+        }
+        if lower.contains("leeched as energy shield") {
+            if let Some(val) = extract_pct(line, "of damage leeched as energy shield") {
+                mods.push(flat("ESLeechPct", val));
+            }
+        }
+    }
+
+    // --- Mana Reservation Efficiency ---------------------------------------
+    if let Some(val) = extract_pct(line, "increased mana reservation efficiency") {
+        mods.push(increased("ManaReservationEfficiency", val));
+    }
+
+    // --- Skill Duration ----------------------------------------------------
+    if let Some(val) = extract_pct(line, "increased skill effect duration") {
+        mods.push(increased("SkillDuration", val));
+    }
+
+    // --- Area of Effect ----------------------------------------------------
+    if let Some(val) = extract_pct(line, "increased area of effect") {
+        mods.push(increased("AreaOfEffect", val));
+    }
+
+    // --- Global Crit (matches "increased Global Critical Strike Chance") ---
+    if let Some(val) = extract_pct(line, "increased global critical strike chance") {
+        mods.push(increased("CritChance", val));
+    }
+
     // --- Speed --------------------------------------------------------------
     if let Some(val) = extract_pct(line, "increased attack speed") {
         mods.push(increased("AttackSpeed", val));
     }
     if let Some(val) = extract_pct(line, "increased cast speed") {
+        mods.push(increased("AttackSpeed", val));
+    }
+    // "increased Attack and Cast Speed" - both in one line
+    if let Some(val) = extract_pct(line, "increased attack and cast speed") {
         mods.push(increased("AttackSpeed", val));
     }
 
@@ -293,6 +460,61 @@ pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
                 mods.push(increased("MinionDamage", val));
             }
         }
+    }
+
+    // --- Gain as extra damage -----------------------------------------------
+    {
+        let lower = line.to_lowercase();
+        if lower.contains("gain") && lower.contains("as extra") {
+            if lower.contains("physical") && lower.contains("fire") {
+                if let Some(val) = extract_pct(line, "of physical damage as extra fire damage") {
+                    mods.push(flat("PhysGainAsFire", val));
+                }
+            }
+            if lower.contains("physical") && lower.contains("cold") {
+                if let Some(val) = extract_pct(line, "of physical damage as extra cold damage") {
+                    mods.push(flat("PhysGainAsCold", val));
+                }
+            }
+            if lower.contains("physical") && lower.contains("lightning") {
+                if let Some(val) = extract_pct(line, "of physical damage as extra lightning damage") {
+                    mods.push(flat("PhysGainAsLightning", val));
+                }
+            }
+            if lower.contains("physical") && lower.contains("chaos") {
+                if let Some(val) = extract_pct(line, "of physical damage as extra chaos damage") {
+                    mods.push(flat("PhysGainAsChaos", val));
+                }
+            }
+        }
+    }
+
+    // --- Impale -------------------------------------------------------------
+    {
+        let lower = line.to_lowercase();
+        if lower.contains("chance to impale") {
+            if let Some(val) = extract_pct_value(line, "chance to impale") {
+                mods.push(flat("ImpaleChance", val));
+            }
+        }
+        if lower.contains("impale effect") {
+            if let Some(val) = extract_pct(line, "increased impale effect") {
+                mods.push(increased("ImpaleEffect", val));
+            }
+        }
+    }
+
+    // --- Ward ---------------------------------------------------------------
+    if let Some(val) = extract_value(line, "to ward") {
+        mods.push(flat("Ward", val));
+    }
+
+    // --- ES Recharge --------------------------------------------------------
+    if let Some(val) = extract_pct(line, "faster start of energy shield recharge") {
+        mods.push(increased("ESRechargeRate", val));
+    }
+    if let Some(val) = extract_pct(line, "increased energy shield recharge rate") {
+        mods.push(increased("ESRechargeRate", val));
     }
 
     mods
@@ -560,6 +782,164 @@ mod tests {
         let mods = parse_stat_line("+10 to Strength");
         assert_eq!(mods.len(), 1);
         assert_eq!(mods[0].stat, "Str");
+    }
+
+    // --- Range notation stripping ---
+
+    #[test]
+    fn test_strip_range_notation() {
+        let mods = parse_stat_line("(5-10)% increased Attack Speed");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "AttackSpeed");
+        assert_eq!(mods[0].value, 7.5);
+    }
+
+    #[test]
+    fn test_strip_range_flat() {
+        let mods = parse_stat_line("+(40-60) to maximum Life");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "Life");
+        assert_eq!(mods[0].value, 50.0);
+    }
+
+    // --- New patterns ---
+
+    #[test]
+    fn test_projectile_damage() {
+        let mods = parse_stat_line("10% increased Projectile Damage");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "ProjectileDamage");
+    }
+
+    #[test]
+    fn test_area_damage() {
+        let mods = parse_stat_line("15% increased Area Damage");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "AreaDamage");
+    }
+
+    #[test]
+    fn test_melee_damage() {
+        let mods = parse_stat_line("12% increased Melee Damage");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "MeleeDamage");
+    }
+
+    #[test]
+    fn test_max_fire_resistance() {
+        let mods = parse_stat_line("+1% to maximum Fire Resistance");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "FireResMax");
+        assert_eq!(mods[0].value, 1.0);
+    }
+
+    #[test]
+    fn test_all_max_ele_res() {
+        let mods = parse_stat_line("+2% to all maximum Elemental Resistances");
+        assert_eq!(mods.len(), 3);
+        let stats: Vec<_> = mods.iter().map(|m| m.stat.as_str()).collect();
+        assert!(stats.contains(&"FireResMax"));
+        assert!(stats.contains(&"ColdResMax"));
+        assert!(stats.contains(&"LightningResMax"));
+    }
+
+    #[test]
+    fn test_dot_multiplier() {
+        let mods = parse_stat_line("+5% to Damage over Time Multiplier");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "DamageOverTimeMulti");
+        assert_eq!(mods[0].value, 5.0);
+    }
+
+    #[test]
+    fn test_life_regen_pct() {
+        let mods = parse_stat_line("Regenerate 1.5% of Life per second");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "LifeRegenPct");
+        assert_eq!(mods[0].value, 1.5);
+    }
+
+    #[test]
+    fn test_life_regen_flat() {
+        let mods = parse_stat_line("Regenerate 20 Life per second");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "LifeRegen");
+        assert_eq!(mods[0].value, 20.0);
+    }
+
+    #[test]
+    fn test_movement_speed() {
+        let mods = parse_stat_line("10% increased Movement Speed");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "MovementSpeed");
+        assert_eq!(mods[0].value, 10.0);
+    }
+
+    #[test]
+    fn test_increased_evasion_and_armour() {
+        let mods = parse_stat_line("15% increased Evasion Rating and Armour");
+        assert!(mods.len() >= 2);
+        let stats: Vec<_> = mods.iter().map(|m| m.stat.as_str()).collect();
+        assert!(stats.contains(&"Evasion"));
+        assert!(stats.contains(&"Armour"));
+    }
+
+    #[test]
+    fn test_mana_reservation_efficiency() {
+        let mods = parse_stat_line("8% increased Mana Reservation Efficiency of Skills");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "ManaReservationEfficiency");
+    }
+
+    #[test]
+    fn test_leech_pct() {
+        let mods = parse_stat_line("0.4% of Attack Damage Leeched as Life");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "LifeLeechPct");
+        assert_eq!(mods[0].value, 0.4);
+    }
+
+    #[test]
+    fn test_skill_duration() {
+        let mods = parse_stat_line("10% increased Skill Effect Duration");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "SkillDuration");
+    }
+
+    #[test]
+    fn test_global_crit() {
+        let mods = parse_stat_line("40% increased Global Critical Strike Chance");
+        assert!(mods.iter().any(|m| m.stat == "CritChance" && m.value == 40.0));
+    }
+
+    #[test]
+    fn test_attack_and_cast_speed() {
+        let mods = parse_stat_line("4% increased Attack and Cast Speed");
+        assert!(mods.iter().any(|m| m.stat == "AttackSpeed" && m.value == 4.0));
+    }
+
+    #[test]
+    fn test_mana_regen() {
+        let mods = parse_stat_line("20% increased Mana Regeneration Rate");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "ManaRegen");
+        assert_eq!(mods[0].value, 20.0);
+    }
+
+    #[test]
+    fn test_area_of_effect() {
+        let mods = parse_stat_line("8% increased Area of Effect");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "AreaOfEffect");
+    }
+
+    #[test]
+    fn test_unique_item_range_notation() {
+        // Real unique item mod: "(100-120)% increased Evasion and Energy Shield"
+        let mods = parse_stat_line("(100-120)% increased Evasion and Energy Shield");
+        let stats: Vec<_> = mods.iter().map(|m| m.stat.as_str()).collect();
+        assert!(stats.contains(&"Evasion"), "mods: {:?}", mods);
+        assert!(stats.contains(&"EnergyShield"), "mods: {:?}", mods);
     }
 
     // --- Per-type damage tests ---

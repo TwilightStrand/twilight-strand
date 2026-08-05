@@ -15,6 +15,10 @@ pub mod supports;
 
 #[cfg(test)]
 mod integration_tests;
+#[cfg(test)]
+mod bench_harness;
+#[cfg(test)]
+mod snapshot_tests;
 pub mod keystones;
 pub mod ascendancy;
 pub mod weapons;
@@ -90,6 +94,7 @@ pub struct Modifier {
 }
 
 #[derive(Tsify, Serialize, Deserialize, Clone, Debug, Default)]
+#[serde(default)]
 #[tsify(into_wasm_abi, from_wasm_abi)]
 pub struct BuildInput {
     pub level: u32,
@@ -115,6 +120,70 @@ pub struct BuildInput {
     pub enemy_chaos_res: f64,
     #[serde(default)]
     pub enemy_is_boss: bool,
+    #[serde(default)]
+    pub support_gems: Vec<String>,
+    #[serde(default)]
+    pub equipped_uniques: Vec<String>,
+    #[serde(default)]
+    pub active_flasks: Vec<String>,
+    #[serde(default)]
+    pub weapon_base_type: String,
+    #[serde(default)]
+    pub weapon_phys_min: f64,
+    #[serde(default)]
+    pub weapon_phys_max: f64,
+    #[serde(default)]
+    pub weapon_aps: f64,
+    #[serde(default)]
+    pub weapon_crit: f64,
+    #[serde(default)]
+    pub power_charges: u32,
+    #[serde(default)]
+    pub frenzy_charges: u32,
+    #[serde(default)]
+    pub endurance_charges: u32,
+    #[serde(default)]
+    pub on_full_life: bool,
+    #[serde(default)]
+    pub on_low_life: bool,
+    #[serde(default)]
+    pub is_leeching: bool,
+    #[serde(default)]
+    pub have_fortify: bool,
+    #[serde(default)]
+    pub have_killed_recently: bool,
+    #[serde(default)]
+    pub conversion_phys_to_fire: f64,
+    #[serde(default)]
+    pub conversion_phys_to_cold: f64,
+    #[serde(default)]
+    pub conversion_phys_to_lightning: f64,
+    #[serde(default)]
+    pub conversion_phys_to_chaos: f64,
+    #[serde(default)]
+    pub minion_skill_id: String,
+    #[serde(default)]
+    pub mana_reserved_pct: f64,
+    #[serde(default)]
+    pub life_reserved_pct: f64,
+    #[serde(default)]
+    pub impale_chance: f64,
+    #[serde(default)]
+    pub have_onslaught: bool,
+    #[serde(default)]
+    pub have_tailwind: bool,
+    #[serde(default)]
+    pub have_arcane_surge: bool,
+    #[serde(default)]
+    pub weapon2_phys_min: f64,
+    #[serde(default)]
+    pub weapon2_phys_max: f64,
+    #[serde(default)]
+    pub weapon2_aps: f64,
+    #[serde(default)]
+    pub weapon2_crit: f64,
+    #[serde(default)]
+    pub is_dual_wield: bool,
 }
 
 fn default_enemy_level() -> u32 { 83 }
@@ -160,6 +229,26 @@ pub struct CalcOutput {
     pub accuracy: f64,
     pub hit_chance: f64,
     pub total_ehp: f64,
+    pub bleed_dps: f64,
+    pub poison_dps: f64,
+    pub ignite_dps: f64,
+    pub combined_dps: f64,
+    pub life_regen: f64,
+    pub mana_regen: f64,
+    pub es_regen: f64,
+    pub evade_chance: f64,
+    pub phys_reduction: f64,
+    pub suppression: f64,
+    pub trigger_rate: f64,
+    pub total_dps_with_minions: f64,
+    pub mana_unreserved: f64,
+    pub life_unreserved: f64,
+    pub mana_reserved_percent: f64,
+    pub life_leech_rate: f64,
+    pub es_leech_rate: f64,
+    pub impale_dps: f64,
+    pub ward: f64,
+    pub es_recharge_rate: f64,
 }
 
 // ---------------------------------------------------------------------------
@@ -281,9 +370,50 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     let mut all_mods = input.modifiers.clone();
     keystones::apply_keystones(&input, &mut all_mods);
 
-    // Inject ascendancy bonuses
     if !input.ascendancy_name.is_empty() {
         all_mods.extend(ascendancy::get_ascendancy_mods(&input.ascendancy_name));
+    }
+
+    for gem_name in &input.support_gems {
+        all_mods.extend(supports::get_support_modifiers(gem_name));
+    }
+
+    for unique_name in &input.equipped_uniques {
+        all_mods.extend(uniques::get_unique_effects(unique_name));
+    }
+
+    for flask_name in &input.active_flasks {
+        all_mods.extend(flasks::get_flask_mods(flask_name));
+    }
+
+    // Charges
+    all_mods.extend(flasks::charge_mods("power", input.power_charges));
+    all_mods.extend(flasks::charge_mods("frenzy", input.frenzy_charges));
+    all_mods.extend(flasks::charge_mods("endurance", input.endurance_charges));
+
+    // Fortify
+    if input.have_fortify {
+        all_mods.push(Modifier { stat: "DamageTakenReduction".into(), value: 20.0, mod_type: "flat".into() });
+    }
+
+    // Buff effects
+    if input.have_onslaught {
+        all_mods.push(Modifier { stat: "AttackSpeed".into(), value: 20.0, mod_type: "increased".into() });
+        all_mods.push(Modifier { stat: "MovementSpeed".into(), value: 20.0, mod_type: "increased".into() });
+    }
+    if input.have_tailwind {
+        all_mods.push(Modifier { stat: "AttackSpeed".into(), value: 8.0, mod_type: "increased".into() });
+    }
+    if input.have_arcane_surge {
+        all_mods.push(Modifier { stat: "SpellDamage".into(), value: 10.0, mod_type: "more".into() });
+        all_mods.push(Modifier { stat: "AttackSpeed".into(), value: 10.0, mod_type: "increased".into() });
+    }
+
+    // Dual-wield bonuses
+    if input.is_dual_wield {
+        all_mods.push(Modifier { stat: "AttackSpeed".into(), value: 10.0, mod_type: "more".into() });
+        all_mods.push(Modifier { stat: "BlockChance".into(), value: 15.0, mod_type: "flat".into() });
+        all_mods.push(Modifier { stat: "PhysicalDamage".into(), value: 20.0, mod_type: "more".into() });
     }
 
     let agg = aggregate_mods(&all_mods);
@@ -303,6 +433,17 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     let energy_shield = calc_es(&agg, intelligence);
     let mana = calc_mana(input.level, intelligence, &agg);
 
+    // --- Ward ----------------------------------------------------------------
+    let ward = get_buckets(&agg, "Ward").0.max(0.0);
+
+    // --- ES Recharge ---------------------------------------------------------
+    let es_recharge_inc = get_buckets(&agg, "ESRechargeRate").1;
+    let es_recharge_rate = if energy_shield > 0.0 {
+        (energy_shield / 2.0) * (1.0 + es_recharge_inc / 100.0)
+    } else {
+        0.0
+    };
+
     // --- Armour / Evasion ----------------------------------------------------
     let (af, ai, am) = get_buckets(&agg, "Armour");
     let str_armour_bonus = (strength / 5.0).floor();
@@ -312,59 +453,221 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     let dex_evasion_bonus = (dexterity / 5.0).floor();
     let evasion = calc_stat(dex_evasion_bonus, ef, ei, em).round().max(0.0);
 
-    // --- Resistances (flat only, capped at 90) -------------------------------
-    let fire_res = (get_buckets(&agg, "FireRes").0 - 60.0).min(90.0);
-    let cold_res = (get_buckets(&agg, "ColdRes").0 - 60.0).min(90.0);
-    let lightning_res = (get_buckets(&agg, "LightningRes").0 - 60.0).min(90.0);
-    let chaos_res = (get_buckets(&agg, "ChaosRes").0 - 60.0).min(75.0);
+    // --- Resistances with max res cap ----------------------------------------
+    let fire_res_max = 75.0 + get_buckets(&agg, "FireResMax").0;
+    let cold_res_max = 75.0 + get_buckets(&agg, "ColdResMax").0;
+    let lightning_res_max = 75.0 + get_buckets(&agg, "LightningResMax").0;
+    let chaos_res_max = 75.0;
+    let fire_res = (get_buckets(&agg, "FireRes").0 - 60.0).min(fire_res_max);
+    let cold_res = (get_buckets(&agg, "ColdRes").0 - 60.0).min(cold_res_max);
+    let lightning_res = (get_buckets(&agg, "LightningRes").0 - 60.0).min(lightning_res_max);
+    let chaos_res = (get_buckets(&agg, "ChaosRes").0 - 60.0).min(chaos_res_max);
 
     // --- Block ---------------------------------------------------------------
     let block_chance = get_buckets(&agg, "BlockChance").0.clamp(0.0, 75.0);
     let spell_block = get_buckets(&agg, "SpellBlockChance").0.clamp(0.0, 75.0);
 
-    // --- Accuracy / Hit Chance -----------------------------------------------
-    let accuracy = calc_accuracy(input.level, dexterity, &agg);
-    let hit_chance = calc_hit_chance(accuracy, 600.0);
+    // --- Suppression ---------------------------------------------------------
+    let suppression = get_buckets(&agg, "SpellSuppression").0.clamp(0.0, 100.0);
 
-    // --- DPS -----------------------------------------------------------------
-    // Use gem base damage when a skill is specified, otherwise fall back to
-    // raw Damage modifiers.
+    // --- Accuracy / Hit Chance (PoB formula) ---------------------------------
+    let accuracy = calc_accuracy(input.level, dexterity, &agg);
+    let enemy_evasion = 600.0;
+    let hit_chance = if enemy_evasion <= 0.0 {
+        100.0
+    } else {
+        let raw = accuracy / (accuracy + (enemy_evasion / 5.0_f64).powf(0.9)) * 125.0;
+        raw.clamp(5.0, 100.0)
+    };
+
+    // --- DPS via damage.rs conversion pipeline --------------------------------
     let gem = if !input.main_skill_id.is_empty() {
         gems::lookup_gem(&input.main_skill_id)
     } else {
         None
     };
 
-    let (dmg_flat, dmg_inc, dmg_more) = get_buckets(&agg, "Damage");
-    let (spd_flat, spd_inc, spd_more) = get_buckets(&agg, "AttackSpeed");
+    let has_weapon = input.weapon_aps > 0.0;
+    let has_weapon2 = input.is_dual_wield && input.weapon2_aps > 0.0;
 
-    let (gem_base_dmg, gem_base_speed, gem_base_crit, gem_effectiveness) = match gem {
-        Some(g) if !g.is_dot => (
-            gems::avg_base_damage(g),
-            1.0 / g.base_cast_time,      // attacks/casts per second
-            g.base_crit_chance,
-            g.damage_effectiveness,
-        ),
-        _ => (0.0, 1.0, 5.0, 1.0),
+    // For dual-wield, average both weapons' stats
+    let (eff_weapon_phys_min, eff_weapon_phys_max, eff_weapon_aps, eff_weapon_crit) = if has_weapon2 {
+        (
+            (input.weapon_phys_min + input.weapon2_phys_min) / 2.0,
+            (input.weapon_phys_max + input.weapon2_phys_max) / 2.0,
+            (input.weapon_aps + input.weapon2_aps) / 2.0,
+            (input.weapon_crit + input.weapon2_crit) / 2.0,
+        )
+    } else {
+        (input.weapon_phys_min, input.weapon_phys_max, input.weapon_aps, input.weapon_crit)
     };
 
-    let added_damage = dmg_flat * gem_effectiveness;
-    let base_damage = calc_stat(gem_base_dmg, added_damage, dmg_inc, dmg_more);
-    let attack_speed = calc_stat(gem_base_speed, spd_flat, spd_inc, spd_more);
+    // Build base damage set from gem + weapon
+    let mut base_dmg = damage::DamageSet::new();
+    if let Some(g) = gem {
+        if !g.is_dot {
+            for dr in g.base_damages {
+                let dt = match dr.damage_type {
+                    gems::DamageType::Physical => damage::DamageType::Physical,
+                    gems::DamageType::Fire => damage::DamageType::Fire,
+                    gems::DamageType::Cold => damage::DamageType::Cold,
+                    gems::DamageType::Lightning => damage::DamageType::Lightning,
+                    gems::DamageType::Chaos => damage::DamageType::Chaos,
+                };
+                base_dmg.add(dt, (dr.min + dr.max) / 2.0);
+            }
+        }
+    }
 
+    // Add weapon physical damage
+    if has_weapon {
+        let weapon_avg = (eff_weapon_phys_min + eff_weapon_phys_max) / 2.0;
+        if weapon_avg > 0.0 {
+            base_dmg.add(damage::DamageType::Physical, weapon_avg);
+        }
+    }
+
+    // Added flat damage from mods
+    let effectiveness = gem.map(|g| g.damage_effectiveness).unwrap_or(1.0);
+    let added_types = [
+        ("AddedPhysMin", "AddedPhysMax", damage::DamageType::Physical),
+        ("AddedFireMin", "AddedFireMax", damage::DamageType::Fire),
+        ("AddedColdMin", "AddedColdMax", damage::DamageType::Cold),
+        ("AddedLightningMin", "AddedLightningMax", damage::DamageType::Lightning),
+        ("AddedChaosMin", "AddedChaosMax", damage::DamageType::Chaos),
+    ];
+    for (min_stat, max_stat, dt) in &added_types {
+        let min_val = get_buckets(&agg, min_stat).0;
+        let max_val = get_buckets(&agg, max_stat).0;
+        if min_val > 0.0 || max_val > 0.0 {
+            base_dmg.add(*dt, (min_val + max_val) / 2.0 * effectiveness);
+        }
+    }
+
+    // Generic flat "Damage" mod spread equally across present types or as physical
+    let generic_flat = get_buckets(&agg, "Damage").0;
+    if generic_flat > 0.0 {
+        let present: Vec<damage::DamageType> = damage::DamageType::ALL.iter()
+            .filter(|dt| base_dmg.get(**dt) > 0.0)
+            .copied().collect();
+        if present.is_empty() {
+            base_dmg.add(damage::DamageType::Physical, generic_flat * effectiveness);
+        } else {
+            for dt in &present {
+                base_dmg.add(*dt, generic_flat * effectiveness / present.len() as f64);
+            }
+        }
+    }
+
+    // Gain-as-extra damage: add percentage of physical base as extra elemental/chaos
+    let phys_base = base_dmg.get(damage::DamageType::Physical);
+    if phys_base > 0.0 {
+        let gain_as = [
+            ("PhysGainAsFire", damage::DamageType::Fire),
+            ("PhysGainAsCold", damage::DamageType::Cold),
+            ("PhysGainAsLightning", damage::DamageType::Lightning),
+            ("PhysGainAsChaos", damage::DamageType::Chaos),
+        ];
+        for (stat, dt) in &gain_as {
+            let pct = get_buckets(&agg, stat).0;
+            if pct > 0.0 {
+                base_dmg.add(*dt, phys_base * pct / 100.0);
+            }
+        }
+    }
+
+    // Build conversion table
+    let mut conversions = damage::ConversionTable::new();
+    if input.conversion_phys_to_fire > 0.0 {
+        conversions.insert((damage::DamageType::Physical, damage::DamageType::Fire), input.conversion_phys_to_fire);
+    }
+    if input.conversion_phys_to_cold > 0.0 {
+        conversions.insert((damage::DamageType::Physical, damage::DamageType::Cold), input.conversion_phys_to_cold);
+    }
+    if input.conversion_phys_to_lightning > 0.0 {
+        conversions.insert((damage::DamageType::Physical, damage::DamageType::Lightning), input.conversion_phys_to_lightning);
+    }
+    if input.conversion_phys_to_chaos > 0.0 {
+        conversions.insert((damage::DamageType::Physical, damage::DamageType::Chaos), input.conversion_phys_to_chaos);
+    }
+
+    // Build per-type damage modifiers
+    let mut type_mods = damage::DamageModifiers::new();
+    let type_stat_map = [
+        (damage::DamageType::Physical, "PhysicalDamage"),
+        (damage::DamageType::Fire, "FireDamage"),
+        (damage::DamageType::Cold, "ColdDamage"),
+        (damage::DamageType::Lightning, "LightningDamage"),
+        (damage::DamageType::Chaos, "ChaosDamage"),
+    ];
+    for (dt, stat) in &type_stat_map {
+        let (flat, inc, more) = get_buckets(&agg, stat);
+        if flat != 0.0 || inc != 0.0 || more != 1.0 {
+            type_mods.insert(*dt, (flat, inc, more));
+        }
+    }
+
+    // Global + tag-based damage mods
+    let (_, global_inc, global_more) = get_buckets(&agg, "Damage");
+    let mut total_global_inc = global_inc;
+    let mut total_global_more = global_more;
+
+    if let Some(g) = gem {
+        for tag in g.tags {
+            let tag_stat = match tag {
+                gems::GemTag::Attack => Some("AttackDamage"),
+                gems::GemTag::Spell => Some("SpellDamage"),
+                gems::GemTag::Melee => Some("MeleeDamage"),
+                gems::GemTag::Projectile => Some("ProjectileDamage"),
+                gems::GemTag::AoE => Some("AreaDamage"),
+                _ => None,
+            };
+            if let Some(stat) = tag_stat {
+                let (_, ti, tm) = get_buckets(&agg, stat);
+                total_global_inc += ti;
+                total_global_more *= tm;
+            }
+        }
+        if g.tags.contains(&gems::GemTag::DoT) || g.is_dot {
+            let (_, ti, tm) = get_buckets(&agg, "DamageOverTime");
+            total_global_inc += ti;
+            total_global_more *= tm;
+        }
+    }
+
+    // Speed
+    let (spd_flat, spd_inc, spd_more) = get_buckets(&agg, "AttackSpeed");
+    let base_speed = match gem {
+        Some(g) if !g.is_dot => if has_weapon { eff_weapon_aps } else { 1.0 / g.base_cast_time },
+        _ => if has_weapon { eff_weapon_aps } else { 1.0 },
+    };
+    let attack_speed = calc_stat(base_speed, spd_flat, spd_inc, spd_more);
+
+    // Crit
     let (crit_base_mod, crit_inc, crit_more) = get_buckets(&agg, "CritChance");
+    let gem_base_crit = match gem {
+        Some(g) if !g.is_dot => if has_weapon && eff_weapon_crit > 0.0 { eff_weapon_crit } else { g.base_crit_chance },
+        _ => if has_weapon && eff_weapon_crit > 0.0 { eff_weapon_crit } else { 5.0 },
+    };
     let base_crit = if crit_base_mod != 0.0 { gem_base_crit + crit_base_mod } else { gem_base_crit };
     let crit_chance = calc_stat(base_crit, 0.0, crit_inc, crit_more).clamp(0.0, 100.0);
-
     let crit_multi = 150.0 + get_buckets(&agg, "CritMultiplier").0;
 
-    // --- Penetration & enemy resistance ----------------------------------------
+    // Use damage.rs pipeline for hit DPS
+    let hit_result = damage::calc_hit_dps(
+        &base_dmg, &conversions, &type_mods,
+        total_global_inc, total_global_more,
+        crit_chance, crit_multi,
+        attack_speed, hit_chance,
+    );
+
+    // Per-type resistance application
     let fire_pen = get_buckets(&agg, "FirePenetration").0;
     let cold_pen = get_buckets(&agg, "ColdPenetration").0;
     let lightning_pen = get_buckets(&agg, "LightningPenetration").0;
-    let chaos_pen = get_buckets(&agg, "ChaosPenetration").0;
+    let _chaos_pen = get_buckets(&agg, "ChaosPenetration").0;
 
-    let (e_fire, e_cold, e_light, e_chaos) = if input.enemy_is_boss {
+    let (e_fire, e_cold, e_light, _e_chaos) = if input.enemy_is_boss {
         (input.enemy_fire_res.max(40.0), input.enemy_cold_res.max(40.0),
          input.enemy_lightning_res.max(40.0), input.enemy_chaos_res.max(25.0))
     } else {
@@ -372,24 +675,175 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
          input.enemy_lightning_res, input.enemy_chaos_res)
     };
 
-    // Average resistance multiplier (simplified: assumes generic elemental damage)
     let avg_pen = (fire_pen + cold_pen + lightning_pen) / 3.0;
     let avg_enemy_ele_res = (e_fire + e_cold + e_light) / 3.0;
     let res_mult = apply_resistance(avg_enemy_ele_res, avg_pen);
 
-    let avg_hit = base_damage
-        * (1.0 + (crit_chance / 100.0) * (crit_multi / 100.0 - 1.0));
     let total_dps = if gem.map_or(false, |g| g.is_dot) {
         let dot_base = gem.unwrap().dot_base;
-        calc_stat(dot_base, dmg_flat, dmg_inc, dmg_more) * res_mult
+        let (dot_flat, dot_inc, dot_more) = get_buckets(&agg, "Damage");
+        let (_, dot_inc2, dot_more2) = get_buckets(&agg, "DamageOverTime");
+        calc_stat(dot_base, dot_flat, dot_inc + dot_inc2, dot_more * dot_more2) * res_mult
     } else {
-        avg_hit * attack_speed * (hit_chance / 100.0) * res_mult
+        hit_result.dps * res_mult
+    };
+
+    // Ailment DPS
+    let phys_hit = hit_result.per_type.get("Physical").copied().unwrap_or(0.0);
+    let fire_hit = hit_result.per_type.get("Fire").copied().unwrap_or(0.0);
+    let chaos_hit = hit_result.per_type.get("Chaos").copied().unwrap_or(0.0);
+
+    let bleed_dps = if phys_hit > 0.0 {
+        let crimson = input.allocated_keystones.iter().any(|k| k.contains("Crimson Dance"));
+        damage::calc_bleed(phys_hit, get_buckets(&agg, "BleedDamage").1, 1.0, 0.0, crimson).total_dps
+    } else { 0.0 };
+
+    let poison_dps = if (phys_hit + chaos_hit) > 0.0 {
+        let poison_chance = get_buckets(&agg, "PoisonChance").0.min(100.0);
+        if poison_chance > 0.0 {
+            damage::calc_poison(phys_hit, chaos_hit, get_buckets(&agg, "PoisonDamage").1, 1.0, 0.0, poison_chance, attack_speed).total_dps
+        } else { 0.0 }
+    } else { 0.0 };
+
+    let ignite_dps = if fire_hit > 0.0 {
+        damage::calc_ignite(fire_hit, get_buckets(&agg, "IgniteDamage").1, 1.0, 0.0).total_dps
+    } else { 0.0 };
+
+    // --- Trigger rate capping --------------------------------------------------
+    let mut trigger_rate = 0.0_f64;
+    let total_dps = {
+        let mut dps = total_dps;
+        for gem_name in &input.support_gems {
+            if let Some(tt) = triggers::detect_trigger(gem_name) {
+                let config = match tt {
+                    triggers::TriggerType::CastOnCrit =>
+                        triggers::TriggerConfig::cast_on_crit(attack_speed, crit_chance),
+                    triggers::TriggerType::Spellslinger =>
+                        triggers::TriggerConfig::spellslinger(attack_speed),
+                    triggers::TriggerType::CastWhenDamageTaken =>
+                        triggers::TriggerConfig::cwdt(20),
+                    _ => triggers::TriggerConfig::self_cast(),
+                };
+                let rate = triggers::calc_trigger_rate(&config);
+                if rate > 0.0 {
+                    trigger_rate = rate;
+                    let hit_dmg = if hit_result.avg_hit > 0.0 { hit_result.avg_hit } else { dps / attack_speed.max(0.01) };
+                    dps = hit_dmg * rate * res_mult;
+                }
+                break;
+            }
+        }
+        dps
+    };
+
+    // --- Minion DPS -----------------------------------------------------------
+    let total_dps_with_minions = if !input.minion_skill_id.is_empty() {
+        if let Some(base) = minions::get_minion_base(&input.minion_skill_id) {
+            let (_, minion_inc, minion_more) = get_buckets(&agg, "MinionDamage");
+            let (_, minion_spd_inc, _) = get_buckets(&agg, "MinionSpeed");
+            let minion_dps = minions::calc_minion_dps(
+                base,
+                minion_inc,
+                if minion_more != 1.0 { minion_more } else { 1.0 },
+                minion_spd_inc,
+            );
+            total_dps + minion_dps
+        } else {
+            total_dps
+        }
+    } else {
+        total_dps
+    };
+
+    // Impale DPS
+    let impale_chance_total = input.impale_chance + get_buckets(&agg, "ImpaleChance").0;
+    let impale_dps = if impale_chance_total > 0.0 && phys_hit > 0.0 {
+        let chance = impale_chance_total.min(100.0);
+        let stacks = 5_u32;
+        let impale_effect = get_buckets(&agg, "ImpaleEffect").0;
+        phys_hit * attack_speed * (hit_chance / 100.0)
+            * (chance / 100.0)
+            * stacks.min(5) as f64
+            * 0.1
+            * (1.0 + impale_effect / 100.0)
+            * res_mult
+    } else {
+        0.0
+    };
+
+    let combined_dps = total_dps + bleed_dps + poison_dps + ignite_dps + impale_dps;
+
+    // --- Regen ---------------------------------------------------------------
+    let life_regen_flat = get_buckets(&agg, "LifeRegen").0;
+    let life_regen_pct = get_buckets(&agg, "LifeRegenPct").0;
+    let life_regen = life_regen_flat + life * life_regen_pct / 100.0;
+
+    let (mana_regen_flat, mana_regen_inc, _) = get_buckets(&agg, "ManaRegen");
+    let base_mana_regen = mana * 0.0175; // 1.75% base
+    let mana_regen = (base_mana_regen + mana_regen_flat) * (1.0 + mana_regen_inc / 100.0);
+
+    let es_regen = get_buckets(&agg, "ESRegen").0;
+
+    // --- Aura reservation -------------------------------------------------------
+    let mana_reserved_pct = input.mana_reserved_pct.clamp(0.0, 100.0);
+    let life_reserved_pct = input.life_reserved_pct.clamp(0.0, 100.0);
+    let mana_unreserved = mana * (1.0 - mana_reserved_pct / 100.0);
+    let life_unreserved = life * (1.0 - life_reserved_pct / 100.0);
+    let is_low_life = life > 0.0 && (life_unreserved / life) < 0.5;
+
+    // Pain Attunement: 30% more spell damage when on low life
+    let total_dps = if is_low_life
+        && input.allocated_keystones.iter().any(|k| {
+            let lk = k.to_lowercase();
+            lk.contains("pain attunement")
+        })
+        && gem.map_or(false, |g| g.tags.contains(&gems::GemTag::Spell))
+    {
+        total_dps * 1.3
+    } else {
+        total_dps
+    };
+
+    // --- Leech rate --------------------------------------------------------------
+    let leech_pct = get_buckets(&agg, "LifeLeechPct").0;
+    let max_life_leech_rate = life * 0.20; // 20% of max life per second
+    let life_leech_rate = if leech_pct > 0.0 && total_dps > 0.0 {
+        (total_dps * leech_pct / 100.0).min(max_life_leech_rate)
+    } else {
+        0.0
+    };
+
+    let es_leech_pct = get_buckets(&agg, "ESLeechPct").0;
+    let max_es_leech_rate = energy_shield * 0.20;
+    let es_leech_rate = if es_leech_pct > 0.0 && total_dps > 0.0 {
+        (total_dps * es_leech_pct / 100.0).min(max_es_leech_rate)
+    } else {
+        0.0
     };
 
     // --- Derived defences ----------------------------------------------------
-    let phys_reduction = phys_reduction_from_armour(armour, 83.0 * 5.0);
+    let phys_reduction = phys_reduction_from_armour(armour, 83.0 * 5.0)
+        + get_buckets(&agg, "PhysicalDamageReduction").0
+        + get_buckets(&agg, "DamageTakenReduction").0;
+    let phys_reduction = phys_reduction.min(90.0);
     let evade_chance = calc_evade_chance(evasion, 600.0);
-    let total_ehp = calc_ehp(life, energy_shield, phys_reduction, block_chance, evade_chance);
+
+    // Suppression reduces spell damage by 50%
+    let suppression_mult = 1.0 - (suppression / 100.0) * 0.5;
+
+    // Mind over Matter: 30% of damage taken from mana before life
+    let has_mom = input.allocated_keystones.iter().any(|k| {
+        let lk = k.to_lowercase();
+        lk.contains("mind over matter") || lk == "mom"
+    });
+    let effective_pool = if has_mom {
+        life_unreserved + (mana_unreserved * 0.3)
+    } else {
+        life
+    };
+
+    let total_ehp = calc_ehp(effective_pool + ward, energy_shield, phys_reduction, block_chance, evade_chance)
+        / suppression_mult;
 
     CalcOutput {
         life,
@@ -413,6 +867,26 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
         accuracy,
         hit_chance,
         total_ehp,
+        bleed_dps,
+        poison_dps,
+        ignite_dps,
+        combined_dps,
+        life_regen,
+        mana_regen,
+        es_regen,
+        evade_chance,
+        phys_reduction,
+        suppression,
+        trigger_rate,
+        total_dps_with_minions,
+        mana_unreserved,
+        life_unreserved,
+        mana_reserved_percent: mana_reserved_pct,
+        life_leech_rate,
+        es_leech_rate,
+        impale_dps,
+        ward,
+        es_recharge_rate,
     }
 }
 
@@ -643,7 +1117,7 @@ mod tests {
             mod_type: "flat".into(),
         });
         let out = evaluate_build(input);
-        assert_eq!(out.fire_res, 90.0); // capped at 90 (uncapped display)
+        assert_eq!(out.fire_res, 75.0); // capped at max fire res (75% default)
     }
 
     #[test]
