@@ -70,25 +70,18 @@ const LUA_SHIMS = `
   end
 
   -- Inflate: read pre-decompressed .bin file instead of decompressing at runtime.
-  -- PoB calls Inflate(io.open("...zip","rb"):read("*a")); since we can't decompress
-  -- in WASM, we track the last opened .zip path and read the .bin equivalent.
+  -- Tracks the last opened .zip path via io.open override, then reads the .bin equivalent.
   _tsc_last_opened_zip = nil
-  _tsc_inflate_log = ""
   Inflate = function(d)
-    _tsc_inflate_log = _tsc_inflate_log .. "called:zip=" .. tostring(_tsc_last_opened_zip) .. " "
     if _tsc_last_opened_zip then
       local binPath = _tsc_last_opened_zip:gsub("%.zip$", ".bin"):gsub("%.zip%.part%d*$", ".bin")
-      local f, err = io.open(binPath, "rb")
-      _tsc_inflate_log = _tsc_inflate_log .. "bin=" .. binPath .. " f=" .. tostring(f ~= nil) .. " "
+      local f = io.open(binPath, "rb")
       if f then
         local data = f:read("*a")
         f:close()
-        _tsc_inflate_log = _tsc_inflate_log .. "#=" .. (data and #data or 0) .. " "
         if data and #data > 0 then
           return data
         end
-      else
-        _tsc_inflate_log = _tsc_inflate_log .. "err=" .. tostring(err) .. " "
       end
     end
     return ""
@@ -725,7 +718,7 @@ async function handleInit(id: number, _gameId: string): Promise<void> {
       _tsc_launch_ok = #errors == 0
       _tsc_boot_steps = table.concat(steps, "; ")
       _tsc_boot_errors = table.concat(errors, "; ")
-      _tsc_boot_info = (_tsc_launch_ok and "OK" or "PARTIAL") .. " | " .. table.concat(steps, "; ") .. " | ERR: " .. table.concat(errors, "; ")
+      _tsc_boot_info = table.concat(steps, "; ") .. (#errors > 0 and (" | ERR: " .. table.concat(errors, "; ")) or "")
     `);
 
     const launchOk = lua.global.get("_tsc_launch_ok");
@@ -734,7 +727,7 @@ async function handleInit(id: number, _gameId: string): Promise<void> {
     const hasMain = lua.global.get("_tsc_has_main");
     const hasModes = lua.global.get("_tsc_has_modes");
 
-    console.log("[boot]", launchOk ? "OK" : "PARTIAL", "steps:", bootSteps, "errors:", bootErrors, "main:", !!hasMain, "modes:", !!hasModes);
+    if (!launchOk) console.warn("[boot] PARTIAL:", bootErrors);
 
     if (launchOk) {
       progress(id, `PoB booted: ${bootSteps}`);
@@ -843,30 +836,16 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
           try {
             progress(id, `Loading timeless jewel data (${needed.join(", ")})...`);
             const count = await mountTimelessJewelData(factory, "/data/pob", needed);
-            console.log("[jewel-mount]", count, "files mounted for", needed.join(","));
-            console.log("[jewel-post-mount] count=" + count + " lua=" + !!lua);
             if (count > 0 && lua) {
-              try {
-                await lua.doString(`
-                  _tsc_lut_clear = "no-data"
-                  pcall(function()
-                    if data and data.timelessJewelLUTs then
-                      local c = 0
-                      for k in pairs(data.timelessJewelLUTs) do c = c + 1 end
-                      _tsc_lut_clear = "found " .. c .. " LUTs, clearing"
-                      for k in pairs(data.timelessJewelLUTs) do
-                        data.timelessJewelLUTs[k] = nil
-                      end
-                    elseif data then
-                      _tsc_lut_clear = "data exists but no timelessJewelLUTs"
+              await lua.doString(`
+                pcall(function()
+                  if data and data.timelessJewelLUTs then
+                    for k in pairs(data.timelessJewelLUTs) do
+                      data.timelessJewelLUTs[k] = nil
                     end
-                  end)
-                `);
-                const lutClear = lua.global.get("_tsc_lut_clear");
-                console.log("[lut-clear]", String(lutClear ?? "UNSET"));
-              } catch (lutErr) {
-                console.warn("[lut-error]", lutErr instanceof Error ? lutErr.message : String(lutErr));
-              }
+                  end
+                end)
+              `);
             }
           } catch (e) {
             console.warn("[jewel-error]", e instanceof Error ? e.message : String(e));
@@ -892,75 +871,9 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
       `);
 
       const loadErr = lua.global.get("_tsc_eval_error");
-      const jewelLog = lua.global.get("_tsc_jewel_log");
-      if (jewelLog) console.log("[jewel-lua]", String(jewelLog));
       if (loadErr) {
         console.warn("PoB loadBuild error:", String(loadErr).substring(0, 500));
       }
-
-      // Diagnose timeless jewel state after build load
-      await lua.doString(`
-        _tsc_jewel_diag = ""
-        pcall(function()
-          local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
-          if not b then _tsc_jewel_diag = "NO_BUILD"; return end
-          if not b.itemsTab then _tsc_jewel_diag = "NO_ITEMS_TAB"; return end
-
-          -- Find timeless jewels in items
-          for id, item in pairs(b.itemsTab.items) do
-            if item.base and item.base.subType == "Timeless" then
-              _tsc_jewel_diag = _tsc_jewel_diag .. "item=" .. (item.title or item.name or "?")
-              _tsc_jewel_diag = _tsc_jewel_diag .. " radIdx=" .. tostring(item.jewelRadiusIndex)
-              if item.jewelData then
-                _tsc_jewel_diag = _tsc_jewel_diag .. " jdConq=" .. tostring(item.jewelData.conqueredBy ~= nil)
-                if item.jewelData.conqueredBy then
-                  _tsc_jewel_diag = _tsc_jewel_diag .. " seed=" .. tostring(item.jewelData.conqueredBy.id)
-                  _tsc_jewel_diag = _tsc_jewel_diag .. " type=" .. tostring(item.jewelData.conqueredBy.conqueror and item.jewelData.conqueredBy.conqueror.type or "nil")
-                end
-              else
-                _tsc_jewel_diag = _tsc_jewel_diag .. " NO_JEWEL_DATA"
-              end
-              _tsc_jewel_diag = _tsc_jewel_diag .. " | "
-            end
-          end
-
-          -- Check spec for conquered nodes
-          if b.spec then
-            local conquered = 0
-            for id, node in pairs(b.spec.nodes) do
-              if node.conqueredBy then conquered = conquered + 1 end
-            end
-            _tsc_jewel_diag = _tsc_jewel_diag .. "conqueredNodes=" .. conquered
-
-            -- Check a jewel socket for nodesInRadius
-            if b.spec.tree and b.spec.tree.sockets then
-              local socketCount = 0
-              local hasRadius = 0
-              for _, socket in pairs(b.spec.tree.sockets) do
-                socketCount = socketCount + 1
-                if socket.nodesInRadius then hasRadius = hasRadius + 1 end
-              end
-              _tsc_jewel_diag = _tsc_jewel_diag .. " sockets=" .. socketCount .. " withRadius=" .. hasRadius
-            end
-          end
-
-          -- Check data.timelessJewelLUTs
-          if data and data.timelessJewelLUTs then
-            local lutInfo = {}
-            for k, v in pairs(data.timelessJewelLUTs) do
-              local dataLen = v.data and #v.data or 0
-              lutInfo[#lutInfo+1] = k .. "=" .. dataLen
-            end
-            _tsc_jewel_diag = _tsc_jewel_diag .. " LUTs=[" .. table.concat(lutInfo, ",") .. "]"
-          else
-            _tsc_jewel_diag = _tsc_jewel_diag .. " LUTs=nil"
-          end
-        end)
-      `);
-      const jewelDiag = lua.global.get("_tsc_jewel_diag");
-      console.log("[jewel-diag]", String(jewelDiag ?? "UNSET"));
-      const inflateLog = lua.global.get("_tsc_inflate_log");
-      if (inflateLog) console.log("[inflate]", String(inflateLog));
 
       progress(id, "Running calculations...");
       await lua.doString(`
@@ -1010,7 +923,7 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
         end
       `);
 
-      // Comprehensive debug for DPS gap analysis
+      // Compact engine debug
       await lua.doString(`
         local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
         _tsc_debug_info = ""
@@ -1026,106 +939,16 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
               _tsc_debug_info = "NO_OUTPUT"
             end
           end)
-          -- Allocated nodes from spec + XML hash count
-          do
-            local ok2, err2 = pcall(function()
-              if b.spec and b.spec.allocNodes then
-                local nc = 0; for _ in pairs(b.spec.allocNodes) do nc = nc + 1 end
-                _tsc_debug_info = _tsc_debug_info .. " nodes=" .. nc
-              end
-              -- Count hashes from the XML (tree tab stores them)
-              if b.spec and b.spec.hashList then
-                _tsc_debug_info = _tsc_debug_info .. " xmlHashes=" .. #b.spec.hashList
-              end
-              -- Node type breakdown
-              if b.spec and b.spec.allocNodes then
-                local types = {}
-                for _, node in pairs(b.spec.allocNodes) do
-                  local t = node.type or "?"
-                  types[t] = (types[t] or 0) + 1
-                end
-                local parts = {}
-                for t, c in pairs(types) do parts[#parts+1] = t .. "=" .. c end
-                table.sort(parts)
-                _tsc_debug_info = _tsc_debug_info .. " nodeTypes=[" .. table.concat(parts, ",") .. "]"
-              end
-              -- Subgraph/cluster nodes
-              if b.spec and b.spec.subGraphs then
-                local sgCount = 0
-                for _ in pairs(b.spec.subGraphs) do sgCount = sgCount + 1 end
-                if sgCount > 0 then _tsc_debug_info = _tsc_debug_info .. " subGraphs=" .. sgCount end
-              end
-              if b.spec and b.spec.allocSubgraphNodes and #b.spec.allocSubgraphNodes > 0 then
-                _tsc_debug_info = _tsc_debug_info .. " pendingSubgraph=" .. #b.spec.allocSubgraphNodes
-              end
-              if b.spec and b.spec.allocExtendedNodes and #b.spec.allocExtendedNodes > 0 then
-                _tsc_debug_info = _tsc_debug_info .. " extNodes=" .. #b.spec.allocExtendedNodes
-              end
-              -- Thread of Hope / Intuitive Leap check
-              if b.itemsTab and b.itemsTab.items then
-                local leapLikes = 0
-                for _, item in pairs(b.itemsTab.items) do
-                  if item.jewelData and item.jewelData.intuitiveLeapLike then
-                    leapLikes = leapLikes + 1
-                  end
-                end
-                if leapLikes > 0 then _tsc_debug_info = _tsc_debug_info .. " leapLikes=" .. leapLikes end
-              end
-            end)
-            if not ok2 then _tsc_debug_info = _tsc_debug_info .. " NODES_ERR=" .. tostring(err2) end
-          end
-          -- Main skill details
-          do
-            local ok2, err2 = pcall(function()
-              if b.calcsTab and b.calcsTab.mainEnv and b.calcsTab.mainEnv.player then
-                local ms = b.calcsTab.mainEnv.player.mainSkill
-                if ms then
-                  _tsc_debug_info = _tsc_debug_info .. " skill=" .. tostring(ms.activeEffect and ms.activeEffect.grantedEffect and ms.activeEffect.grantedEffect.name or "?")
-                  _tsc_debug_info = _tsc_debug_info .. " part=" .. tostring(ms.skillPart)
-                  _tsc_debug_info = _tsc_debug_info .. " stages=" .. tostring(ms.activeStageCount)
-                  if ms.skillData then
-                    _tsc_debug_info = _tsc_debug_info .. " dpsMult=" .. tostring(ms.skillData.dpsMultiplier)
-                    _tsc_debug_info = _tsc_debug_info .. " hitTimeOvr=" .. tostring(ms.skillData.hitTimeOverride)
-                    _tsc_debug_info = _tsc_debug_info .. " stagesMax=" .. tostring(ms.skillData.stagesMax)
-                  end
-                end
-              else
-                _tsc_debug_info = _tsc_debug_info .. " mainEnv=nil"
-              end
-            end)
-            if not ok2 then _tsc_debug_info = _tsc_debug_info .. " SKILL_ERR=" .. tostring(err2) end
-          end
-          -- Per-skill group DPS
           pcall(function()
-            if b.calcsTab and b.calcsTab.mainOutput and b.calcsTab.mainOutput.SkillDPS then
-              local parts = {}
-              for _, entry in ipairs(b.calcsTab.mainOutput.SkillDPS) do
-                if type(entry) == "table" and entry.name then
-                  parts[#parts+1] = entry.name .. "=" .. string.format("%.0f", entry.dps or 0) .. (entry.count and entry.count > 1 and ("x" .. entry.count) or "")
-                end
-              end
-              if #parts > 0 then _tsc_debug_info = _tsc_debug_info .. " skillDPS=[" .. table.concat(parts, ",") .. "]" end
-            end
-          end)
-          -- Timeless jewel LUT state
-          pcall(function()
-            if data and data.timelessJewelLUTs then
-              local parts = {}
-              for k, v in pairs(data.timelessJewelLUTs) do
-                local dataLen = v.data and #v.data or 0
-                parts[#parts+1] = k .. "=" .. dataLen
-              end
-              _tsc_debug_info = _tsc_debug_info .. " LUTs=[" .. table.concat(parts, ",") .. "]"
+            if b.spec and b.spec.allocNodes then
+              local nc = 0; for _ in pairs(b.spec.allocNodes) do nc = nc + 1 end
+              _tsc_debug_info = _tsc_debug_info .. " nodes=" .. nc
             end
           end)
           pcall(function()
-            if b.skillsTab and b.skillsTab.socketGroupList then
-              local total, fdps = 0, 0
-              for _, g in ipairs(b.skillsTab.socketGroupList) do
-                total = total + 1
-                if g.includeInFullDPS then fdps = fdps + 1 end
-              end
-              _tsc_debug_info = _tsc_debug_info .. " groups=" .. total .. " fullDPSGroups=" .. fdps
+            if b.calcsTab and b.calcsTab.mainEnv and b.calcsTab.mainEnv.player and b.calcsTab.mainEnv.player.mainSkill then
+              local ms = b.calcsTab.mainEnv.player.mainSkill
+              _tsc_debug_info = _tsc_debug_info .. " skill=" .. tostring(ms.activeEffect and ms.activeEffect.grantedEffect and ms.activeEffect.grantedEffect.name or "?")
             end
           end)
         end
