@@ -79,6 +79,7 @@ export function PowerReport() {
   const allocatedNodes = useTreeStore((s) => s.allocatedNodes);
   const [rankings, setRankings] = useState<NodeRanking[]>([]);
   const [mode, setMode] = useState<"dps" | "defence" | "combined">("dps");
+  const [direction, setDirection] = useState<"gain" | "respec">("gain");
   const [sortBy, setSortBy] = useState<"raw" | "perpoint">("perpoint");
   const [computing, setComputing] = useState(false);
   const [computed, setComputed] = useState(false);
@@ -117,70 +118,132 @@ export function PowerReport() {
       const nodes = treeData.nodes || {};
       let evaluated = 0;
 
-      for (const [nodeId, node] of Object.entries(nodes) as [string, Record<string, unknown>][]) {
-        if (allocatedNodes.has(nodeId)) continue;
-        const nodeStats = node.stats as string[] | undefined;
-        if (!nodeStats || nodeStats.length === 0) continue;
-        if (node.isAscendancyStart || nodeId === "root") continue;
+      if (direction === "gain") {
+        // Find best nodes TO allocate
+        for (const [nodeId, node] of Object.entries(nodes) as [string, Record<string, unknown>][]) {
+          if (allocatedNodes.has(nodeId)) continue;
+          const nodeStats = node.stats as string[] | undefined;
+          if (!nodeStats || nodeStats.length === 0) continue;
+          if (node.isAscendancyStart || nodeId === "root") continue;
 
-        const nodeMods = nodeStats.flatMap((s: string) => parseStatLine(s));
-        if (nodeMods.length === 0) continue;
+          const nodeMods = nodeStats.flatMap((s: string) => parseStatLine(s));
+          if (nodeMods.length === 0) continue;
 
-        const pathCost = findPathCost(nodeId, allocatedNodes, connectionMap);
-        if (pathCost > 15) continue;
+          const pathCost = findPathCost(nodeId, allocatedNodes, connectionMap);
+          if (pathCost > 15) continue;
 
-        const withNode = evaluateBuildRust({
-          ...baseInput,
-          modifiers: [...baseInput.modifiers, ...nodeMods],
-        });
+          const withNode = evaluateBuildRust({
+            ...baseInput,
+            modifiers: [...baseInput.modifiers, ...nodeMods],
+          });
 
-        if (!withNode) continue;
-        evaluated++;
+          if (!withNode) continue;
+          evaluated++;
 
-        const dpsGain = withNode.total_dps - baseOutput.total_dps;
-        const lifeGain = withNode.life - baseOutput.life;
-        const esGain = withNode.energy_shield - baseOutput.energy_shield;
-        const ehpGain = withNode.total_ehp - baseOutput.total_ehp;
+          const dpsGain = withNode.total_dps - baseOutput.total_dps;
+          const lifeGain = withNode.life - baseOutput.life;
+          const esGain = withNode.energy_shield - baseOutput.energy_shield;
+          const ehpGain = withNode.total_ehp - baseOutput.total_ehp;
 
-        if (Math.abs(dpsGain) < 0.01 && Math.abs(lifeGain) < 0.01 && Math.abs(esGain) < 0.01)
-          continue;
+          if (Math.abs(dpsGain) < 0.01 && Math.abs(lifeGain) < 0.01 && Math.abs(esGain) < 0.01)
+            continue;
 
-        const dpsPct =
-          baseOutput.total_dps > 0 ? (dpsGain / baseOutput.total_dps) * 100 : 0;
-        const ehpPct =
-          baseOutput.total_ehp > 0 ? (ehpGain / baseOutput.total_ehp) * 100 : 0;
+          const dpsPct =
+            baseOutput.total_dps > 0 ? (dpsGain / baseOutput.total_dps) * 100 : 0;
+          const ehpPct =
+            baseOutput.total_ehp > 0 ? (ehpGain / baseOutput.total_ehp) * 100 : 0;
 
-        let rawScore: number;
-        if (mode === "dps") rawScore = dpsPct;
-        else if (mode === "defence") rawScore = ehpPct;
-        else rawScore = dpsPct + ehpPct;
+          let rawScore: number;
+          if (mode === "dps") rawScore = dpsPct;
+          else if (mode === "defence") rawScore = ehpPct;
+          else rawScore = dpsPct + ehpPct;
 
-        const valuePerPoint = pathCost > 0 ? rawScore / pathCost : rawScore;
+          const valuePerPoint = pathCost > 0 ? rawScore / pathCost : rawScore;
 
-        results.push({
-          id: nodeId,
-          name: (node.name || node.dn || nodeId) as string,
-          dpsGain,
-          dpsPct,
-          lifeGain,
-          esGain,
-          ehpGain,
-          isNotable: !!node.isNotable,
-          isKeystone: !!node.isKeystone,
-          pathCost,
-          valuePerPoint,
-        });
+          results.push({
+            id: nodeId,
+            name: (node.name || node.dn || nodeId) as string,
+            dpsGain,
+            dpsPct,
+            lifeGain,
+            esGain,
+            ehpGain,
+            isNotable: !!node.isNotable,
+            isKeystone: !!node.isKeystone,
+            pathCost,
+            valuePerPoint,
+          });
+        }
+      } else {
+        // Respec mode: find allocated nodes that contribute least
+        for (const nodeId of allocatedNodes) {
+          const node = nodes[nodeId] as Record<string, unknown> | undefined;
+          if (!node) continue;
+          const nodeStats = node.stats as string[] | undefined;
+          if (!nodeStats || nodeStats.length === 0) continue;
+          if (node.isAscendancyStart || nodeId === "root") continue;
+
+          const nodeMods = nodeStats.flatMap((s: string) => parseStatLine(s));
+          if (nodeMods.length === 0) continue;
+
+          // Evaluate without this node's mods
+          const withoutNode = evaluateBuildRust({
+            ...baseInput,
+            modifiers: baseInput.modifiers.filter((m) => {
+              return !nodeMods.some(
+                (nm) => nm.stat === m.stat && nm.value === m.value && nm.mod_type === m.mod_type
+              );
+            }),
+          });
+
+          if (!withoutNode) continue;
+          evaluated++;
+
+          const dpsLoss = baseOutput.total_dps - withoutNode.total_dps;
+          const lifeLoss = baseOutput.life - withoutNode.life;
+          const esLoss = baseOutput.energy_shield - withoutNode.energy_shield;
+          const ehpLoss = baseOutput.total_ehp - withoutNode.total_ehp;
+
+          const dpsPct =
+            baseOutput.total_dps > 0 ? (dpsLoss / baseOutput.total_dps) * 100 : 0;
+          const ehpPct =
+            baseOutput.total_ehp > 0 ? (ehpLoss / baseOutput.total_ehp) * 100 : 0;
+
+          let rawScore: number;
+          if (mode === "dps") rawScore = dpsPct;
+          else if (mode === "defence") rawScore = ehpPct;
+          else rawScore = dpsPct + ehpPct;
+
+          results.push({
+            id: nodeId,
+            name: (node.name || node.dn || nodeId) as string,
+            dpsGain: dpsLoss,
+            dpsPct,
+            lifeGain: lifeLoss,
+            esGain: esLoss,
+            ehpGain: ehpLoss,
+            isNotable: !!node.isNotable,
+            isKeystone: !!node.isKeystone,
+            pathCost: 1,
+            valuePerPoint: rawScore,
+          });
+        }
       }
 
-      results.sort((a, b) =>
-        sortBy === "perpoint"
-          ? b.valuePerPoint - a.valuePerPoint
-          : mode === "dps"
-            ? b.dpsGain - a.dpsGain
-            : mode === "defence"
-              ? b.ehpGain - a.ehpGain
-              : b.dpsPct + b.ehpGain - (a.dpsPct + a.ehpGain)
-      );
+      if (direction === "respec") {
+        // Respec: sort by least contribution first
+        results.sort((a, b) => a.valuePerPoint - b.valuePerPoint);
+      } else {
+        results.sort((a, b) =>
+          sortBy === "perpoint"
+            ? b.valuePerPoint - a.valuePerPoint
+            : mode === "dps"
+              ? b.dpsGain - a.dpsGain
+              : mode === "defence"
+                ? b.ehpGain - a.ehpGain
+                : b.dpsPct + b.ehpGain - (a.dpsPct + a.ehpGain)
+        );
+      }
 
       setRankings(results.slice(0, 30));
       setNodeCount(evaluated);
@@ -201,6 +264,18 @@ export function PowerReport() {
           Power Report
         </h2>
         <div className="flex gap-1 flex-wrap">
+          {(["gain", "respec"] as const).map((d) => (
+            <button
+              key={d}
+              onClick={() => { setDirection(d); setComputed(false); }}
+              className={`text-[10px] font-mono px-2 py-0.5 rounded ${
+                direction === d ? "bg-accent/20 text-accent" : "text-text-dim"
+              }`}
+            >
+              {d === "gain" ? "Best to Allocate" : "Respec Candidates"}
+            </button>
+          ))}
+          <span className="text-text-dim/30 mx-0.5">|</span>
           {(["dps", "defence", "combined"] as const).map((m) => (
             <button
               key={m}
@@ -294,9 +369,10 @@ export function PowerReport() {
 
       {!computed && !computing && (
         <p className="text-xs font-mono text-text-dim/60 text-center py-6">
-          Click Analyze to rank unallocated nodes by{" "}
-          {sortBy === "perpoint" ? "value per skill point" : "raw gain"}.
-          Considers pathing cost via BFS. Powered by Rust WASM.
+          {direction === "gain"
+            ? `Click Analyze to rank unallocated nodes by ${sortBy === "perpoint" ? "value per skill point" : "raw gain"}. Considers pathing cost via BFS.`
+            : "Click Analyze to find allocated nodes that contribute the least. Respec candidates sorted by lowest impact."
+          }{" "}Powered by Rust WASM.
         </p>
       )}
     </div>

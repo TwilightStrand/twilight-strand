@@ -1,114 +1,41 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, memo, useCallback } from "react";
 import { useBuildStore } from "@/stores/build-store";
+import {
+  CONFIG_OPTIONS,
+  CONFIG_SECTIONS,
+  type ConfigOptionDef,
+} from "@/data/config-options.generated";
 
-interface ConfigOption {
-  id: string;
-  label: string;
-  type: "check" | "select" | "number";
-  value: boolean | string | number;
-  options?: string[];
-  category: string;
+function stripTrailingColon(s: string): string {
+  return s.endsWith(":") ? s.slice(0, -1).trim() : s.trim();
 }
 
-const DEFAULT_CONFIG: ConfigOption[] = [
-  // General
-  { id: "enemyIsBoss", label: "Enemy is a Boss", type: "select", value: "None", options: ["None", "Pinnacle Boss", "Uber Pinnacle Boss", "Map Boss", "Guardian/Pinnacle", "Shaper/Elder"], category: "General" },
-  { id: "enemyLevel", label: "Enemy Level", type: "number", value: 84, category: "General" },
-  { id: "enemyPhysReduction", label: "Enemy Phys Reduction", type: "number", value: 0, category: "General" },
-  { id: "enemyFireRes", label: "Enemy Fire Resistance", type: "number", value: 0, category: "General" },
-  { id: "enemyColdRes", label: "Enemy Cold Resistance", type: "number", value: 0, category: "General" },
-  { id: "enemyLightningRes", label: "Enemy Lightning Resistance", type: "number", value: 0, category: "General" },
-  { id: "enemyChaosRes", label: "Enemy Chaos Resistance", type: "number", value: 0, category: "General" },
-  // Charges
-  { id: "usePowerCharges", label: "Use Power Charges", type: "check", value: false, category: "Charges" },
-  { id: "useFrenzyCharges", label: "Use Frenzy Charges", type: "check", value: false, category: "Charges" },
-  { id: "useEnduranceCharges", label: "Use Endurance Charges", type: "check", value: false, category: "Charges" },
-  { id: "overridePowerCharges", label: "Power Charge Count", type: "number", value: 0, category: "Charges" },
-  { id: "overrideFrenzyCharges", label: "Frenzy Charge Count", type: "number", value: 0, category: "Charges" },
-  { id: "overrideEnduranceCharges", label: "Endurance Charge Count", type: "number", value: 0, category: "Charges" },
-  // Combat
-  { id: "conditionStationary", label: "Are you Stationary?", type: "check", value: false, category: "Combat" },
-  { id: "conditionMoving", label: "Are you Moving?", type: "check", value: false, category: "Combat" },
-  { id: "conditionFullLife", label: "Are you on Full Life?", type: "check", value: false, category: "Combat" },
-  { id: "conditionLowLife", label: "Are you on Low Life?", type: "check", value: false, category: "Combat" },
-  { id: "conditionFullEnergyShield", label: "Are you on Full Energy Shield?", type: "check", value: false, category: "Combat" },
-  { id: "conditionLowEnergyShield", label: "Are you on Low Energy Shield?", type: "check", value: false, category: "Combat" },
-  { id: "conditionFortified", label: "Are you Fortified?", type: "check", value: false, category: "Combat" },
-  { id: "conditionElusive", label: "Are you Elusive?", type: "check", value: false, category: "Combat" },
-  // Buffs
-  { id: "conditionOnslaught", label: "Do you have Onslaught?", type: "check", value: false, category: "Buffs" },
-  { id: "conditionUnholyMight", label: "Do you have Unholy Might?", type: "check", value: false, category: "Buffs" },
-  { id: "buffTailwind", label: "Do you have Tailwind?", type: "check", value: false, category: "Buffs" },
-  { id: "conditionOnConsecratedGround", label: "On Consecrated Ground?", type: "check", value: false, category: "Buffs" },
-  { id: "conditionFocused", label: "Are you Focused?", type: "check", value: false, category: "Buffs" },
-  { id: "conditionLeeching", label: "Are you Leeching?", type: "check", value: false, category: "Buffs" },
-  // Enemy conditions
-  { id: "conditionEnemyCursed", label: "Is the enemy Cursed?", type: "check", value: false, category: "Enemy" },
-  { id: "conditionEnemyBlinded", label: "Is the enemy Blinded?", type: "check", value: false, category: "Enemy" },
-  { id: "conditionEnemyMaimed", label: "Is the enemy Maimed?", type: "check", value: false, category: "Enemy" },
-  { id: "conditionEnemyBurning", label: "Is the enemy Burning?", type: "check", value: false, category: "Enemy" },
-  { id: "conditionEnemyChilled", label: "Is the enemy Chilled?", type: "check", value: false, category: "Enemy" },
-  { id: "conditionEnemyFrozen", label: "Is the enemy Frozen?", type: "check", value: false, category: "Enemy" },
-  { id: "conditionEnemyShocked", label: "Is the enemy Shocked?", type: "check", value: false, category: "Enemy" },
-  { id: "conditionEnemyIntimidated", label: "Is the enemy Intimidated?", type: "check", value: false, category: "Enemy" },
-  // Flasks
-  { id: "flaskEffect", label: "Flask Effect Active", type: "check", value: false, category: "Flasks" },
-  // Skill Options
-  { id: "conditionChannelling", label: "Are you Channelling?", type: "check", value: false, category: "Skill Options" },
-  { id: "conditionAttacking", label: "Are you Attacking?", type: "check", value: false, category: "Skill Options" },
-  { id: "conditionCasting", label: "Are you Casting?", type: "check", value: false, category: "Skill Options" },
-  { id: "conditionUsedSkillRecently", label: "Used a Skill Recently?", type: "check", value: false, category: "Skill Options" },
-  { id: "conditionKilledRecently", label: "Killed Recently?", type: "check", value: false, category: "Skill Options" },
-  { id: "conditionKilledAffectedByDoT", label: "Killed DoT enemy Recently?", type: "check", value: false, category: "Skill Options" },
-  { id: "conditionCritRecently", label: "Crit Recently?", type: "check", value: false, category: "Skill Options" },
-  { id: "conditionNonCritRecently", label: "Non-Crit Recently?", type: "check", value: false, category: "Skill Options" },
-  { id: "conditionBlockedRecently", label: "Blocked Recently?", type: "check", value: false, category: "Skill Options" },
-  { id: "conditionTakenHitRecently", label: "Taken Hit Recently?", type: "check", value: false, category: "Skill Options" },
-  { id: "conditionHitByFireRecently", label: "Hit by Fire Recently?", type: "check", value: false, category: "Skill Options" },
-  { id: "conditionHitByColdRecently", label: "Hit by Cold Recently?", type: "check", value: false, category: "Skill Options" },
-  { id: "conditionHitByLightningRecently", label: "Hit by Lightning Recently?", type: "check", value: false, category: "Skill Options" },
-  // More Buffs
-  { id: "buffTailwind", label: "Tailwind", type: "check", value: false, category: "Buffs" },
-  { id: "conditionAdrenaline", label: "Adrenaline", type: "check", value: false, category: "Buffs" },
-  { id: "conditionArcaneSurge", label: "Arcane Surge", type: "check", value: false, category: "Buffs" },
-  { id: "conditionRage", label: "Rage Active", type: "check", value: false, category: "Buffs" },
-  { id: "rageCount", label: "Rage Stacks", type: "number", value: 0, category: "Buffs" },
-  { id: "conditionInspiration", label: "Inspiration Charges", type: "check", value: false, category: "Buffs" },
-  { id: "conditionBrittle", label: "Enemy has Brittle", type: "check", value: false, category: "Buffs" },
-  { id: "conditionSapped", label: "Enemy is Sapped", type: "check", value: false, category: "Buffs" },
-  { id: "conditionScorched", label: "Enemy is Scorched", type: "check", value: false, category: "Buffs" },
-  // Defences
-  { id: "conditionUsedGuardRecently", label: "Used Guard Skill Recently?", type: "check", value: false, category: "Defences" },
-  { id: "conditionHavePhysAegis", label: "Physical Aegis Active?", type: "check", value: false, category: "Defences" },
-  { id: "conditionHaveEleAegis", label: "Elemental Aegis Active?", type: "check", value: false, category: "Defences" },
-  { id: "conditionLeechingLife", label: "Leeching Life?", type: "check", value: false, category: "Defences" },
-  { id: "conditionLeechingES", label: "Leeching Energy Shield?", type: "check", value: false, category: "Defences" },
-  { id: "conditionOnBurningGround", label: "On Burning Ground?", type: "check", value: false, category: "Defences" },
-  { id: "conditionOnChilledGround", label: "On Chilled Ground?", type: "check", value: false, category: "Defences" },
-  { id: "conditionOnShockedGround", label: "On Shocked Ground?", type: "check", value: false, category: "Defences" },
-  // Map Mods
-  { id: "mapModPlayerDamagePenalty", label: "Players deal X% less Damage", type: "number", value: 0, category: "Map Mods" },
-  { id: "mapModEnemyExtraDamage", label: "Monsters deal X% extra Damage", type: "number", value: 0, category: "Map Mods" },
-  { id: "mapModEnemySpeed", label: "Monsters have X% inc. Speed", type: "number", value: 0, category: "Map Mods" },
-  { id: "mapModEnemyCritChance", label: "Monsters have X% inc. Crit", type: "number", value: 0, category: "Map Mods" },
-  { id: "mapModNoLeech", label: "Cannot Leech", type: "check", value: false, category: "Map Mods" },
-  { id: "mapModNoRegen", label: "No Regeneration", type: "check", value: false, category: "Map Mods" },
-  { id: "mapModLessRecovery", label: "60% Less Recovery", type: "check", value: false, category: "Map Mods" },
-  { id: "mapModReflectPhys", label: "Phys Reflect", type: "check", value: false, category: "Map Mods" },
-  { id: "mapModReflectEle", label: "Ele Reflect", type: "check", value: false, category: "Map Mods" },
-  { id: "mapModNoFlasks", label: "Players cannot use Flasks", type: "check", value: false, category: "Map Mods" },
-  { id: "mapModAvoidAilments", label: "Monsters avoid Ailments", type: "check", value: false, category: "Map Mods" },
-  { id: "mapModEnemyExtraFire", label: "Extra Fire Damage", type: "check", value: false, category: "Map Mods" },
-  { id: "mapModEnemyExtraCold", label: "Extra Cold Damage", type: "check", value: false, category: "Map Mods" },
-  { id: "mapModEnemyExtraLightning", label: "Extra Lightning Damage", type: "check", value: false, category: "Map Mods" },
-  // Minions
-  { id: "conditionMinionFullLife", label: "Minions on Full Life?", type: "check", value: false, category: "Minions" },
-  { id: "conditionMinionKilledRecently", label: "Minion Killed Recently?", type: "check", value: false, category: "Minions" },
-  { id: "conditionHaveMinionSkill", label: "Using Minion Skill?", type: "check", value: false, category: "Minions" },
-  { id: "minionCount", label: "Number of Minions", type: "number", value: 0, category: "Minions" },
-];
+function isOptionVisible(
+  opt: ConfigOptionDef,
+  activeSkills: Set<string>,
+  activeConditions: Set<string>,
+  activeFlags: Set<string>,
+  showAll: boolean
+): boolean {
+  if (showAll) return true;
+  if (!opt.visibility) return true;
+
+  const v = opt.visibility;
+
+  if (v.ifSkill) {
+    if (!v.ifSkill.some((s) => activeSkills.has(s))) return false;
+  }
+  if (v.ifCond) {
+    if (!v.ifCond.some((c) => activeConditions.has(c))) return false;
+  }
+  if (v.ifFlag) {
+    if (!v.ifFlag.some((f) => activeFlags.has(f))) return false;
+  }
+
+  return true;
+}
 
 function ConfigSection({
   title,
@@ -117,15 +44,98 @@ function ConfigSection({
   title: string;
   children: React.ReactNode;
 }) {
+  const [collapsed, setCollapsed] = useState(false);
+
   return (
     <div className="mb-4">
-      <h3 className="text-[10px] font-mono font-bold uppercase tracking-widest text-accent-dim mb-2">
-        {title}
-      </h3>
-      <div className="space-y-1.5">{children}</div>
+      <button
+        onClick={() => setCollapsed(!collapsed)}
+        className="flex items-center gap-1.5 w-full text-left mb-2 group"
+      >
+        <span className="text-[10px] text-text-dim group-hover:text-text-primary transition-colors">
+          {collapsed ? "▸" : "▾"}
+        </span>
+        <h3 className="text-[10px] font-mono font-bold uppercase tracking-widest text-accent-dim">
+          {title}
+        </h3>
+      </button>
+      {!collapsed && <div className="space-y-1">{children}</div>}
     </div>
   );
 }
+
+const ConfigControl = memo(function ConfigControl({
+  opt,
+  value,
+  onChange,
+}: {
+  opt: ConfigOptionDef;
+  value: boolean | string | number;
+  onChange: (val: boolean | string | number) => void;
+}) {
+  const label = stripTrailingColon(opt.label);
+
+  return (
+    <div className="flex items-center justify-between gap-4 py-0.5 min-h-[28px]">
+      <label
+        htmlFor={opt.id}
+        className="text-xs font-mono text-text-primary leading-tight flex-1"
+      >
+        {label}
+        {opt.visibility?.ifSkill && (
+          <span className="text-text-dim/40 text-[9px] ml-1">
+            ({opt.visibility.ifSkill[0]})
+          </span>
+        )}
+      </label>
+
+      {opt.type === "check" && (
+        <input
+          id={opt.id}
+          type="checkbox"
+          checked={value as boolean}
+          onChange={(e) => onChange(e.target.checked)}
+          className="accent-accent w-4 h-4 shrink-0"
+        />
+      )}
+
+      {opt.type === "select" && opt.options && (
+        <select
+          id={opt.id}
+          value={String(value)}
+          onChange={(e) => onChange(e.target.value)}
+          className="bg-bg-inset border border-border-subtle rounded px-2 py-0.5 text-xs font-mono text-text-primary max-w-[180px] shrink-0"
+        >
+          {opt.options.map((o) => (
+            <option key={String(o.val)} value={String(o.val)}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      )}
+
+      {opt.type === "number" && (
+        <input
+          id={opt.id}
+          type="number"
+          value={value as number}
+          onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+          className="bg-bg-inset border border-border-subtle rounded px-2 py-0.5 text-xs font-mono text-text-primary w-20 text-right tabular-nums shrink-0"
+        />
+      )}
+
+      {opt.type === "text" && (
+        <input
+          id={opt.id}
+          type="text"
+          value={value as string}
+          onChange={(e) => onChange(e.target.value)}
+          className="bg-bg-inset border border-border-subtle rounded px-2 py-0.5 text-xs font-mono text-text-primary w-40 shrink-0"
+        />
+      )}
+    </div>
+  );
+});
 
 function BuildInfoSection() {
   const xml = useBuildStore((s) => s.xml);
@@ -163,22 +173,37 @@ function BuildInfoSection() {
         </span>
       </div>
       <div className="flex items-center justify-between py-1">
-        <span className="text-xs font-mono text-text-primary">Major Pantheon</span>
-        <span className="text-xs font-mono text-text-dim">{fmtPantheon(pantheonMajor)}</span>
+        <span className="text-xs font-mono text-text-primary">
+          Major Pantheon
+        </span>
+        <span className="text-xs font-mono text-text-dim">
+          {fmtPantheon(pantheonMajor)}
+        </span>
       </div>
       <div className="flex items-center justify-between py-1">
-        <span className="text-xs font-mono text-text-primary">Minor Pantheon</span>
-        <span className="text-xs font-mono text-text-dim">{fmtPantheon(pantheonMinor)}</span>
+        <span className="text-xs font-mono text-text-primary">
+          Minor Pantheon
+        </span>
+        <span className="text-xs font-mono text-text-dim">
+          {fmtPantheon(pantheonMinor)}
+        </span>
       </div>
       <div className="flex items-center justify-between py-1">
-        <span className="text-xs font-mono text-text-primary">Tree Version</span>
-        <span className="text-xs font-mono text-text-dim">{stats.tree_version || "3_29"}</span>
+        <span className="text-xs font-mono text-text-primary">
+          Tree Version
+        </span>
+        <span className="text-xs font-mono text-text-dim">
+          {stats.tree_version || "3_29"}
+        </span>
       </div>
     </ConfigSection>
   );
 }
 
-const PRESETS: { name: string; config: Record<string, boolean | string | number> }[] = [
+const PRESETS: {
+  name: string;
+  config: Record<string, boolean | string | number>;
+}[] = [
   {
     name: "Mapping",
     config: {
@@ -216,56 +241,105 @@ const PRESETS: { name: string; config: Record<string, boolean | string | number>
   },
 ];
 
-const MAP_PRESETS: { name: string; config: Record<string, boolean | string | number> }[] = [
-  { name: "Alch & Go", config: {} },
-  { name: "Juiced", config: { mapModEnemyExtraDamage: 30, mapModEnemySpeed: 20 } },
-  { name: "No Regen", config: { mapModNoRegen: true } },
-  { name: "Less Recovery", config: { mapModLessRecovery: true } },
-  { name: "Phys Reflect", config: { mapModReflectPhys: true } },
-  { name: "Ele Reflect", config: { mapModReflectEle: true } },
-];
+function getDefaultValue(opt: ConfigOptionDef): boolean | string | number {
+  switch (opt.type) {
+    case "check":
+      return false;
+    case "number":
+      return 0;
+    case "select":
+      if (opt.options && opt.defaultIndex) {
+        return String(opt.options[opt.defaultIndex - 1]?.val ?? opt.options[0]?.val ?? "");
+      }
+      return opt.options ? String(opt.options[0]?.val ?? "") : "";
+    case "text":
+      return "";
+  }
+}
 
 export function ConfigTab() {
-  const [config, setConfig] = useState(DEFAULT_CONFIG);
-  const [configDirty, setConfigDirty] = useState(false);
-  const [customMods, setCustomMods] = useState("");
+  const configOverrides = useBuildStore((s) => s.configOverrides);
   const setConfigOverride = useBuildStore((s) => s.setConfigOverride);
   const reEvaluate = useBuildStore((s) => s.reEvaluate);
   const evaluating = useBuildStore((s) => s.evaluating);
+  const skills = useBuildStore((s) => s.skills);
+  const [configDirty, setConfigDirty] = useState(false);
+  const [configFilter, setConfigFilter] = useState("");
+  const [showAll, setShowAll] = useState(false);
+  const [customMods, setCustomMods] = useState("");
 
-  const updateValue = (id: string, value: boolean | string | number) => {
-    setConfig((prev) =>
-      prev.map((opt) => (opt.id === id ? { ...opt, value } : opt))
+  const activeSkills = useMemo(() => {
+    const set = new Set<string>();
+    for (const group of skills) {
+      for (const gem of group.gems) {
+        if (gem.name) set.add(gem.name);
+      }
+    }
+    return set;
+  }, [skills]);
+
+  // Conditions/flags that are active in the current build
+  const activeConditions = useMemo(() => new Set<string>(), []);
+  const activeFlags = useMemo(() => new Set<string>(), []);
+
+  const visibleOptions = useMemo(() => {
+    let opts = CONFIG_OPTIONS.filter((opt) =>
+      isOptionVisible(opt, activeSkills, activeConditions, activeFlags, showAll)
     );
+    if (configFilter.trim()) {
+      const q = configFilter.toLowerCase();
+      opts = opts.filter((opt) => opt.label.toLowerCase().includes(q));
+    }
+    return opts;
+  }, [activeSkills, activeConditions, activeFlags, showAll, configFilter]);
+
+  const sectionGroups = useMemo(() => {
+    const groups: Record<string, ConfigOptionDef[]> = {};
+    for (const opt of visibleOptions) {
+      const section = opt.section;
+      if (!groups[section]) groups[section] = [];
+      groups[section].push(opt);
+    }
+    return groups;
+  }, [visibleOptions]);
+
+  const updateValue = useCallback((id: string, value: boolean | string | number) => {
     setConfigOverride(id, value);
+    setConfigDirty(true);
+  }, [setConfigOverride]);
+
+  const applyPreset = (preset: (typeof PRESETS)[number]) => {
+    for (const opt of CONFIG_OPTIONS) {
+      if (!opt.visibility) {
+        setConfigOverride(opt.id, getDefaultValue(opt));
+      }
+    }
+    for (const [key, value] of Object.entries(preset.config)) {
+      setConfigOverride(key, value);
+    }
     setConfigDirty(true);
   };
 
-  const applyPreset = (preset: typeof PRESETS[number]) => {
-    // Reset all to defaults first
-    setConfig(DEFAULT_CONFIG);
-    // Then apply preset values
-    for (const [key, value] of Object.entries(preset.config)) {
-      updateValue(key, value);
-    }
-  };
-
-  const [configFilter, setConfigFilter] = useState("");
-
-  const filteredConfig = configFilter.trim()
-    ? config.filter(opt => opt.label.toLowerCase().includes(configFilter.toLowerCase()))
-    : config;
-  const categories = [...new Set(filteredConfig.map((c) => c.category))];
+  const totalCount = CONFIG_OPTIONS.length;
+  const visibleCount = visibleOptions.length;
+  const hiddenCount = totalCount - visibleCount;
 
   return (
     <div className="h-full overflow-y-auto p-4">
       <div className="max-w-2xl">
-        <h2 className="text-text-heading font-display text-lg mb-4">
-          Configuration
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-text-heading font-display text-lg">
+            Configuration
+          </h2>
+          <span className="text-[9px] font-mono text-text-dim/50">
+            {visibleCount}/{totalCount} options
+          </span>
+        </div>
 
-        <div className="flex items-center gap-1.5 mb-4">
-          <span className="text-[10px] font-mono text-text-dim mr-1">Presets:</span>
+        <div className="flex items-center gap-1.5 mb-3">
+          <span className="text-[10px] font-mono text-text-dim mr-1">
+            Presets:
+          </span>
           {PRESETS.map((preset) => (
             <button
               key={preset.name}
@@ -277,104 +351,74 @@ export function ConfigTab() {
           ))}
         </div>
 
-        <input
-          type="text"
-          value={configFilter}
-          onChange={e => setConfigFilter(e.target.value)}
-          placeholder="Filter options..."
-          className="w-full bg-bg-inset border border-border-subtle rounded px-2.5 py-1.5 text-xs font-mono text-text-primary placeholder:text-text-dim/40 focus:outline-none focus:border-accent mb-3"
-        />
+        <div className="flex items-center gap-2 mb-3">
+          <input
+            type="text"
+            value={configFilter}
+            onChange={(e) => setConfigFilter(e.target.value)}
+            placeholder="Filter options..."
+            className="flex-1 bg-bg-inset border border-border-subtle rounded px-2.5 py-1.5 text-xs font-mono text-text-primary placeholder:text-text-dim/40 focus:outline-none focus:border-accent"
+          />
+          <button
+            onClick={() => setShowAll(!showAll)}
+            className={`text-[10px] font-mono px-2 py-1 rounded border transition-colors ${
+              showAll
+                ? "bg-accent/10 border-accent/30 text-accent"
+                : "bg-bg-card border-border-subtle text-text-dim hover:text-text-primary"
+            }`}
+          >
+            {showAll ? "All" : "Relevant"}
+          </button>
+        </div>
+
+        {!showAll && hiddenCount > 0 && (
+          <p className="text-[9px] font-mono text-text-dim/40 mb-3">
+            {hiddenCount} skill-specific options hidden. Click "All" to show
+            everything.
+          </p>
+        )}
 
         {configDirty && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-400/10 border border-amber-400/20 rounded text-[10px] font-mono text-amber-400 mb-3">
             <span>Config changed.</span>
             <button
-              onClick={() => { reEvaluate(); setConfigDirty(false); }}
+              onClick={() => {
+                reEvaluate();
+                setConfigDirty(false);
+              }}
               disabled={evaluating}
               className="underline hover:text-amber-300 disabled:opacity-40"
             >
               {evaluating ? "Calculating..." : "Recalculate"}
             </button>
-            <button onClick={() => setConfigDirty(false)} className="text-text-dim hover:text-text-primary ml-auto">x</button>
+            <button
+              onClick={() => setConfigDirty(false)}
+              className="text-text-dim hover:text-text-primary ml-auto"
+            >
+              x
+            </button>
           </div>
         )}
 
         <BuildInfoSection />
 
-        {categories.map((cat) => (
-          <ConfigSection key={cat} title={cat}>
-            {filteredConfig
-              .filter((opt) => opt.category === cat)
-              .map((opt) => (
-                <div
+        {CONFIG_SECTIONS.filter((s) => sectionGroups[s]?.length).map(
+          (section) => (
+            <ConfigSection key={section} title={section}>
+              {sectionGroups[section].map((opt) => (
+                <ConfigControl
                   key={opt.id}
-                  className="flex items-center justify-between gap-4 py-1"
-                >
-                  <label
-                    htmlFor={opt.id}
-                    className="text-xs font-mono text-text-primary"
-                  >
-                    {opt.label}
-                  </label>
-
-                  {opt.type === "check" && (
-                    <input
-                      id={opt.id}
-                      type="checkbox"
-                      checked={opt.value as boolean}
-                      onChange={(e) => updateValue(opt.id, e.target.checked)}
-                      className="accent-accent w-4 h-4"
-                    />
-                  )}
-
-                  {opt.type === "select" && (
-                    <select
-                      id={opt.id}
-                      value={opt.value as string}
-                      onChange={(e) => updateValue(opt.id, e.target.value)}
-                      className="bg-bg-inset border border-border-subtle rounded px-2 py-0.5 text-xs font-mono text-text-primary"
-                    >
-                      {opt.options?.map((o) => (
-                        <option key={o} value={o}>
-                          {o}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-
-                  {opt.type === "number" && (
-                    <input
-                      id={opt.id}
-                      type="number"
-                      value={opt.value as number}
-                      onChange={(e) =>
-                        updateValue(opt.id, parseFloat(e.target.value) || 0)
-                      }
-                      className="bg-bg-inset border border-border-subtle rounded px-2 py-0.5 text-xs font-mono text-text-primary w-20 text-right tabular-nums"
-                    />
-                  )}
-                </div>
-              ))}
-          </ConfigSection>
-        ))}
-
-        {categories.includes("Map Mods") && (
-          <div className="flex items-center gap-1 mb-2">
-            <span className="text-[10px] font-mono text-text-dim mr-1">Map Presets:</span>
-            {MAP_PRESETS.map((preset) => (
-              <button
-                key={preset.name}
-                onClick={() => {
-                  for (const [key, value] of Object.entries(preset.config)) {
-                    updateValue(key, value);
+                  opt={opt}
+                  value={
+                    configOverrides[opt.id] !== undefined
+                      ? configOverrides[opt.id]
+                      : getDefaultValue(opt)
                   }
-                }}
-                className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-bg-card border border-border-subtle text-text-dim hover:text-accent hover:border-accent/30 transition-colors"
-              >
-                {preset.name}
-              </button>
-            ))}
-          </div>
+                  onChange={(val) => updateValue(opt.id, val)}
+                />
+              ))}
+            </ConfigSection>
+          )
         )}
 
         <ConfigSection title="Custom Modifiers">
@@ -382,11 +426,15 @@ export function ConfigTab() {
             value={customMods}
             onChange={(e) => {
               setCustomMods(e.target.value);
-              const lines = e.target.value.split("\n").filter((l: string) => l.trim());
+              const lines = e.target.value
+                .split("\n")
+                .filter((l: string) => l.trim());
               setConfigOverride("customMods", lines.join("|"));
               setConfigDirty(true);
             }}
-            placeholder={"Enter one modifier per line:\n+100 to maximum Life\n20% increased Damage\n+30% to Fire Resistance"}
+            placeholder={
+              "Enter one modifier per line:\n+100 to maximum Life\n20% increased Damage\n+30% to Fire Resistance"
+            }
             rows={4}
             className="w-full bg-bg-inset border border-border-subtle rounded px-2 py-1.5 text-xs font-mono text-text-primary placeholder:text-text-dim/30 resize-none focus:outline-none focus:border-accent"
           />
@@ -396,7 +444,8 @@ export function ConfigTab() {
         </ConfigSection>
 
         <p className="text-text-dim text-[10px] font-mono mt-6">
-          Config changes will trigger re-evaluation when the engine is connected.
+          Config changes will trigger re-evaluation when the engine is
+          connected.
         </p>
       </div>
     </div>

@@ -89,6 +89,63 @@ pub fn apply_keystones(input: &BuildInput, mods: &mut Vec<Modifier>) {
             "Imbalanced Guard" => {
                 mods.push(Modifier { stat: "Armour".into(), value: -50.0, mod_type: "more".into() });
             }
+            "Iron Will" => {
+                mods.push(Modifier { stat: "SpellDamage".into(), value: 20.0, mod_type: "increased".into() });
+            }
+            "Elemental Equilibrium" | "EE" => {
+                mods.push(Modifier { stat: "FirePenetration".into(), value: 25.0, mod_type: "flat".into() });
+                mods.push(Modifier { stat: "ColdPenetration".into(), value: 25.0, mod_type: "flat".into() });
+                mods.push(Modifier { stat: "LightningPenetration".into(), value: 25.0, mod_type: "flat".into() });
+            }
+            "Minion Instability" => {
+                mods.push(Modifier { stat: "MinionDamage".into(), value: 33.0, mod_type: "more".into() });
+            }
+            "Necromantic Aegis" => {
+                mods.push(Modifier { stat: "BlockChance".into(), value: -99999.0, mod_type: "flat".into() });
+                mods.push(Modifier { stat: "SpellBlockChance".into(), value: -99999.0, mod_type: "flat".into() });
+            }
+            "Ghost Dance" => {
+                mods.push(Modifier { stat: "EnergyShield".into(), value: 3.0, mod_type: "flat".into() });
+            }
+            "Wicked Ward" => {
+                mods.push(Modifier { stat: "ESRechargeRate".into(), value: 50.0, mod_type: "increased".into() });
+            }
+            "Precise Technique" => {
+                mods.push(Modifier { stat: "Damage".into(), value: 40.0, mod_type: "more".into() });
+                mods.push(Modifier { stat: "CritChance".into(), value: -1000.0, mod_type: "flat".into() });
+            }
+            "Call to Arms" => {
+                // Warcries are instant; no simple stat modifier
+            }
+            "Hollow Palm Technique" | "One With Nothing" => {
+                mods.push(Modifier { stat: "Damage".into(), value: 60.0, mod_type: "more".into() });
+                mods.push(Modifier { stat: "AttackSpeed".into(), value: 14.0, mod_type: "increased".into() });
+            }
+            "Secrets of Suffering" => {
+                // Replaces ailments with scorch/brittle/sap; complex
+            }
+            "Lone Messenger" => {
+                mods.push(Modifier { stat: "Damage".into(), value: 50.0, mod_type: "more".into() });
+            }
+            "Solipsism" => {
+                mods.push(Modifier { stat: "Mana".into(), value: 100.0, mod_type: "increased".into() });
+            }
+            "The Impaler" => {
+                mods.push(Modifier { stat: "ImpaleDPS".into(), value: 100.0, mod_type: "increased".into() });
+            }
+            "Magebane" => {
+                mods.push(Modifier { stat: "SpellSuppressionChance".into(), value: 50.0, mod_type: "flat".into() });
+                mods.push(Modifier { stat: "Evasion".into(), value: -100.0, mod_type: "more".into() });
+            }
+            "Runebinder" => {
+                // Can attach extra brand; no simple stat
+            }
+            "Hex Master" => {
+                mods.push(Modifier { stat: "CurseDuration".into(), value: 50.0, mod_type: "increased".into() });
+            }
+            "Conduit" => {
+                // Shares charges with party; no solo effect
+            }
             _ => {}
         }
     }

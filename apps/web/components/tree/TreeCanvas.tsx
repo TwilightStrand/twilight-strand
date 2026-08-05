@@ -133,39 +133,44 @@ export function TreeCanvas() {
   const stats = useBuildStore((s) => s.stats);
 
   // Compute node power delta via Rust engine when hovering
+  const rustBridgeRef = useRef<typeof import("@/engine/rust-bridge") | null>(null);
+  useEffect(() => {
+    import("@/engine/rust-bridge").then((mod) => { rustBridgeRef.current = mod; });
+  }, []);
+
   useEffect(() => {
     setNodeDelta(null);
     if (!hoveredNode || !stats || !treeData) return;
     const node = treeData.nodes.get(hoveredNode);
     if (!node?.stats?.length || allocatedNodes.has(hoveredNode)) return;
 
-    let cancelled = false;
-    import("@/engine/rust-bridge").then(({ isRustEngineReady, evaluateBuildRust, parseStatLine, defaultRustInput }) => {
-      if (cancelled || !isRustEngineReady()) return;
-      const baseMods: Array<{ stat: string; value: number; mod_type: string }> = [];
-      const baseInput = defaultRustInput({
-        level: stats.level,
-        base_str: stats.strength, base_dex: stats.dexterity, base_int: stats.intelligence,
-        modifiers: baseMods,
-        ascendancy_name: stats.ascendancy || "",
-      });
-      const base = evaluateBuildRust(baseInput);
-      if (!base || cancelled) return;
+    const bridge = rustBridgeRef.current;
+    if (!bridge || !bridge.isRustEngineReady()) return;
 
-      const nodeMods = (node.stats || []).flatMap((s: string) => parseStatLine(s));
-      const withInput = { ...baseInput, modifiers: [...baseMods, ...nodeMods] };
-      const withNode = evaluateBuildRust(withInput);
-      if (!withNode || cancelled) return;
+    const baseMods: Array<{ stat: string; value: number; mod_type: string }> = [];
+    const baseInput = bridge.defaultRustInput({
+      level: stats.level,
+      base_str: stats.strength, base_dex: stats.dexterity, base_int: stats.intelligence,
+      modifiers: baseMods,
+      ascendancy_name: stats.ascendancy || "",
+    });
+    const base = bridge.evaluateBuildRust(baseInput);
+    if (!base) return;
 
-      setNodeDelta({
-        dps: withNode.total_dps - base.total_dps,
-        life: withNode.life - base.life,
-        es: withNode.energy_shield - base.energy_shield,
-        ehp: withNode.total_ehp - base.total_ehp,
-      });
-    }).catch(() => {});
-    return () => { cancelled = true; };
+    const nodeMods = (node.stats || []).flatMap((s: string) => bridge.parseStatLine(s));
+    const withInput = { ...baseInput, modifiers: [...baseMods, ...nodeMods] };
+    const withNode = bridge.evaluateBuildRust(withInput);
+    if (!withNode) return;
+
+    setNodeDelta({
+      dps: withNode.total_dps - base.total_dps,
+      life: withNode.life - base.life,
+      es: withNode.energy_shield - base.energy_shield,
+      ehp: withNode.total_ehp - base.total_ehp,
+    });
   }, [hoveredNode, stats, treeData, allocatedNodes]);
+
+  const lastCamUpdateRef = useRef(0);
 
   const draw = useCallback(() => {
     const renderer = rendererRef.current;
@@ -175,11 +180,17 @@ export function TreeCanvas() {
     renderer.setSearchResults(searchResults);
     renderer.setHoveredNode(hoveredNode);
     renderer.render(camera);
-    setCameraState({ ...camera });
-    const canvas = canvasRef.current;
-    if (canvas) {
-      const rect = canvas.getBoundingClientRect();
-      setCanvasDims({ w: rect.width, h: rect.height });
+
+    // Throttle React state updates to max 30fps to avoid re-render churn
+    const now = performance.now();
+    if (now - lastCamUpdateRef.current > 33) {
+      lastCamUpdateRef.current = now;
+      setCameraState({ ...camera });
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const rect = canvas.getBoundingClientRect();
+        setCanvasDims({ w: rect.width, h: rect.height });
+      }
     }
   }, [allocatedNodes, searchResults, hoveredNode]);
 
@@ -220,49 +231,6 @@ export function TreeCanvas() {
   useEffect(() => {
     draw();
   }, [allocatedNodes, hoveredNode, draw]);
-
-  useEffect(() => {
-    const renderer = rendererRef.current;
-    const treeData = treeDataRef.current;
-    if (!renderer || !treeData) return;
-
-    if (npMode === "off") {
-      renderer.setNodePower(new Map(), "off");
-      draw();
-      return;
-    }
-
-    // Mock node power scoring: assign random-ish values based on node stats
-    const { setScoring } = useNodePowerStore.getState();
-    setScoring(true);
-
-    requestAnimationFrame(() => {
-      const power = new Map<string, number>();
-      let count = 0;
-      for (const [nid, node] of treeData.nodes) {
-        if (allocatedNodes.has(nid)) continue;
-        if (!node.stats || node.stats.length === 0) continue;
-
-        // Simple heuristic: score by number of stats and stat text length
-        const score = node.stats.reduce((acc, s) => {
-          const nums = s.match(/\d+/g);
-          return acc + (nums ? nums.reduce((a, n) => a + parseInt(n), 0) : 1);
-        }, 0);
-        power.set(nid, score);
-        count++;
-      }
-
-      // Normalize to 0-1
-      const maxScore = Math.max(...power.values(), 1);
-      for (const [nid, score] of power) {
-        power.set(nid, score / maxScore);
-      }
-
-      renderer.setNodePower(power, npMode);
-      setScoring(false, count);
-      draw();
-    });
-  }, [npMode, npDepth, allocatedNodes, draw]);
 
   useEffect(() => {
     const renderer = rendererRef.current;

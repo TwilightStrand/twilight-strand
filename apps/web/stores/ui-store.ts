@@ -24,7 +24,7 @@ interface UiState {
   activeTab: TabId;
   sidebarOpen: boolean;
   importOpen: boolean;
-  theme: "dark" | "light";
+  theme: "dark" | "light" | "astral" | "nostalgia";
   numberFormat: "us" | "eu";
   performanceMode: boolean;
   gameVersion: "poe1" | "poe2";
@@ -34,7 +34,7 @@ interface UiState {
   setActiveTab: (tab: TabId) => void;
   toggleSidebar: () => void;
   setImportOpen: (open: boolean) => void;
-  setTheme: (theme: "dark" | "light") => void;
+  setTheme: (theme: "dark" | "light" | "astral" | "nostalgia") => void;
   setNumberFormat: (format: "us" | "eu") => void;
   setPerformanceMode: (enabled: boolean) => void;
   setGameVersion: (version: "poe1" | "poe2") => void;
