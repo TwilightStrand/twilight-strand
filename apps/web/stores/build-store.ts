@@ -582,6 +582,10 @@ async function evaluateWithLua(xml: string) {
     const finalItems = result.items.length > 0 ? result.items : getState().items;
     const finalSkills = result.skills.length > 0 ? result.skills : getState().skills;
 
+    if ((eng as Record<string, unknown>)._debug) {
+      console.log("[engine]", (eng as Record<string, unknown>)._debug);
+    }
+
     // Lua is ground truth: overwrite Rust stats
     setState({
       stats: merged,

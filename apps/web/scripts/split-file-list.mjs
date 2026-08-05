@@ -27,9 +27,9 @@ for (const file of files) {
   const isRuthless = file.includes("ruthless");
   const isAlternate = file.includes("alternate");
   const isOldTree = isTreeLua && !isCurrentTree;
-  const isTimelessData = file.includes("TimelessJewelData/");
+  const isTimelessZip = file.includes("TimelessJewelData/") && !file.endsWith(".lua");
 
-  if (isOldTree || isRuthless || isAlternate || isTimelessData) {
+  if (isOldTree || isRuthless || isAlternate || isTimelessZip) {
     deferred.push(file);
   } else {
     essential.push(file);
