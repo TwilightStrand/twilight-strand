@@ -140,15 +140,15 @@ export function TreeCanvas() {
     if (!node?.stats?.length || allocatedNodes.has(hoveredNode)) return;
 
     let cancelled = false;
-    import("@/engine/rust-bridge").then(({ isRustEngineReady, evaluateBuildRust, parseStatLine }) => {
+    import("@/engine/rust-bridge").then(({ isRustEngineReady, evaluateBuildRust, parseStatLine, defaultRustInput }) => {
       if (cancelled || !isRustEngineReady()) return;
       const baseMods: Array<{ stat: string; value: number; mod_type: string }> = [];
-      const baseInput = {
-        level: stats.level, class_id: 0,
+      const baseInput = defaultRustInput({
+        level: stats.level,
         base_str: stats.strength, base_dex: stats.dexterity, base_int: stats.intelligence,
-        modifiers: baseMods, allocated_keystones: [] as string[], main_skill_id: "",
+        modifiers: baseMods,
         ascendancy_name: stats.ascendancy || "",
-      };
+      });
       const base = evaluateBuildRust(baseInput);
       if (!base || cancelled) return;
 
@@ -284,20 +284,14 @@ export function TreeCanvas() {
       let scored = 0;
 
       try {
-        const { isRustEngineReady, evaluateBuildRust, parseStatLine } = await import("@/engine/rust-bridge");
+        const { isRustEngineReady, evaluateBuildRust, parseStatLine, defaultRustInput } = await import("@/engine/rust-bridge");
         const stats = useBuildStore.getState().stats;
 
         if (isRustEngineReady() && stats) {
-          const baseInput: import("@/engine/rust-bridge").RustBuildInput = {
+          const baseInput = defaultRustInput({
             level: stats.level,
-            class_id: 0,
-            base_str: 20,
-            base_dex: 20,
-            base_int: 20,
-            modifiers: [],
-            allocated_keystones: [],
-            main_skill_id: "",
-          };
+            ascendancy_name: stats.ascendancy || "",
+          });
 
           const baseOutput = evaluateBuildRust(baseInput);
 

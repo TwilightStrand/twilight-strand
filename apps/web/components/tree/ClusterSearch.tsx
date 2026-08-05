@@ -60,30 +60,17 @@ export function ClusterSearch() {
     setSearching(true);
 
     try {
-      const { isRustEngineReady, evaluateBuildRust, parseStatLine } =
+      const { isRustEngineReady, evaluateBuildRust, parseStatLine, defaultRustInput } =
         await import("@/engine/rust-bridge");
 
       const useRust = isRustEngineReady();
       const baseDps = stats.total_dps || 0;
 
       const baseInput = useRust
-        ? {
+        ? defaultRustInput({
             level: stats.level,
-            class_id: 0,
-            base_str: 20,
-            base_dex: 20,
-            base_int: 20,
-            modifiers: [] as Array<{ stat: string; value: number; mod_type: string }>,
-            allocated_keystones: [] as string[],
-            main_skill_id: "",
             ascendancy_name: stats.ascendancy || "",
-            enemy_level: 83,
-            enemy_fire_res: 0,
-            enemy_cold_res: 0,
-            enemy_lightning_res: 0,
-            enemy_chaos_res: 0,
-            enemy_is_boss: false,
-          }
+          })
         : null;
 
       const baseOutput = baseInput ? evaluateBuildRust(baseInput) : null;
