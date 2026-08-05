@@ -953,12 +953,18 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
                     local modCount = 0
                     if item.modList then
                       pcall(function()
-                        for _ in ipairs(item.modList) do modCount = modCount + 1 end
+                        -- ModList stores mods as self[1], self[2], etc.
+                        local i = 1
+                        while rawget(item.modList, i) do
+                          modCount = modCount + 1
+                          i = i + 1
+                        end
                       end)
                     end
                     if modCount > 0 then withMods = withMods + 1 end
-                    if #sampleSlots < 3 then
-                      table.insert(sampleSlots, slot.slotName .. "=" .. itemId .. "(" .. modCount .. "mods)")
+                    if #sampleSlots < 4 then
+                      local itemName = item.name or item.baseName or "?"
+                      table.insert(sampleSlots, (slot.slotName or "?") .. ":" .. modCount .. "m")
                     end
                   end
                 end
