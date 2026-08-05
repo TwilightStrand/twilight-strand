@@ -1,8 +1,8 @@
 import { create } from "zustand";
-import type { BuildStats, ItemData, SkillGroup } from "@/engine/types";
-import type { EngineDivergence } from "@/engine/rust-converter";
-import { classifyBuildInput, parseAccountCharFromUrl, gggDataToXml } from "@/engine/import-export";
 import type { BuildInputKind } from "@/engine/import-export";
+import { classifyBuildInput, gggDataToXml, parseAccountCharFromUrl } from "@/engine/import-export";
+import type { EngineDivergence } from "@/engine/rust-converter";
+import type { BuildStats, ItemData, SkillGroup } from "@/engine/types";
 
 type EngineStatus = "idle" | "loading" | "ready" | "error";
 
@@ -270,7 +270,7 @@ export const useBuildStore = create<BuildState>((set, get) => ({
       set({ engineStatus: "ready", engineProgress: "", engineInitTime: Math.round(performance.now() - initStart) });
 
       // Also init Rust WASM engine (non-blocking, used for fast node power calcs)
-      import("@/engine/rust-bridge").then(m => m.initRustEngine()).catch(() => {});
+      import("@/engine/rust-bridge").then((m) => m.initRustEngine()).catch(() => {});
     } catch (e) {
       set({
         engineStatus: "error",
@@ -288,11 +288,16 @@ export const useBuildStore = create<BuildState>((set, get) => ({
       if (xml) return xml;
       const { buildToXml } = await import("@tsc/build-codec");
       return buildToXml({
-        level: stats.level, className: stats.class_name, ascendancy: stats.ascendancy,
-        mainSocketGroup: stats.main_socket_group, treeVersion: stats.tree_version,
+        level: stats.level,
+        className: stats.class_name,
+        ascendancy: stats.ascendancy,
+        mainSocketGroup: stats.main_socket_group,
+        treeVersion: stats.tree_version,
         allocatedNodes: stats.allocated_nodes,
-        items: items.map(i => ({ ...i })), skills: skills.map(s => ({ ...s })),
-        config: [], notes,
+        items: items.map((i) => ({ ...i })),
+        skills: skills.map((s) => ({ ...s })),
+        config: [],
+        notes,
       });
     }
 
@@ -305,20 +310,34 @@ export const useBuildStore = create<BuildState>((set, get) => ({
     if (format === "tsc") {
       const { encodeBuildCode } = await import("@tsc/build-codec");
       return encodeBuildCode({
-        level: stats.level, className: stats.class_name, ascendancy: stats.ascendancy,
-        mainSocketGroup: stats.main_socket_group, treeVersion: stats.tree_version,
+        level: stats.level,
+        className: stats.class_name,
+        ascendancy: stats.ascendancy,
+        mainSocketGroup: stats.main_socket_group,
+        treeVersion: stats.tree_version,
         allocatedNodes: stats.allocated_nodes,
-        items: items.map(i => ({ ...i })), skills: skills.map(s => ({ ...s })),
-        config: [], notes,
+        items: items.map((i) => ({ ...i })),
+        skills: skills.map((s) => ({ ...s })),
+        config: [],
+        notes,
       });
     }
 
     if (format === "json") {
-      return JSON.stringify({
-        name: buildName, level: stats.level,
-        class: stats.class_name, ascendancy: stats.ascendancy,
-        stats, items, skills, notes,
-      }, null, 2);
+      return JSON.stringify(
+        {
+          name: buildName,
+          level: stats.level,
+          class: stats.class_name,
+          ascendancy: stats.ascendancy,
+          stats,
+          items,
+          skills,
+          notes,
+        },
+        null,
+        2,
+      );
     }
 
     if (format === "pastebin") {
@@ -396,7 +415,13 @@ export const useBuildStore = create<BuildState>((set, get) => ({
           xml,
           loading: false,
           stats: prev
-            ? { ...prev, allocated_nodes: result.stats.allocated_nodes, level: result.stats.level, class_name: result.stats.class_name, ascendancy: result.stats.ascendancy }
+            ? {
+                ...prev,
+                allocated_nodes: result.stats.allocated_nodes,
+                level: result.stats.level,
+                class_name: result.stats.class_name,
+                ascendancy: result.stats.ascendancy,
+              }
             : result.stats,
         });
       } else if (scope === "items") {
@@ -413,6 +438,7 @@ export const useBuildStore = create<BuildState>((set, get) => ({
           notes: result.notes || "",
           loading: false,
           buildName,
+          configOverrides: result.config ?? {},
         });
       }
 
@@ -430,10 +456,12 @@ export const useBuildStore = create<BuildState>((set, get) => ({
       if (engineStatus === "ready") {
         evaluateWithLua(xml);
       } else if (engineStatus === "idle") {
-        get().initEngine().then(() => {
-          const currentXml = get().xml;
-          if (currentXml) evaluateWithLua(currentXml);
-        });
+        get()
+          .initEngine()
+          .then(() => {
+            const currentXml = get().xml;
+            if (currentXml) evaluateWithLua(currentXml);
+          });
       }
     } catch (e) {
       set({
@@ -486,27 +514,22 @@ async function importFromProfile(input: string, kind: BuildInputKind): Promise<s
     charName = chars[0].name;
   }
 
-  const resp = await fetch(`/api/character?account=${encodeURIComponent(account)}&character=${encodeURIComponent(charName)}`);
+  const resp = await fetch(
+    `/api/character?account=${encodeURIComponent(account)}&character=${encodeURIComponent(charName)}`,
+  );
   if (!resp.ok) throw new Error("Failed to fetch character data. Profile may be private.");
   const data = await resp.json();
 
   return gggDataToXml(data.items, data.passives, charName);
 }
 
-async function runRustEval(
-  xmlStats: BuildStats,
-  items: ItemData[],
-  skills: SkillGroup[],
-) {
+async function runRustEval(xmlStats: BuildStats, items: ItemData[], skills: SkillGroup[]) {
   const { setState } = useBuildStore;
   try {
     const [
       { isRustEngineReady, initRustEngine, evaluateBuildRust, parseStatLine },
       { ensureTreeData, convertToRustInput, rustOutputToBuildStats },
-    ] = await Promise.all([
-      import("@/engine/rust-bridge"),
-      import("@/engine/rust-converter"),
-    ]);
+    ] = await Promise.all([import("@/engine/rust-bridge"), import("@/engine/rust-converter")]);
 
     await initRustEngine();
     if (!isRustEngineReady()) return;
@@ -570,9 +593,7 @@ async function evaluateWithLua(xml: string) {
 
     if (merged.allocated_nodes.length > 0) {
       const { useTreeStore } = await import("@/stores/tree-store");
-      useTreeStore.getState().setAllocatedNodes(
-        new Set(merged.allocated_nodes.map(String))
-      );
+      useTreeStore.getState().setAllocatedNodes(new Set(merged.allocated_nodes.map(String)));
     }
 
     // Compare Rust vs Lua for divergence tracking
@@ -583,20 +604,13 @@ async function evaluateWithLua(xml: string) {
   }
 }
 
-async function runDivergenceCheck(
-  luaStats: BuildStats,
-  items: ItemData[],
-  skills: SkillGroup[],
-) {
+async function runDivergenceCheck(luaStats: BuildStats, items: ItemData[], skills: SkillGroup[]) {
   const { setState } = useBuildStore;
   try {
     const [
       { isRustEngineReady, evaluateBuildRust, parseStatLine },
       { ensureTreeData, convertToRustInput, compareLuaVsRust },
-    ] = await Promise.all([
-      import("@/engine/rust-bridge"),
-      import("@/engine/rust-converter"),
-    ]);
+    ] = await Promise.all([import("@/engine/rust-bridge"), import("@/engine/rust-converter")]);
 
     if (!isRustEngineReady()) return;
 
@@ -616,7 +630,9 @@ async function runDivergenceCheck(
     if (significant.length > 0) {
       console.warn(
         `[dual-engine] ${significant.length} divergences >5%:`,
-        significant.map((d) => `${d.stat}: lua=${d.lua.toFixed(1)} rust=${d.rust.toFixed(1)} (${d.pctDiff.toFixed(1)}%)`),
+        significant.map(
+          (d) => `${d.stat}: lua=${d.lua.toFixed(1)} rust=${d.rust.toFixed(1)} (${d.pctDiff.toFixed(1)}%)`,
+        ),
       );
     }
   } catch (e) {

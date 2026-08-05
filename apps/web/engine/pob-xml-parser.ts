@@ -1,4 +1,4 @@
-import type { BuildStats, ItemData, SkillGroup, GemData } from "./types";
+import type { BuildStats, GemData, ItemData, SkillGroup } from "./types";
 
 function getAttr(el: Element, name: string): string {
   return el.getAttribute(name) ?? "";
@@ -16,6 +16,7 @@ export function parsePobXml(xml: string): {
   items: ItemData[];
   skills: SkillGroup[];
   notes: string;
+  config: Record<string, string | boolean | number>;
 } {
   const parser = new DOMParser();
   const doc = parser.parseFromString(xml, "text/xml");
@@ -27,8 +28,36 @@ export function parsePobXml(xml: string): {
   const skills = extractSkills(root);
   const notesEl = root.querySelector("Notes");
   const notes = notesEl?.textContent?.trim() ?? "";
+  const config = extractConfig(root);
 
-  return { stats, items, skills, notes };
+  return { stats, items, skills, notes, config };
+}
+
+function extractConfig(root: Element): Record<string, string | boolean | number> {
+  const configEl = root.querySelector("Config");
+  if (!configEl) return {};
+
+  const config: Record<string, string | boolean | number> = {};
+  const inputs = configEl.querySelectorAll("Input");
+
+  for (const input of inputs) {
+    const name = input.getAttribute("name");
+    if (!name) continue;
+
+    const boolVal = input.getAttribute("boolean");
+    const numVal = input.getAttribute("number");
+    const strVal = input.getAttribute("string");
+
+    if (boolVal !== null) {
+      config[name] = boolVal === "true";
+    } else if (numVal !== null) {
+      config[name] = parseFloat(numVal);
+    } else if (strVal !== null) {
+      config[name] = strVal;
+    }
+  }
+
+  return config;
 }
 
 function extractBuildInfo(root: Element): BuildStats {
@@ -144,7 +173,10 @@ function extractItems(root: Element): ItemData[] {
     const text = el.textContent?.trim() ?? "";
     if (!text) continue;
 
-    const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+    const lines = text
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
     if (lines.length < 2) continue;
 
     const rarity = lines[0].startsWith("Rarity:") ? lines[0].replace("Rarity: ", "") : "Normal";

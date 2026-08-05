@@ -775,7 +775,55 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
         console.warn("PoB loadBuild error:", String(loadErr).substring(0, 300));
       }
 
-      // Apply config overrides before running calculations
+      progress(id, "Running calculations...");
+      await lua.doString(`
+        -- Phase 1: Run OnFrame cycles to let the mode switch happen and
+        -- the build fully initialize (parse XML, load items, tree, config).
+        -- PoB's SetMode is deferred; the actual init happens across frames.
+        local maxInitFrames = 20
+        for i = 1, maxInitFrames do
+          if mainObject and mainObject.OnFrame then
+            pcall(runCallback, "OnFrame")
+          end
+        end
+
+        -- Phase 2: Force a full recalc. The build should be loaded now.
+        -- Set buildFlag to trigger calcsTab:BuildOutput() on next OnFrame.
+        local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
+        if b then
+          -- Force config tab to rebuild its mod list (applies charges, boss, shock etc.)
+          if b.configTab then
+            pcall(function() b.configTab:BuildModList() end)
+          end
+          b.buildFlag = true
+        end
+
+        -- Phase 3: Run more frames for the full calc pipeline to complete.
+        -- Wait until CombinedDPS stabilizes across consecutive frames.
+        local maxCalcFrames = 60
+        local lastDPS = -1
+        local stableCount = 0
+        for i = 1, maxCalcFrames do
+          if mainObject and mainObject.OnFrame then
+            pcall(runCallback, "OnFrame")
+          end
+          b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
+          if b and b.calcsTab and b.calcsTab.mainOutput then
+            local curDPS = b.calcsTab.mainOutput.CombinedDPS or b.calcsTab.mainOutput.TotalDPS or 0
+            local curES = b.calcsTab.mainOutput.EnergyShield or 0
+            local key = curDPS * 1000 + curES
+            if key == lastDPS and curDPS > 0 then
+              stableCount = stableCount + 1
+              if stableCount >= 3 then break end
+            else
+              stableCount = 0
+            end
+            lastDPS = key
+          end
+        end
+      `);
+
+      // Apply any manual config overrides on top of what the XML set
       if (config && Object.keys(config).length > 0) {
         lua.global.set("_tsc_config", config);
         await lua.doString(`
@@ -787,44 +835,17 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
               end
               pcall(function() b.configTab:BuildModList() end)
               b.buildFlag = true
+              -- Run a few more frames for overrides to take effect
+              for i = 1, 10 do
+                if mainObject and mainObject.OnFrame then
+                  pcall(runCallback, "OnFrame")
+                end
+              end
             end
             _tsc_config = nil
           end
         `);
       }
-
-      progress(id, "Running calculations...");
-      await lua.doString(`
-        -- Run OnFrame cycles to let tree load, config apply, and calcs settle.
-        -- Complex builds need many frames: load XML -> parse tree -> process items
-        -- -> build config mod list -> run full calc pipeline.
-        local maxFrames = 80
-        local lastDPS = -1
-        local stableCount = 0
-        for i = 1, maxFrames do
-          if mainObject and mainObject.OnFrame then
-            pcall(runCallback, "OnFrame")
-          end
-          local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
-          if b then
-            -- Force a full recalc on early frames
-            if i <= 5 and b.buildFlag ~= nil then
-              b.buildFlag = true
-            end
-            -- Check if calcs have stabilized (DPS stopped changing)
-            if b.calcsTab and b.calcsTab.mainOutput then
-              local curDPS = b.calcsTab.mainOutput.TotalDPS or b.calcsTab.mainOutput.CombinedDPS or 0
-              if curDPS == lastDPS and curDPS > 0 then
-                stableCount = stableCount + 1
-                if stableCount >= 3 then break end
-              else
-                stableCount = 0
-              end
-              lastDPS = curDPS
-            end
-          end
-        end
-      `);
 
       progress(id, "Extracting stats...");
       await lua.doString(`
