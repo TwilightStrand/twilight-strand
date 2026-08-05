@@ -1037,6 +1037,30 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
               if b.spec and b.spec.hashList then
                 _tsc_debug_info = _tsc_debug_info .. " xmlHashes=" .. #b.spec.hashList
               end
+              -- Node type breakdown
+              if b.spec and b.spec.allocNodes then
+                local types = {}
+                for _, node in pairs(b.spec.allocNodes) do
+                  local t = node.type or "?"
+                  types[t] = (types[t] or 0) + 1
+                end
+                local parts = {}
+                for t, c in pairs(types) do parts[#parts+1] = t .. "=" .. c end
+                table.sort(parts)
+                _tsc_debug_info = _tsc_debug_info .. " nodeTypes=[" .. table.concat(parts, ",") .. "]"
+              end
+              -- Subgraph/cluster nodes
+              if b.spec and b.spec.subGraphs then
+                local sgCount = 0
+                for _ in pairs(b.spec.subGraphs) do sgCount = sgCount + 1 end
+                if sgCount > 0 then _tsc_debug_info = _tsc_debug_info .. " subGraphs=" .. sgCount end
+              end
+              if b.spec and b.spec.allocSubgraphNodes and #b.spec.allocSubgraphNodes > 0 then
+                _tsc_debug_info = _tsc_debug_info .. " pendingSubgraph=" .. #b.spec.allocSubgraphNodes
+              end
+              if b.spec and b.spec.allocExtendedNodes and #b.spec.allocExtendedNodes > 0 then
+                _tsc_debug_info = _tsc_debug_info .. " extNodes=" .. #b.spec.allocExtendedNodes
+              end
               -- Thread of Hope / Intuitive Leap check
               if b.itemsTab and b.itemsTab.items then
                 local leapLikes = 0
