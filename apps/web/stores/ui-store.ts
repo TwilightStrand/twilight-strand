@@ -1,13 +1,6 @@
 import { create } from "zustand";
 
-export const TABS = [
-  "tree",
-  "items",
-  "skills",
-  "config",
-  "calcs",
-  "settings",
-] as const;
+export const TABS = ["tree", "items", "skills", "config", "calcs", "settings"] as const;
 
 export type TabId = (typeof TABS)[number];
 
@@ -52,7 +45,12 @@ export const useUiStore = create<UiState>((set) => ({
   performanceMode: false,
   gameVersion: "poe1",
   pinnedStats: (() => {
-    try { const s = typeof localStorage !== "undefined" && localStorage.getItem("tsc-pinned"); return s ? JSON.parse(s) : []; } catch { return []; }
+    try {
+      const s = typeof localStorage !== "undefined" && localStorage.getItem("tsc-pinned");
+      return s ? JSON.parse(s) : [];
+    } catch {
+      return [];
+    }
   })(),
   setActiveTab: (tab) => set({ activeTab: tab }),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
@@ -63,38 +61,54 @@ export const useUiStore = create<UiState>((set) => ({
       document.documentElement.setAttribute("data-theme", theme);
       document.documentElement.className = theme;
     }
-    try { localStorage.setItem("tsc-theme", theme); } catch {}
+    try {
+      localStorage.setItem("tsc-theme", theme);
+    } catch {}
   },
   setNumberFormat: (format) => {
     set({ numberFormat: format });
-    try { localStorage.setItem("tsc-numfmt", format); } catch {}
+    try {
+      localStorage.setItem("tsc-numfmt", format);
+    } catch {}
   },
   setPerformanceMode: (enabled) => {
     set({ performanceMode: enabled });
     if (typeof document !== "undefined") {
       document.documentElement.classList.toggle("perf-mode", enabled);
     }
-    try { localStorage.setItem("tsc-perf", String(enabled)); } catch {}
+    try {
+      localStorage.setItem("tsc-perf", String(enabled));
+    } catch {}
   },
   setGameVersion: (version) => {
     set({ gameVersion: version });
-    try { localStorage.setItem("tsc-game", version); } catch {}
+    try {
+      localStorage.setItem("tsc-game", version);
+    } catch {}
   },
-  togglePinnedStat: (stat) => set((s) => {
-    const pinned = s.pinnedStats.includes(stat)
-      ? s.pinnedStats.filter(p => p !== stat)
-      : [...s.pinnedStats, stat];
-    try { localStorage.setItem("tsc-pinned", JSON.stringify(pinned)); } catch {}
-    return { pinnedStats: pinned };
-  }),
+  togglePinnedStat: (stat) =>
+    set((s) => {
+      const pinned = s.pinnedStats.includes(stat) ? s.pinnedStats.filter((p) => p !== stat) : [...s.pinnedStats, stat];
+      try {
+        localStorage.setItem("tsc-pinned", JSON.stringify(pinned));
+      } catch {}
+      return { pinnedStats: pinned };
+    }),
   sidebarCompact: (() => {
-    try { return typeof localStorage !== "undefined" && localStorage.getItem("tsc-sidebar-compact") === "1"; } catch { return false; }
+    try {
+      return typeof localStorage !== "undefined" && localStorage.getItem("tsc-sidebar-compact") === "1";
+    } catch {
+      return false;
+    }
   })(),
-  toggleSidebarCompact: () => set((s) => {
-    const compact = !s.sidebarCompact;
-    try { localStorage.setItem("tsc-sidebar-compact", compact ? "1" : "0"); } catch {}
-    return { sidebarCompact: compact };
-  }),
+  toggleSidebarCompact: () =>
+    set((s) => {
+      const compact = !s.sidebarCompact;
+      try {
+        localStorage.setItem("tsc-sidebar-compact", compact ? "1" : "0");
+      } catch {}
+      return { sidebarCompact: compact };
+    }),
   sidebarMode: "list" as "list" | "bars",
   toggleSidebarMode: () => set((s) => ({ sidebarMode: s.sidebarMode === "list" ? "bars" : "list" })),
 }));

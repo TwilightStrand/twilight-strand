@@ -1,29 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { useBuildStore } from "@/stores/build-store";
 import { EmptyState } from "@/components/shell/EmptyState";
-import { ItemEditor } from "./ItemEditor";
+import type { ItemData } from "@/engine/types";
+import { useBuildStore } from "@/stores/build-store";
 import { ClusterDisplay } from "./ClusterDisplay";
 import { CraftingBench } from "./CraftingBench";
+import { ItemEditor } from "./ItemEditor";
+import { PaperDoll } from "./PaperDoll";
 import { UniqueBrowser } from "./UniqueBrowser";
-import type { ItemData } from "@/engine/types";
 
 const WEAPON_SLOTS_SET1 = ["Weapon 1", "Weapon 2"];
 const WEAPON_SLOTS_SET2 = ["Weapon 1 Swap", "Weapon 2 Swap"];
-const ARMOUR_SLOTS = [
-  "Helmet",
-  "Body Armour",
-  "Gloves",
-  "Boots",
-  "Amulet",
-  "Ring 1",
-  "Ring 2",
-  "Belt",
-];
+const ARMOUR_SLOTS = ["Helmet", "Body Armour", "Gloves", "Boots", "Amulet", "Ring 1", "Ring 2", "Belt"];
 
 const FLASK_SLOTS = ["Flask 1", "Flask 2", "Flask 3", "Flask 4", "Flask 5"];
-
 
 const RARITY_COLORS: Record<string, string> = {
   Normal: "#9ca3af",
@@ -38,11 +29,34 @@ function rarityColor(rarity: string): string {
 
 function flaskTypeColor(item: ItemData): string | null {
   if (!item.slot.startsWith("Flask")) return null;
-  const name = (item.name + " " + item.base).toLowerCase();
+  const name = `${item.name} ${item.base}`.toLowerCase();
   if (item.rarity === "Unique") return "#af6025";
-  if (name.includes("life") || name.includes("eternal") || name.includes("divine") || name.includes("hallowed") || name.includes("sanctified")) return "#c44";
+  if (
+    name.includes("life") ||
+    name.includes("eternal") ||
+    name.includes("divine") ||
+    name.includes("hallowed") ||
+    name.includes("sanctified")
+  )
+    return "#c44";
   if (name.includes("mana")) return "#4488dd";
-  if (name.includes("quicksilver") || name.includes("granite") || name.includes("jade") || name.includes("basalt") || name.includes("quartz") || name.includes("diamond") || name.includes("amethyst") || name.includes("ruby") || name.includes("sapphire") || name.includes("topaz") || name.includes("silver") || name.includes("sulphur") || name.includes("bismuth") || name.includes("gold")) return "#8b8";
+  if (
+    name.includes("quicksilver") ||
+    name.includes("granite") ||
+    name.includes("jade") ||
+    name.includes("basalt") ||
+    name.includes("quartz") ||
+    name.includes("diamond") ||
+    name.includes("amethyst") ||
+    name.includes("ruby") ||
+    name.includes("sapphire") ||
+    name.includes("topaz") ||
+    name.includes("silver") ||
+    name.includes("sulphur") ||
+    name.includes("bismuth") ||
+    name.includes("gold")
+  )
+    return "#8b8";
   return "#888";
 }
 
@@ -67,9 +81,7 @@ function SlotRow({
         ${selected ? "bg-bg-hover text-text-bright" : "text-text-dim hover:bg-bg-hover/50 hover:text-text-primary"}
       `}
     >
-      {flaskColor && (
-        <span className="w-1.5 h-4 rounded-sm shrink-0" style={{ backgroundColor: flaskColor }} />
-      )}
+      {flaskColor && <span className="w-1.5 h-4 rounded-sm shrink-0" style={{ backgroundColor: flaskColor }} />}
       <span className={`${flaskColor ? "w-16" : "w-24"} shrink-0 text-text-dim truncate`}>{slot}</span>
       {item ? (
         <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -105,7 +117,11 @@ function cleanMod(mod: string): string {
 }
 
 const SOCKET_COLORS: Record<string, string> = {
-  R: "#c44", G: "#4c4", B: "#44c", W: "#ccc", A: "#888",
+  R: "#c44",
+  G: "#4c4",
+  B: "#44c",
+  W: "#ccc",
+  A: "#888",
 };
 
 function SocketVisual({ sockets }: { sockets: string }) {
@@ -142,8 +158,18 @@ function extractKeyStats(item: ItemData): Array<{ label: string; value: string; 
     if (esMatch) stats.push({ label: "ES", value: `+${esMatch[1]}`, color: "#4488dd" });
     const resMatch = mod.match(/\+(\d+)% to (fire|cold|lightning|chaos|all elemental) resistance/i);
     if (resMatch) {
-      const rc: Record<string, string> = { fire: "#c44", cold: "#48c", lightning: "#cc4", chaos: "#84c", "all elemental": "#c84" };
-      stats.push({ label: `${resMatch[2]} Res`, value: `+${resMatch[1]}%`, color: rc[resMatch[2].toLowerCase()] || "#888" });
+      const rc: Record<string, string> = {
+        fire: "#c44",
+        cold: "#48c",
+        lightning: "#cc4",
+        chaos: "#84c",
+        "all elemental": "#c84",
+      };
+      stats.push({
+        label: `${resMatch[2]} Res`,
+        value: `+${resMatch[1]}%`,
+        color: rc[resMatch[2].toLowerCase()] || "#888",
+      });
     }
     const dmgMatch = mod.match(/adds (\d+) to (\d+) (physical|fire|cold|lightning|chaos) damage/i);
     if (dmgMatch) stats.push({ label: `${dmgMatch[3]} Dmg`, value: `${dmgMatch[1]}-${dmgMatch[2]}`, color: "#c84" });
@@ -187,7 +213,17 @@ function getInfluences(item: ItemData): string[] {
   return influences;
 }
 
-function ItemDetail({ item, onEdit, onDelete, onCraft }: { item: ItemData; onEdit?: () => void; onDelete?: () => void; onCraft?: () => void }) {
+function ItemDetail({
+  item,
+  onEdit,
+  onDelete,
+  onCraft,
+}: {
+  item: ItemData;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  onCraft?: () => void;
+}) {
   const color = rarityColor(item.rarity);
   const keyStats = extractKeyStats(item);
   const reqs = parseRequirements(item);
@@ -209,12 +245,16 @@ function ItemDetail({ item, onEdit, onDelete, onCraft }: { item: ItemData; onEdi
           >
             {item.rarity}
           </span>
-          {influences.map(inf => (
-            <span key={inf} className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{
-              color: INFLUENCE_COLORS[inf],
-              backgroundColor: `${INFLUENCE_COLORS[inf]}15`,
-              border: `1px solid ${INFLUENCE_COLORS[inf]}30`,
-            }}>
+          {influences.map((inf) => (
+            <span
+              key={inf}
+              className="text-[9px] font-mono px-1.5 py-0.5 rounded"
+              style={{
+                color: INFLUENCE_COLORS[inf],
+                backgroundColor: `${INFLUENCE_COLORS[inf]}15`,
+                border: `1px solid ${INFLUENCE_COLORS[inf]}30`,
+              }}
+            >
               {inf}
             </span>
           ))}
@@ -284,9 +324,7 @@ function ItemDetail({ item, onEdit, onDelete, onCraft }: { item: ItemData; onEdi
             {item.name}
           </h3>
         )}
-        {item.base && item.base !== item.name && (
-          <p className="text-xs font-mono text-text-dim">{item.base}</p>
-        )}
+        {item.base && item.base !== item.name && <p className="text-xs font-mono text-text-dim">{item.base}</p>}
       </div>
 
       {keyStats.length > 0 && (
@@ -316,9 +354,7 @@ function ItemDetail({ item, onEdit, onDelete, onCraft }: { item: ItemData; onEdi
       )}
 
       {reqs.length > 0 && (
-        <div className="text-[10px] font-mono text-text-dim/60 mb-2">
-          Requires: {reqs.join(", ")}
-        </div>
+        <div className="text-[10px] font-mono text-text-dim/60 mb-2">Requires: {reqs.join(", ")}</div>
       )}
 
       {item.mods.length > 0 && (
@@ -358,7 +394,11 @@ function ItemDetail({ item, onEdit, onDelete, onCraft }: { item: ItemData; onEdi
   );
 }
 
-function EquipmentGrid({ itemsBySlot, selectedSlot, onSelect }: {
+function EquipmentGrid({
+  itemsBySlot,
+  selectedSlot,
+  onSelect,
+}: {
   itemsBySlot: Map<string, ItemData>;
   selectedSlot: string;
   onSelect: (slot: string) => void;
@@ -381,13 +421,17 @@ function EquipmentGrid({ itemsBySlot, selectedSlot, onSelect }: {
             key={slot}
             onClick={() => onSelect(slot)}
             className={`aspect-square rounded border text-center flex flex-col items-center justify-center p-1 transition-colors ${
-              isSelected ? "border-accent bg-accent/10" :
-              item ? "border-border-card bg-bg-card hover:border-accent/30" :
-              "border-border-subtle/50 bg-bg-inset/30 hover:border-border-card"
+              isSelected
+                ? "border-accent bg-accent/10"
+                : item
+                  ? "border-border-card bg-bg-card hover:border-accent/30"
+                  : "border-border-subtle/50 bg-bg-inset/30 hover:border-border-card"
             }`}
             title={slot}
           >
-            <span className="text-[7px] font-mono text-text-dim/60 leading-tight">{slot.replace("Body Armour", "Chest")}</span>
+            <span className="text-[7px] font-mono text-text-dim/60 leading-tight">
+              {slot.replace("Body Armour", "Chest")}
+            </span>
             {item && (
               <span className="text-[7px] font-mono truncate w-full mt-0.5" style={{ color: rarityColor(item.rarity) }}>
                 {(item.name || item.base).split(" ").slice(0, 2).join(" ")}
@@ -414,10 +458,10 @@ export function ItemsTab() {
   const [browsingUniques, setBrowsingUniques] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const storeLoadouts = useBuildStore((s) => s.loadouts);
-  const loadouts = storeLoadouts.map(l => l.name);
+  const loadouts = storeLoadouts.map((l) => l.name);
 
   function toggleFlask(slot: string) {
-    setActiveFlasks(prev => {
+    setActiveFlasks((prev) => {
       const next = new Set(prev);
       if (next.has(slot)) next.delete(slot);
       else next.add(slot);
@@ -435,9 +479,9 @@ export function ItemsTab() {
 
   const selectedItem = itemsBySlot.get(selectedSlot);
 
-  const filledCount = items.filter(i => i.slot).length;
-  const uniqueCount = items.filter(i => i.rarity === "Unique").length;
-  const rareCount = items.filter(i => i.rarity === "Rare").length;
+  const filledCount = items.filter((i) => i.slot).length;
+  const uniqueCount = items.filter((i) => i.rarity === "Unique").length;
+  const rareCount = items.filter((i) => i.rarity === "Rare").length;
 
   return (
     <div className="flex h-full">
@@ -457,11 +501,7 @@ export function ItemsTab() {
           </div>
         )}
         {viewMode === "grid" && (
-          <EquipmentGrid
-            itemsBySlot={itemsBySlot}
-            selectedSlot={selectedSlot}
-            onSelect={setSelectedSlot}
-          />
+          <PaperDoll items={items} selectedSlot={selectedSlot} onSelectSlot={setSelectedSlot} weaponSet={weaponSet} />
         )}
         <div className="flex items-center gap-1 px-3 py-1.5 border-b border-border-subtle">
           {loadouts.map((name, i) => (
@@ -495,80 +535,90 @@ export function ItemsTab() {
           />
         </div>
         <div className="p-2">
-        <div className="flex items-center gap-1 mb-2 px-3">
-          <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-text-dim mr-auto">
-            Equipment
-          </span>
-          <button
-            onClick={() => { setEditingItem(undefined); setEditing(true); }}
-            className="text-[10px] font-mono text-accent hover:text-accent/80 transition-colors mr-1"
-          >
-            + New
-          </button>
-          <button
-            onClick={() => setBrowsingUniques(true)}
-            className="text-[10px] font-mono text-amber-400 hover:text-amber-400/80 transition-colors mr-1"
-          >
-            Uniques
-          </button>
-          <button
-            onClick={() => setWeaponSet(1)}
-            className={`text-[9px] font-mono px-1.5 py-0.5 rounded transition-colors ${weaponSet === 1 ? "bg-accent/20 text-accent" : "text-text-dim/50 hover:text-text-dim"}`}
-          >
-            Set I
-          </button>
-          <button
-            onClick={() => setWeaponSet(2)}
-            className={`text-[9px] font-mono px-1.5 py-0.5 rounded transition-colors ${weaponSet === 2 ? "bg-accent/20 text-accent" : "text-text-dim/50 hover:text-text-dim"}`}
-          >
-            Set II
-          </button>
-        </div>
-        {equipmentSlots.filter(slot => {
-          if (!itemFilter.trim()) return true;
-          const item = itemsBySlot.get(slot);
-          if (!item) return !itemFilter.trim();
-          const q = itemFilter.toLowerCase();
-          return item.name.toLowerCase().includes(q) || item.base.toLowerCase().includes(q) || item.mods.some(m => m.toLowerCase().includes(q));
-        }).map((slot) => (
-          <SlotRow
-            key={slot}
-            slot={slot}
-            item={itemsBySlot.get(slot)}
-            selected={selectedSlot === slot}
-            onClick={() => setSelectedSlot(slot)}
-          />
-        ))}
-
-        <div className="mt-3 mb-2">
-          <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-text-dim px-3">
-            Flasks
-          </span>
-        </div>
-        {FLASK_SLOTS.map((slot) => (
-          <div key={slot} className="flex items-center gap-0.5">
+          <div className="flex items-center gap-1 mb-2 px-3">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-text-dim mr-auto">
+              Equipment
+            </span>
             <button
-              onClick={(e) => { e.stopPropagation(); toggleFlask(slot); }}
-              className={`w-4 h-4 rounded-sm text-[8px] font-bold shrink-0 transition-colors ${
-                activeFlasks.has(slot)
-                  ? "bg-accent/30 text-accent border border-accent/50"
-                  : "bg-bg-hover text-text-dim/40 border border-border-subtle"
-              }`}
-              title={activeFlasks.has(slot) ? "Flask active" : "Flask inactive"}
+              onClick={() => {
+                setEditingItem(undefined);
+                setEditing(true);
+              }}
+              className="text-[10px] font-mono text-accent hover:text-accent/80 transition-colors mr-1"
             >
-              {activeFlasks.has(slot) ? "A" : ""}
+              + New
             </button>
-            <div className="flex-1">
+            <button
+              onClick={() => setBrowsingUniques(true)}
+              className="text-[10px] font-mono text-amber-400 hover:text-amber-400/80 transition-colors mr-1"
+            >
+              Uniques
+            </button>
+            <button
+              onClick={() => setWeaponSet(1)}
+              className={`text-[9px] font-mono px-1.5 py-0.5 rounded transition-colors ${weaponSet === 1 ? "bg-accent/20 text-accent" : "text-text-dim/50 hover:text-text-dim"}`}
+            >
+              Set I
+            </button>
+            <button
+              onClick={() => setWeaponSet(2)}
+              className={`text-[9px] font-mono px-1.5 py-0.5 rounded transition-colors ${weaponSet === 2 ? "bg-accent/20 text-accent" : "text-text-dim/50 hover:text-text-dim"}`}
+            >
+              Set II
+            </button>
+          </div>
+          {equipmentSlots
+            .filter((slot) => {
+              if (!itemFilter.trim()) return true;
+              const item = itemsBySlot.get(slot);
+              if (!item) return !itemFilter.trim();
+              const q = itemFilter.toLowerCase();
+              return (
+                item.name.toLowerCase().includes(q) ||
+                item.base.toLowerCase().includes(q) ||
+                item.mods.some((m) => m.toLowerCase().includes(q))
+              );
+            })
+            .map((slot) => (
               <SlotRow
+                key={slot}
                 slot={slot}
                 item={itemsBySlot.get(slot)}
                 selected={selectedSlot === slot}
                 onClick={() => setSelectedSlot(slot)}
               />
-            </div>
+            ))}
+
+          <div className="mt-3 mb-2">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-text-dim px-3">Flasks</span>
           </div>
-        ))}
-      </div>
+          {FLASK_SLOTS.map((slot) => (
+            <div key={slot} className="flex items-center gap-0.5">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleFlask(slot);
+                }}
+                className={`w-4 h-4 rounded-sm text-[8px] font-bold shrink-0 transition-colors ${
+                  activeFlasks.has(slot)
+                    ? "bg-accent/30 text-accent border border-accent/50"
+                    : "bg-bg-hover text-text-dim/40 border border-border-subtle"
+                }`}
+                title={activeFlasks.has(slot) ? "Flask active" : "Flask inactive"}
+              >
+                {activeFlasks.has(slot) ? "A" : ""}
+              </button>
+              <div className="flex-1">
+                <SlotRow
+                  slot={slot}
+                  item={itemsBySlot.get(slot)}
+                  selected={selectedSlot === slot}
+                  onClick={() => setSelectedSlot(slot)}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -601,7 +651,7 @@ export function ItemsTab() {
             item={selectedItem}
             onCraft={(mod) => {
               const current = [...useBuildStore.getState().items];
-              const idx = current.findIndex(i => i.slot === selectedItem.slot);
+              const idx = current.findIndex((i) => i.slot === selectedItem.slot);
               if (idx >= 0) {
                 current[idx] = { ...current[idx], mods: [...current[idx].mods, mod] };
                 useBuildStore.setState({ items: current });
@@ -617,11 +667,11 @@ export function ItemsTab() {
             onSave={(item) => {
               const current = [...useBuildStore.getState().items];
               if (editingItem) {
-                const idx = current.findIndex(i => i.slot === editingItem.slot);
+                const idx = current.findIndex((i) => i.slot === editingItem.slot);
                 if (idx >= 0) current[idx] = item;
                 else current.push(item);
               } else {
-                const idx = current.findIndex(i => i.slot === item.slot);
+                const idx = current.findIndex((i) => i.slot === item.slot);
                 if (idx >= 0) current[idx] = item;
                 else current.push(item);
               }
@@ -634,23 +684,26 @@ export function ItemsTab() {
         ) : selectedItem ? (
           <ItemDetail
             item={selectedItem}
-            onEdit={() => { setEditingItem(selectedItem); setEditing(true); }}
+            onEdit={() => {
+              setEditingItem(selectedItem);
+              setEditing(true);
+            }}
             onCraft={() => setCrafting(true)}
             onDelete={() => {
-              const filtered = useBuildStore.getState().items.filter(i => i.slot !== selectedItem.slot);
+              const filtered = useBuildStore.getState().items.filter((i) => i.slot !== selectedItem.slot);
               useBuildStore.setState({ items: filtered });
             }}
           />
         ) : items.length === 0 ? (
-          <EmptyState
-            title="No Equipment"
-            description="Import a build to see equipped items, flasks, and jewels."
-          />
+          <EmptyState title="No Equipment" description="Import a build to see equipped items, flasks, and jewels." />
         ) : (
           <div className="flex flex-col items-center justify-center h-full gap-2">
             <span className="text-text-dim font-mono text-sm">No item in {selectedSlot}</span>
             <button
-              onClick={() => { setEditingItem(undefined); setEditing(true); }}
+              onClick={() => {
+                setEditingItem(undefined);
+                setEditing(true);
+              }}
               className="text-[10px] font-mono text-accent hover:text-accent/80 transition-colors"
             >
               + Create item

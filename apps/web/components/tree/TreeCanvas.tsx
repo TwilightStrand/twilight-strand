@@ -1,25 +1,18 @@
 "use client";
 
-import { useRef, useEffect, useState, useCallback } from "react";
-import { parseTreeData, type TreeData } from "./tree-data";
-import type { TreeNode } from "./tree-data";
-import {
-  createCamera,
-  zoomCamera,
-  panCamera,
-  screenToWorld,
-  frameBounds,
-  type Camera,
-} from "./tree-camera";
-import { TreeRenderer } from "./tree-renderer";
-import { SpatialGrid } from "./tree-spatial";
-import { useTreeStore } from "@/stores/tree-store";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useBuildStore } from "@/stores/build-store";
+import { useTreeStore } from "@/stores/tree-store";
 import { NodePowerControls, useNodePowerStore } from "./NodePowerControls";
-import { TreeSearch } from "./TreeSearch";
-import { TreeSpecBar } from "./TreeSpecBar";
 import { TreeMinimap } from "./TreeMinimap";
 import { TreeOptimizer } from "./TreeOptimizer";
+import { TreeSearch } from "./TreeSearch";
+import { TreeSpecBar } from "./TreeSpecBar";
+import { type Camera, createCamera, frameBounds, panCamera, screenToWorld, zoomCamera } from "./tree-camera";
+import type { TreeNode } from "./tree-data";
+import { parseTreeData, type TreeData } from "./tree-data";
+import { TreeRenderer } from "./tree-renderer";
+import { SpatialGrid } from "./tree-spatial";
 
 function AllocatedKeystones({ treeData }: { treeData: TreeData | null }) {
   const allocatedNodes = useTreeStore((s) => s.allocatedNodes);
@@ -29,7 +22,7 @@ function AllocatedKeystones({ treeData }: { treeData: TreeData | null }) {
   const keystones: Array<{ id: string; name: string }> = [];
   for (const nodeId of allocatedNodes) {
     const node = treeData.nodes.get(nodeId);
-    if (node && node.isKeystone) {
+    if (node?.isKeystone) {
       keystones.push({ id: nodeId, name: node.name || nodeId });
     }
   }
@@ -40,7 +33,7 @@ function AllocatedKeystones({ treeData }: { treeData: TreeData | null }) {
     <div className="absolute top-14 left-3 z-10 bg-bg-card/90 backdrop-blur border border-border-subtle rounded p-2 max-w-48">
       <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-amber-400/70">Keystones</span>
       <div className="mt-1 space-y-0.5">
-        {keystones.map(ks => (
+        {keystones.map((ks) => (
           <div key={ks.id} className="text-[10px] font-mono text-text-primary truncate">
             {ks.name}
           </div>
@@ -58,7 +51,10 @@ function PointCounter({ treeData }: { treeData: import("./tree-data").TreeData |
 
   if (usedPoints === 0 && level <= 1) return null;
 
-  let normal = 0, notable = 0, keystone = 0, jewel = 0;
+  let normal = 0,
+    notable = 0,
+    keystone = 0,
+    jewel = 0;
   if (treeData) {
     for (const nodeId of allocatedNodes) {
       const node = treeData.nodes.get(nodeId);
@@ -83,7 +79,7 @@ function PointCounter({ treeData }: { treeData: import("./tree-data").TreeData |
           {notable > 0 && <span className="text-accent/60">{notable} notable</span>}
           {keystone > 0 && <span className="text-amber-400/60">{keystone} keystone</span>}
           {jewel > 0 && <span className="text-purple-400/60">{jewel} jewel</span>}
-          {usedPoints > 0 && (notable + keystone) > 0 && (
+          {usedPoints > 0 && notable + keystone > 0 && (
             <span className="text-text-dim/40 ml-1" title="Notable+keystone ratio to total points">
               {Math.round(((notable + keystone * 2) / usedPoints) * 100)}% eff
             </span>
@@ -125,7 +121,7 @@ export function TreeCanvas() {
   const searchResults = useTreeStore((s) => s.searchResults);
   const { mode: npMode, depth: npDepth } = useNodePowerStore();
   const nodePowerMode = useNodePowerStore((s) => s.mode);
-  const nodePowerDepth = useNodePowerStore((s) => s.depth);
+  const _nodePowerDepth = useNodePowerStore((s) => s.depth);
   const [treeData, setTreeData] = useState<TreeData | null>(null);
   const [cameraState, setCameraState] = useState<Camera | null>(null);
   const [canvasDims, setCanvasDims] = useState({ w: 0, h: 0 });
@@ -135,7 +131,9 @@ export function TreeCanvas() {
   // Compute node power delta via Rust engine when hovering
   const rustBridgeRef = useRef<typeof import("@/engine/rust-bridge") | null>(null);
   useEffect(() => {
-    import("@/engine/rust-bridge").then((mod) => { rustBridgeRef.current = mod; });
+    import("@/engine/rust-bridge").then((mod) => {
+      rustBridgeRef.current = mod;
+    });
   }, []);
 
   useEffect(() => {
@@ -145,12 +143,14 @@ export function TreeCanvas() {
     if (!node?.stats?.length || allocatedNodes.has(hoveredNode)) return;
 
     const bridge = rustBridgeRef.current;
-    if (!bridge || !bridge.isRustEngineReady()) return;
+    if (!bridge?.isRustEngineReady()) return;
 
     const baseMods: Array<{ stat: string; value: number; mod_type: string }> = [];
     const baseInput = bridge.defaultRustInput({
       level: stats.level,
-      base_str: stats.strength, base_dex: stats.dexterity, base_int: stats.intelligence,
+      base_str: stats.strength,
+      base_dex: stats.dexterity,
+      base_int: stats.intelligence,
       modifiers: baseMods,
       ascendancy_name: stats.ascendancy || "",
     });
@@ -194,32 +194,40 @@ export function TreeCanvas() {
     }
   }, [allocatedNodes, searchResults, hoveredNode]);
 
-  const animateCameraTo = useCallback((target: Camera) => {
-    cameraTargetRef.current = target;
-    if (cameraAnimRef.current) return;
+  const animateCameraTo = useCallback(
+    (target: Camera) => {
+      cameraTargetRef.current = target;
+      if (cameraAnimRef.current) return;
 
-    const step = () => {
-      const t = cameraTargetRef.current;
-      const cam = cameraRef.current;
-      if (!t || !cam) { cameraAnimRef.current = null; return; }
+      const step = () => {
+        const t = cameraTargetRef.current;
+        const cam = cameraRef.current;
+        if (!t || !cam) {
+          cameraAnimRef.current = null;
+          return;
+        }
 
-      const LERP = 0.15;
-      cam.x += (t.x - cam.x) * LERP;
-      cam.y += (t.y - cam.y) * LERP;
-      cam.zoom += (t.zoom - cam.zoom) * LERP;
+        const LERP = 0.15;
+        cam.x += (t.x - cam.x) * LERP;
+        cam.y += (t.y - cam.y) * LERP;
+        cam.zoom += (t.zoom - cam.zoom) * LERP;
 
-      if (Math.abs(t.x - cam.x) < 1 && Math.abs(t.y - cam.y) < 1 && Math.abs(t.zoom - cam.zoom) < 0.001) {
-        cam.x = t.x; cam.y = t.y; cam.zoom = t.zoom;
-        cameraTargetRef.current = null;
-        cameraAnimRef.current = null;
+        if (Math.abs(t.x - cam.x) < 1 && Math.abs(t.y - cam.y) < 1 && Math.abs(t.zoom - cam.zoom) < 0.001) {
+          cam.x = t.x;
+          cam.y = t.y;
+          cam.zoom = t.zoom;
+          cameraTargetRef.current = null;
+          cameraAnimRef.current = null;
+          draw();
+          return;
+        }
         draw();
-        return;
-      }
-      draw();
+        cameraAnimRef.current = requestAnimationFrame(step);
+      };
       cameraAnimRef.current = requestAnimationFrame(step);
-    };
-    cameraAnimRef.current = requestAnimationFrame(step);
-  }, [draw]);
+    },
+    [draw],
+  );
 
   const runAnimationLoop = useCallback(() => {
     const renderer = rendererRef.current;
@@ -230,7 +238,7 @@ export function TreeCanvas() {
 
   useEffect(() => {
     draw();
-  }, [allocatedNodes, hoveredNode, draw]);
+  }, [draw]);
 
   useEffect(() => {
     const renderer = rendererRef.current;
@@ -252,7 +260,9 @@ export function TreeCanvas() {
       let scored = 0;
 
       try {
-        const { isRustEngineReady, evaluateBuildRust, parseStatLine, defaultRustInput } = await import("@/engine/rust-bridge");
+        const { isRustEngineReady, evaluateBuildRust, parseStatLine, defaultRustInput } = await import(
+          "@/engine/rust-bridge"
+        );
         const stats = useBuildStore.getState().stats;
 
         if (isRustEngineReady() && stats) {
@@ -285,20 +295,14 @@ export function TreeCanvas() {
 
               let val = 0;
               if (nodePowerMode === "dps") {
-                val = baseOutput.total_dps > 0
-                  ? (withNode.total_dps - baseOutput.total_dps) / baseOutput.total_dps
-                  : 0;
+                val = baseOutput.total_dps > 0 ? (withNode.total_dps - baseOutput.total_dps) / baseOutput.total_dps : 0;
               } else if (nodePowerMode === "defence") {
-                val = baseOutput.total_ehp > 0
-                  ? (withNode.total_ehp - baseOutput.total_ehp) / baseOutput.total_ehp
-                  : 0;
+                val = baseOutput.total_ehp > 0 ? (withNode.total_ehp - baseOutput.total_ehp) / baseOutput.total_ehp : 0;
               } else {
-                const dpsPct = baseOutput.total_dps > 0
-                  ? (withNode.total_dps - baseOutput.total_dps) / baseOutput.total_dps
-                  : 0;
-                const ehpPct = baseOutput.total_ehp > 0
-                  ? (withNode.total_ehp - baseOutput.total_ehp) / baseOutput.total_ehp
-                  : 0;
+                const dpsPct =
+                  baseOutput.total_dps > 0 ? (withNode.total_dps - baseOutput.total_dps) / baseOutput.total_dps : 0;
+                const ehpPct =
+                  baseOutput.total_ehp > 0 ? (withNode.total_ehp - baseOutput.total_ehp) / baseOutput.total_ehp : 0;
                 val = dpsPct + ehpPct;
               }
 
@@ -321,7 +325,7 @@ export function TreeCanvas() {
       setScoring(false, scored);
       draw();
     })();
-  }, [nodePowerMode, nodePowerDepth, allocatedNodes, draw]);
+  }, [nodePowerMode, allocatedNodes, draw]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -332,8 +336,7 @@ export function TreeCanvas() {
     async function init() {
       try {
         const resp = await fetch("/data/tree/tree-3_29.json");
-        if (!resp.ok)
-          throw new Error(`Failed to load tree data: ${resp.status}`);
+        if (!resp.ok) throw new Error(`Failed to load tree data: ${resp.status}`);
         const raw = await resp.json();
         if (destroyed) return;
 
@@ -376,14 +379,7 @@ export function TreeCanvas() {
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
 
-      cameraRef.current = zoomCamera(
-        cam,
-        e.deltaY,
-        x,
-        y,
-        rect.width,
-        rect.height
-      );
+      cameraRef.current = zoomCamera(cam, e.deltaY, x, y, rect.width, rect.height);
       cancelAnimationFrame(rafRef.current);
       rafRef.current = requestAnimationFrame(draw);
     };
@@ -396,7 +392,7 @@ export function TreeCanvas() {
       cancelAnimationFrame(rafRef.current);
       rendererRef.current?.destroy();
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [draw]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     isDraggingRef.current = true;
@@ -436,13 +432,13 @@ export function TreeCanvas() {
 
       setHoveredNode(node?.id ?? null);
 
-      if (node && node.name) {
+      if (node?.name) {
         setTooltip({ node, x: e.clientX, y: e.clientY });
       } else {
         setTooltip(null);
       }
     },
-    [draw, setHoveredNode]
+    [draw, setHoveredNode],
   );
 
   const handlePointerUp = useCallback(
@@ -462,7 +458,7 @@ export function TreeCanvas() {
       const world = screenToWorld(cam, sx, sy, rect.width, rect.height);
       const node = spatialRef.current?.findNodeAt(world.x, world.y) ?? null;
 
-      if (node && node.name) {
+      if (node?.name) {
         const wasAllocated = allocatedNodes.has(node.id);
         toggleNode(node.id);
         if (rendererRef.current) {
@@ -473,7 +469,7 @@ export function TreeCanvas() {
         rafRef.current = requestAnimationFrame(draw);
       }
     },
-    [toggleNode, draw, allocatedNodes, runAnimationLoop]
+    [toggleNode, draw, allocatedNodes, runAnimationLoop],
   );
 
   return (
@@ -481,12 +477,8 @@ export function TreeCanvas() {
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-bg-deep z-10">
           <div className="text-center">
-            <div className="text-accent font-mono text-sm animate-pulse">
-              Loading passive tree...
-            </div>
-            <div className="text-text-dim text-xs mt-1 font-mono">
-              3,390 nodes
-            </div>
+            <div className="text-accent font-mono text-sm animate-pulse">Loading passive tree...</div>
+            <div className="text-text-dim text-xs mt-1 font-mono">3,390 nodes</div>
           </div>
         </div>
       )}
@@ -498,7 +490,6 @@ export function TreeCanvas() {
       <canvas
         ref={canvasRef}
         tabIndex={0}
-        role="application"
         aria-label="Passive skill tree"
         className="w-full h-full block cursor-grab active:cursor-grabbing focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
         onPointerDown={handlePointerDown}
@@ -525,7 +516,13 @@ export function TreeCanvas() {
               const canvas = canvasRef.current;
               if (!cam || !canvas) return;
               const rect = canvas.getBoundingClientRect();
-              const world = screenToWorld(cam, touch.clientX - rect.left, touch.clientY - rect.top, rect.width, rect.height);
+              const world = screenToWorld(
+                cam,
+                touch.clientX - rect.left,
+                touch.clientY - rect.top,
+                rect.width,
+                rect.height,
+              );
               const node = spatialRef.current?.findNodeAt(world.x, world.y) ?? null;
               if (node?.name) {
                 toggleNode(node.id);
@@ -546,8 +543,8 @@ export function TreeCanvas() {
             const dist = Math.sqrt(dx * dx + dy * dy);
             if (touchRef.current.lastDist > 0) {
               const scale = dist / touchRef.current.lastDist;
-              const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-              const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+              const _cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+              const _cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
               const rect = canvasRef.current?.getBoundingClientRect();
               if (rect) {
                 const newZoom = Math.max(0.1, Math.min(5, cam.zoom * scale));
@@ -568,13 +565,27 @@ export function TreeCanvas() {
           if (!cam) return;
           const step = 50 / cam.zoom;
           switch (e.key) {
-            case "ArrowUp": cameraRef.current = panCamera(cam, 0, step); break;
-            case "ArrowDown": cameraRef.current = panCamera(cam, 0, -step); break;
-            case "ArrowLeft": cameraRef.current = panCamera(cam, step, 0); break;
-            case "ArrowRight": cameraRef.current = panCamera(cam, -step, 0); break;
-            case "+": case "=": cameraRef.current = { ...cam, zoom: Math.min(5, cam.zoom * 1.15) }; break;
-            case "-": cameraRef.current = { ...cam, zoom: Math.max(0.1, cam.zoom / 1.15) }; break;
-            default: return;
+            case "ArrowUp":
+              cameraRef.current = panCamera(cam, 0, step);
+              break;
+            case "ArrowDown":
+              cameraRef.current = panCamera(cam, 0, -step);
+              break;
+            case "ArrowLeft":
+              cameraRef.current = panCamera(cam, step, 0);
+              break;
+            case "ArrowRight":
+              cameraRef.current = panCamera(cam, -step, 0);
+              break;
+            case "+":
+            case "=":
+              cameraRef.current = { ...cam, zoom: Math.min(5, cam.zoom * 1.15) };
+              break;
+            case "-":
+              cameraRef.current = { ...cam, zoom: Math.max(0.1, cam.zoom / 1.15) };
+              break;
+            default:
+              return;
           }
           e.preventDefault();
           cancelAnimationFrame(rafRef.current);
@@ -629,7 +640,10 @@ export function TreeCanvas() {
             const tree = treeDataRef.current;
             const canvas = canvasRef.current;
             if (!tree || !canvas || allocatedNodes.size < 2) return;
-            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            let minX = Infinity,
+              maxX = -Infinity,
+              minY = Infinity,
+              maxY = -Infinity;
             for (const nid of allocatedNodes) {
               const node = tree.nodes.get(nid);
               if (!node) continue;
@@ -638,7 +652,7 @@ export function TreeCanvas() {
               minY = Math.min(minY, node.y);
               maxY = Math.max(maxY, node.y);
             }
-            if (!isFinite(minX)) return;
+            if (!Number.isFinite(minX)) return;
             const rect = canvas.getBoundingClientRect();
             animateCameraTo(frameBounds({ minX, maxX, minY, maxY }, rect.width, rect.height));
           }}
@@ -702,14 +716,10 @@ export function TreeCanvas() {
                 </span>
               )}
               {allocatedNodes.has(tooltip.node.id) && (
-                <span className="text-[9px] font-mono uppercase tracking-wider text-green-400">
-                  Allocated
-                </span>
+                <span className="text-[9px] font-mono uppercase tracking-wider text-green-400">Allocated</span>
               )}
             </div>
-            <h4 className="text-sm font-mono font-bold text-text-heading mb-1.5">
-              {tooltip.node.name}
-            </h4>
+            <h4 className="text-sm font-mono font-bold text-text-heading mb-1.5">{tooltip.node.name}</h4>
             {tooltip.node.stats && tooltip.node.stats.length > 0 && (
               <div className="space-y-0.5">
                 {tooltip.node.stats.map((stat, i) => (
@@ -719,70 +729,83 @@ export function TreeCanvas() {
                 ))}
               </div>
             )}
-            {nodeDelta && !allocatedNodes.has(tooltip.node.id) && (nodeDelta.dps !== 0 || nodeDelta.life !== 0 || nodeDelta.es !== 0) && (
-              <div className="border-t border-border-subtle mt-1.5 pt-1.5 space-y-0.5">
-                <span className="text-[8px] font-mono text-text-dim/50 uppercase">Stat Delta (Rust)</span>
-                {nodeDelta.life !== 0 && (
-                  <div className="flex justify-between text-[10px] font-mono">
-                    <span className="text-text-dim">Life</span>
-                    <span className={nodeDelta.life > 0 ? "text-green-400" : "text-red-400"}>
-                      {nodeDelta.life > 0 ? "+" : ""}{Math.round(nodeDelta.life)}
-                    </span>
-                  </div>
-                )}
-                {nodeDelta.es !== 0 && (
-                  <div className="flex justify-between text-[10px] font-mono">
-                    <span className="text-text-dim">ES</span>
-                    <span className={nodeDelta.es > 0 ? "text-green-400" : "text-red-400"}>
-                      {nodeDelta.es > 0 ? "+" : ""}{Math.round(nodeDelta.es)}
-                    </span>
-                  </div>
-                )}
-                {nodeDelta.dps !== 0 && (
-                  <div className="flex justify-between text-[10px] font-mono">
-                    <span className="text-text-dim">DPS</span>
-                    <span className={nodeDelta.dps > 0 ? "text-green-400" : "text-red-400"}>
-                      {nodeDelta.dps > 0 ? "+" : ""}{Math.round(nodeDelta.dps)}
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-            {!allocatedNodes.has(tooltip.node.id) && treeData && (() => {
-              const nodeId = tooltip.node.id;
-              const adjacent = treeData.connections.some(
-                c => (c.from === nodeId && allocatedNodes.has(c.to)) ||
-                     (c.to === nodeId && allocatedNodes.has(c.from))
-              );
-              if (!adjacent && allocatedNodes.size > 1) {
-                // BFS up to depth 3
-                const visited = new Set([nodeId]);
-                let frontier = [nodeId];
-                for (let depth = 1; depth <= 3; depth++) {
-                  const next: string[] = [];
-                  for (const cur of frontier) {
-                    for (const c of treeData.connections) {
-                      const neighbor = c.from === cur ? c.to : c.to === cur ? c.from : null;
-                      if (!neighbor || visited.has(neighbor)) continue;
-                      if (allocatedNodes.has(neighbor)) {
-                        return <span className="text-[9px] font-mono text-text-dim mt-1 block">{depth} {depth === 1 ? "point" : "points"} away</span>;
+            {nodeDelta &&
+              !allocatedNodes.has(tooltip.node.id) &&
+              (nodeDelta.dps !== 0 || nodeDelta.life !== 0 || nodeDelta.es !== 0) && (
+                <div className="border-t border-border-subtle mt-1.5 pt-1.5 space-y-0.5">
+                  <span className="text-[8px] font-mono text-text-dim/50 uppercase">Stat Delta (Rust)</span>
+                  {nodeDelta.life !== 0 && (
+                    <div className="flex justify-between text-[10px] font-mono">
+                      <span className="text-text-dim">Life</span>
+                      <span className={nodeDelta.life > 0 ? "text-green-400" : "text-red-400"}>
+                        {nodeDelta.life > 0 ? "+" : ""}
+                        {Math.round(nodeDelta.life)}
+                      </span>
+                    </div>
+                  )}
+                  {nodeDelta.es !== 0 && (
+                    <div className="flex justify-between text-[10px] font-mono">
+                      <span className="text-text-dim">ES</span>
+                      <span className={nodeDelta.es > 0 ? "text-green-400" : "text-red-400"}>
+                        {nodeDelta.es > 0 ? "+" : ""}
+                        {Math.round(nodeDelta.es)}
+                      </span>
+                    </div>
+                  )}
+                  {nodeDelta.dps !== 0 && (
+                    <div className="flex justify-between text-[10px] font-mono">
+                      <span className="text-text-dim">DPS</span>
+                      <span className={nodeDelta.dps > 0 ? "text-green-400" : "text-red-400"}>
+                        {nodeDelta.dps > 0 ? "+" : ""}
+                        {Math.round(nodeDelta.dps)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            {!allocatedNodes.has(tooltip.node.id) &&
+              treeData &&
+              (() => {
+                const nodeId = tooltip.node.id;
+                const adjacent = treeData.connections.some(
+                  (c) =>
+                    (c.from === nodeId && allocatedNodes.has(c.to)) || (c.to === nodeId && allocatedNodes.has(c.from)),
+                );
+                if (!adjacent && allocatedNodes.size > 1) {
+                  // BFS up to depth 3
+                  const visited = new Set([nodeId]);
+                  let frontier = [nodeId];
+                  for (let depth = 1; depth <= 3; depth++) {
+                    const next: string[] = [];
+                    for (const cur of frontier) {
+                      for (const c of treeData.connections) {
+                        const neighbor = c.from === cur ? c.to : c.to === cur ? c.from : null;
+                        if (!neighbor || visited.has(neighbor)) continue;
+                        if (allocatedNodes.has(neighbor)) {
+                          return (
+                            <span className="text-[9px] font-mono text-text-dim mt-1 block">
+                              {depth} {depth === 1 ? "point" : "points"} away
+                            </span>
+                          );
+                        }
+                        visited.add(neighbor);
+                        next.push(neighbor);
                       }
-                      visited.add(neighbor);
-                      next.push(neighbor);
                     }
+                    frontier = next;
                   }
-                  frontier = next;
+                  return null;
                 }
-                return null;
-              }
-              return adjacent ? <span className="text-[9px] font-mono text-green-400/70 mt-1 block">Click to allocate</span> : null;
-            })()}
+                return adjacent ? (
+                  <span className="text-[9px] font-mono text-green-400/70 mt-1 block">Click to allocate</span>
+                ) : null;
+              })()}
           </div>
         </div>
       )}
       {treeData && (
         <TreeMinimap
-          nodes={Array.from(treeData.nodes.values()).map(n => ({ x: n.x, y: n.y, id: n.id }))}
+          nodes={Array.from(treeData.nodes.values()).map((n) => ({ x: n.x, y: n.y, id: n.id }))}
           bounds={treeData.bounds}
           camera={cameraState}
           canvasWidth={canvasDims.w}

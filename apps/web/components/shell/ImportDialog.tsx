@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { useBuildStore } from "@/stores/build-store";
-import { BuildCard } from "./BuildCard";
-import { GuideViewer } from "@/components/guide/GuideViewer";
+import { useEffect, useRef, useState } from "react";
 import { GuideEditor } from "@/components/guide/GuideEditor";
+import { GuideViewer } from "@/components/guide/GuideViewer";
 import { ALL_GUIDES } from "@/data/guides";
 import type { BuildGuide } from "@/engine/guide-types";
+import { useBuildStore } from "@/stores/build-store";
+import { BuildCard } from "./BuildCard";
 
 interface PoECharacter {
   name: string;
@@ -21,13 +21,17 @@ function GuideSection({ onImport }: { onImport: (code: string) => void }) {
     try {
       const saved = localStorage.getItem("tsc-custom-guides");
       return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
+    } catch {
+      return [];
+    }
   });
 
   const saveGuide = (guide: BuildGuide) => {
     const updated = [...customGuides, guide];
     setCustomGuides(updated);
-    try { localStorage.setItem("tsc-custom-guides", JSON.stringify(updated)); } catch {}
+    try {
+      localStorage.setItem("tsc-custom-guides", JSON.stringify(updated));
+    } catch {}
     setEditing(false);
   };
 
@@ -48,11 +52,7 @@ function GuideSection({ onImport }: { onImport: (code: string) => void }) {
         </button>
       </div>
       {allGuides.map((guide, i) => (
-        <GuideViewer
-          key={i}
-          guide={guide}
-          onImport={onImport}
-        />
+        <GuideViewer key={i} guide={guide} onImport={onImport} />
       ))}
       {allGuides.length === 0 && (
         <p className="text-xs font-mono text-text-dim/60 text-center py-6">
@@ -63,13 +63,7 @@ function GuideSection({ onImport }: { onImport: (code: string) => void }) {
   );
 }
 
-export function ImportDialog({
-  open,
-  onClose,
-}: {
-  open: boolean;
-  onClose: () => void;
-}) {
+export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [input, setInput] = useState("");
   const [importScope, setImportScope] = useState<"full" | "tree" | "items" | "skills">("full");
   const [mode, setMode] = useState<"code" | "account" | "guide">("code");
@@ -121,7 +115,12 @@ export function ImportDialog({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="bg-bg-card border border-border-card rounded-lg shadow-2xl w-full max-w-lg mx-4 p-5" role="dialog" aria-modal="true" aria-labelledby="import-dialog-title">
+      <div
+        className="bg-bg-card border border-border-card rounded-lg shadow-2xl w-full max-w-lg mx-4 p-5"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="import-dialog-title"
+      >
         <div className="flex items-center justify-between mb-4">
           <h2 id="import-dialog-title" className="text-text-heading font-display text-lg">
             Import Build
@@ -167,7 +166,10 @@ export function ImportDialog({
             <div className="flex gap-2 mb-3">
               <input
                 value={accountName}
-                onChange={(e) => { setAccountName(e.target.value); setAccountError(null); }}
+                onChange={(e) => {
+                  setAccountName(e.target.value);
+                  setAccountError(null);
+                }}
                 onKeyDown={(e) => e.key === "Enter" && document.getElementById("fetch-chars-btn")?.click()}
                 placeholder="Account name..."
                 className="flex-1 bg-bg-inset border border-border-subtle rounded px-3 py-1.5 text-sm font-mono text-text-primary placeholder:text-text-dim/40 focus:outline-none focus:border-accent"
@@ -198,9 +200,7 @@ export function ImportDialog({
                 {fetchingChars ? "..." : "Fetch"}
               </button>
             </div>
-            {accountError && (
-              <div className="text-blood text-xs font-mono mb-2">{accountError}</div>
-            )}
+            {accountError && <div className="text-blood text-xs font-mono mb-2">{accountError}</div>}
             {characters.length > 0 && (
               <div className="space-y-1 max-h-48 overflow-y-auto">
                 {characters.map((char) => (
@@ -211,15 +211,30 @@ export function ImportDialog({
                       setAccountError(null);
                       setFetchingChars(true);
                       try {
-                        const resp = await fetch(`/api/character?account=${encodeURIComponent(accountName)}&character=${encodeURIComponent(char.name)}`);
+                        const resp = await fetch(
+                          `/api/character?account=${encodeURIComponent(accountName)}&character=${encodeURIComponent(char.name)}`,
+                        );
                         const data = await resp.json();
-                        if (data.error) { setAccountError(data.error); return; }
+                        if (data.error) {
+                          setAccountError(data.error);
+                          return;
+                        }
                         const { convertCharacterToXml } = await import("@/lib/character-converter");
-                        const xml = convertCharacterToXml(char, data.items || { items: [] }, data.passives || { hashes: [] });
+                        const xml = convertCharacterToXml(
+                          char,
+                          data.items || { items: [] },
+                          data.passives || { hashes: [] },
+                        );
                         await importBuild(xml);
-                        if (!useBuildStore.getState().error) { setInput(""); onClose(); }
-                      } catch { setAccountError("Failed to import character"); }
-                      finally { setFetchingChars(false); }
+                        if (!useBuildStore.getState().error) {
+                          setInput("");
+                          onClose();
+                        }
+                      } catch {
+                        setAccountError("Failed to import character");
+                      } finally {
+                        setFetchingChars(false);
+                      }
                     }}
                   >
                     <span className="text-text-primary">{char.name}</span>
@@ -240,55 +255,63 @@ export function ImportDialog({
 
         {mode === "guide" && (
           <GuideSection
-            onImport={(code) => { importBuild(code); onClose(); }}
+            onImport={(code) => {
+              importBuild(code);
+              onClose();
+            }}
           />
         )}
 
-        {mode === "code" && <p className="text-text-dim text-xs font-mono mb-3">
-          Paste a PoB build code, pastebin URL, or pobb.in link
-        </p>}
+        {mode === "code" && (
+          <p className="text-text-dim text-xs font-mono mb-3">Paste a PoB build code, pastebin URL, or pobb.in link</p>
+        )}
 
-        {mode === "code" && <div
-          onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-          onDrop={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const file = e.dataTransfer.files[0];
-            if (file) {
-              const reader = new FileReader();
-              reader.onload = () => setInput(reader.result as string);
-              reader.readAsText(file);
-            }
-          }}
-        >
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onPaste={handlePaste}
-            placeholder="Paste your build code here..."
-            className="w-full h-32 bg-bg-inset border border-border-subtle rounded px-3 py-2 text-sm font-mono text-text-primary placeholder:text-text-dim/40 resize-none focus:outline-none focus:border-accent"
-            disabled={loading}
-          />
-          <div className="mt-2 text-center">
-            <label className="text-[10px] font-mono text-text-dim cursor-pointer hover:text-accent transition-colors">
-              or <span className="underline">upload a .xml file</span>
-              <input
-                type="file"
-                accept=".xml,.txt"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    const reader = new FileReader();
-                    reader.onload = () => setInput(reader.result as string);
-                    reader.readAsText(file);
-                  }
-                }}
-              />
-            </label>
+        {mode === "code" && (
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const file = e.dataTransfer.files[0];
+              if (file) {
+                const reader = new FileReader();
+                reader.onload = () => setInput(reader.result as string);
+                reader.readAsText(file);
+              }
+            }}
+          >
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onPaste={handlePaste}
+              placeholder="Paste your build code here..."
+              className="w-full h-32 bg-bg-inset border border-border-subtle rounded px-3 py-2 text-sm font-mono text-text-primary placeholder:text-text-dim/40 resize-none focus:outline-none focus:border-accent"
+              disabled={loading}
+            />
+            <div className="mt-2 text-center">
+              <label className="text-[10px] font-mono text-text-dim cursor-pointer hover:text-accent transition-colors">
+                or <span className="underline">upload a .xml file</span>
+                <input
+                  type="file"
+                  accept=".xml,.txt"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = () => setInput(reader.result as string);
+                      reader.readAsText(file);
+                    }
+                  }}
+                />
+              </label>
+            </div>
           </div>
-        </div>}
+        )}
 
         {mode === "code" && (
           <div className="flex items-center gap-2 mt-2">
@@ -314,14 +337,24 @@ export function ImportDialog({
 
         {mode === "code" && !input.trim() && savedBuilds.length === 0 && (
           <div className="mt-3">
-            <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-text-dim">
-              Quick Start
-            </span>
+            <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-text-dim">Quick Start</span>
             <div className="mt-1.5 grid grid-cols-1 gap-1.5">
               {[
-                { name: "RF Juggernaut", desc: "Tanky regen tank", code: "eJytU9tOwzAM_ZUoH8DKEEiTuk4MNgQaF63AKzKtV6KlyUicwf4eN1uhQ4IXeEninONzLMdJR--1Fmt0XlkzlIcHiRxl6R3Qy-1iHJQulamyNJ6ExjXqoRwkUhC4CumxTTt64rtCg_c3UONQXoODUKKTAnyBpjz7gq5CVaEzEEiKGpTJbbFEunA2rNheirXCt2tbMvN-PplIrkXDBl1OQMLzMpQztUDmgQ5MOjlOEtnL0l4sMUvzpdLaCyhIrTEGOVIjvIM4EqrsXMQiTr_osQg08KyRaeQCe3ltWWNsy404dbUNjpMvsG4b0ueM1wBa0YYD7oRvhC45fa6qF0Ib_FQ51jHcgXyFRQcQW2TfsLcvn_wkn4fVyjoaB2f4mc6hhmrPZQeILSJ29D-6TTTWaAj01BbBd-0-ERGhf_I7s4ZHiBwQlpPFAgvqenZRsYV_8e3FJ253noX26LP03iG2cxOl44jwSRAjnVHvDxh4mM84d7s2JN4agSy9JKx9Y_XtD30A5aYoUg==" },
-                { name: "LA Deadeye", desc: "Fast bow mapper", code: "eJytU8tOwzAQ_BXLH0BLOVVKU6UPVZXKQ02BIzLxklj1I9hOSv-ejZvQFAkucIl3d2Znssk6mn4oSWqwThg9oddXQzqNowfmi_u3WSUkFzqPoxARCTXICR0PKfHM5uCfurabF6xlkjl3xxRM6JbpHCwlzGWg-fwMLIBxOAIligmdmmwPfmVNVaIzJbWAw63hSNttl0s6iKN0L6R0hGVe1BCSFHzDbSHMiOC9QtBNzvSgC5q9SkCatxVaO2lQY2b4kSRWmcpi8wpUN94IO94rJoU_YoJzuUZoje0bkRde4wdJrDUHSjSOlJaQ9RDSQpeWg0uD4U8GaVWWxvp5gUP05UOBtOgfxRPOgc-N5AumWA59mwCRBiMn8J8slxIUaM_kSfVZ-CLxnmV713f_YnXmB-SRlvjLmwzCj-5O3IgudHG0swDd9gSTsCgYEY9Ib31HYwQetxvsPT0bEh6NQBytPSjXWH27F58gcBiT" },
-                { name: "SRS Necromancer", desc: "Minion summoner", code: "eJytU9tOAjEQ_ZVJP0AQn0iWJaCEkAgaFvTR1O4IDb2sbXeRv3f2JouJvuhLOzPnzJxOO43GH1pBgc5La0bs-qrPxnH0yMP-4W2aS5VKs4ujygKFBaoRG_YZBO52GJ7atJsXignFvV9xjSP2LIPYM-BeoElvz_EVCmc1NwIdA82lSaw4YJg7m2ckzqCQeFzalKib9WzGenGUHKRSHrgIssDKSTCU3AYiD2TaCVR1J2d6VRcNf1VItOByZOCVpRpTm55g4rTNHSXPUbcdDijjPedKhhM51JovCy0oPcm1tmbNd3QtSSadDAwMtZZkKFoUahha_FK7d6nU_1kpy6wLS2nohu-45jvsStVxqAFoyH_U2hqF3O-7Mk3onwRmCjWawFV9bJqS_SQELg6-q_nFabs7Eg8a4i8n6VXP3e40F63p42jjENsZqkSqcSELAiGdOR4MCdiu7ym3XksSbWWBOFoE1L6U-vZBPgEODB07" },
+                {
+                  name: "RF Juggernaut",
+                  desc: "Tanky regen tank",
+                  code: "eJytU9tOwzAM_ZUoH8DKEEiTuk4MNgQaF63AKzKtV6KlyUicwf4eN1uhQ4IXeEninONzLMdJR--1Fmt0XlkzlIcHiRxl6R3Qy-1iHJQulamyNJ6ExjXqoRwkUhC4CumxTTt64rtCg_c3UONQXoODUKKTAnyBpjz7gq5CVaEzEEiKGpTJbbFEunA2rNheirXCt2tbMvN-PplIrkXDBl1OQMLzMpQztUDmgQ5MOjlOEtnL0l4sMUvzpdLaCyhIrTEGOVIjvIM4EqrsXMQiTr_osQg08KyRaeQCe3ltWWNsy404dbUNjpMvsG4b0ueM1wBa0YYD7oRvhC45fa6qF0Ib_FQ51jHcgXyFRQcQW2TfsLcvn_wkn4fVyjoaB2f4mc6hhmrPZQeILSJ29D-6TTTWaAj01BbBd-0-ERGhf_I7s4ZHiBwQlpPFAgvqenZRsYV_8e3FJ253noX26LP03iG2cxOl44jwSRAjnVHvDxh4mM84d7s2JN4agSy9JKx9Y_XtD30A5aYoUg==",
+                },
+                {
+                  name: "LA Deadeye",
+                  desc: "Fast bow mapper",
+                  code: "eJytU8tOwzAQ_BXLH0BLOVVKU6UPVZXKQ02BIzLxklj1I9hOSv-ejZvQFAkucIl3d2Znssk6mn4oSWqwThg9oddXQzqNowfmi_u3WSUkFzqPoxARCTXICR0PKfHM5uCfurabF6xlkjl3xxRM6JbpHCwlzGWg-fwMLIBxOAIligmdmmwPfmVNVaIzJbWAw63hSNttl0s6iKN0L6R0hGVe1BCSFHzDbSHMiOC9QtBNzvSgC5q9SkCatxVaO2lQY2b4kSRWmcpi8wpUN94IO94rJoU_YoJzuUZoje0bkRde4wdJrDUHSjSOlJaQ9RDSQpeWg0uD4U8GaVWWxvp5gUP05UOBtOgfxRPOgc-N5AumWA59mwCRBiMn8J8slxIUaM_kSfVZ-CLxnmV713f_YnXmB-SRlvjLmwzCj-5O3IgudHG0swDd9gSTsCgYEY9Ib31HYwQetxvsPT0bEh6NQBytPSjXWH27F58gcBiT",
+                },
+                {
+                  name: "SRS Necromancer",
+                  desc: "Minion summoner",
+                  code: "eJytU9tOAjEQ_ZVJP0AQn0iWJaCEkAgaFvTR1O4IDb2sbXeRv3f2JouJvuhLOzPnzJxOO43GH1pBgc5La0bs-qrPxnH0yMP-4W2aS5VKs4ujygKFBaoRG_YZBO52GJ7atJsXignFvV9xjSP2LIPYM-BeoElvz_EVCmc1NwIdA82lSaw4YJg7m2ckzqCQeFzalKib9WzGenGUHKRSHrgIssDKSTCU3AYiD2TaCVR1J2d6VRcNf1VItOByZOCVpRpTm55g4rTNHSXPUbcdDijjPedKhhM51JovCy0oPcm1tmbNd3QtSSadDAwMtZZkKFoUahha_FK7d6nU_1kpy6wLS2nohu-45jvsStVxqAFoyH_U2hqF3O-7Mk3onwRmCjWawFV9bJqS_SQELg6-q_nFabs7Eg8a4i8n6VXP3e40F63p42jjENsZqkSqcSELAiGdOR4MCdiu7ym3XksSbWWBOFoE1L6U-vZBPgEODB07",
+                },
               ].map((build) => (
                 <button
                   key={build.name}
@@ -380,17 +413,13 @@ export function ImportDialog({
             <div className="flex items-center gap-2 mt-1.5">
               <div className="w-2 h-2 rounded-full bg-accent animate-pulse" />
               <span className="text-[10px] font-mono text-text-dim">
-                {input.includes("pobb.in") || input.includes("pastebin")
-                  ? "Fetching from URL..."
-                  : "Decoding build..."}
+                {input.includes("pobb.in") || input.includes("pastebin") ? "Fetching from URL..." : "Decoding build..."}
               </span>
             </div>
           </div>
         )}
 
-        {error && (
-          <div className="mt-2 text-blood text-xs font-mono">{error}</div>
-        )}
+        {error && <div className="mt-2 text-blood text-xs font-mono">{error}</div>}
 
         <div className="flex justify-end gap-2 mt-4">
           <button

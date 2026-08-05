@@ -1,16 +1,17 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { useBuildStore } from "@/stores/build-store";
-import { CalcSection } from "./CalcSection";
+import { useMemo, useState } from "react";
+import { UniqueRanker } from "@/components/items/UniqueRanker";
+import { UpgradeSuggester } from "@/components/items/UpgradeSuggester";
 import { EmptyState } from "@/components/shell/EmptyState";
-import { CalcRow, CalcSubheader } from "./CalcRow";
 import { ClusterSearch } from "@/components/tree/ClusterSearch";
 import { PowerReport } from "@/components/tree/PowerReport";
-import { TreeDiff } from "@/components/tree/TreeDiff";
-import { UniqueRanker } from "@/components/items/UniqueRanker";
 import { TimelessSearch } from "@/components/tree/TimelessSearch";
+import { TreeDiff } from "@/components/tree/TreeDiff";
 import type { BuildStats } from "@/engine/types";
+import { useBuildStore } from "@/stores/build-store";
+import { CalcRow, CalcSubheader } from "./CalcRow";
+import { CalcSection } from "./CalcSection";
 
 function fmtNum(n: number): string {
   if (Math.abs(n) >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
@@ -21,14 +22,18 @@ function fmtNum(n: number): string {
 function DpsChart({ stats }: { stats: BuildStats }) {
   const total = stats.total_dps || 1;
   const bars = [
-    { label: "Hit DPS", value: Math.max(0, total - (stats.bleed_dps || 0) - (stats.poison_dps || 0) - (stats.ignite_dps || 0)), color: "#06b6d4" },
+    {
+      label: "Hit DPS",
+      value: Math.max(0, total - (stats.bleed_dps || 0) - (stats.poison_dps || 0) - (stats.ignite_dps || 0)),
+      color: "#06b6d4",
+    },
     { label: "Bleed", value: stats.bleed_dps || 0, color: "#ef4444" },
     { label: "Poison", value: stats.poison_dps || 0, color: "#22c55e" },
     { label: "Ignite", value: stats.ignite_dps || 0, color: "#f97316" },
     { label: "Impale", value: stats.impale_dps || 0, color: "#a855f7" },
-  ].filter(b => b.value > 0);
+  ].filter((b) => b.value > 0);
 
-  const maxVal = Math.max(...bars.map(b => b.value));
+  const maxVal = Math.max(...bars.map((b) => b.value));
 
   if (bars.length === 0 || total <= 0) return null;
 
@@ -36,7 +41,7 @@ function DpsChart({ stats }: { stats: BuildStats }) {
     <div className="mb-4 bg-bg-card border border-border-card rounded-lg p-3">
       <h3 className="text-[10px] font-mono font-bold uppercase tracking-widest text-accent mb-2">DPS Breakdown</h3>
       <div className="space-y-1.5">
-        {bars.map(bar => (
+        {bars.map((bar) => (
           <div key={bar.label}>
             <div className="flex justify-between text-[10px] font-mono mb-0.5">
               <span className="text-text-dim">{bar.label}</span>
@@ -51,9 +56,7 @@ function DpsChart({ stats }: { stats: BuildStats }) {
           </div>
         ))}
       </div>
-      <div className="text-[9px] font-mono text-text-dim/60 mt-1.5 text-right">
-        Total: {fmtNum(total)}
-      </div>
+      <div className="text-[9px] font-mono text-text-dim/60 mt-1.5 text-right">Total: {fmtNum(total)}</div>
     </div>
   );
 }
@@ -121,9 +124,7 @@ const SECTIONS: SectionDef[] = [
     title: "Skill Mechanics",
     color: COLOR_OFFENCE,
     column: "left",
-    rows: [
-      { label: "Strike Targets", key: "strike_targets", sub: "Projectiles & Area" },
-    ],
+    rows: [{ label: "Strike Targets", key: "strike_targets", sub: "Projectiles & Area" }],
   },
   {
     title: "Damage over Time",
@@ -263,10 +264,10 @@ export function CalcsTab() {
           (r) =>
             !filterLower ||
             r.label.toLowerCase().includes(filterLower) ||
-            section.title.toLowerCase().includes(filterLower)
+            section.title.toLowerCase().includes(filterLower),
         ),
       })).filter((s) => s.rows.length > 0 || !filterLower),
-    [filterLower]
+    [filterLower],
   );
 
   if (!stats) {
@@ -284,9 +285,7 @@ export function CalcsTab() {
   return (
     <div className="h-full overflow-y-auto p-3">
       <div className="flex items-center gap-3 mb-3">
-        <h2 className="text-text-heading font-display text-base">
-          Calculations
-        </h2>
+        <h2 className="text-text-heading font-display text-base">Calculations</h2>
         <input
           type="text"
           placeholder="Filter..."
@@ -349,11 +348,7 @@ export function CalcsTab() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="space-y-0">
           {leftSections.map((section) => (
-            <CalcSection
-              key={section.title}
-              title={section.title}
-              color={section.color}
-            >
+            <CalcSection key={section.title} title={section.title} color={section.color}>
               {section.rows.map((row) => (
                 <div key={row.label}>
                   {row.sub && <CalcSubheader label={row.sub} />}
@@ -372,11 +367,7 @@ export function CalcsTab() {
         </div>
         <div className="space-y-0">
           {rightSections.map((section) => (
-            <CalcSection
-              key={section.title}
-              title={section.title}
-              color={section.color}
-            >
+            <CalcSection key={section.title} title={section.title} color={section.color}>
               {section.rows.map((row) => (
                 <CalcRow
                   key={row.label}
@@ -405,6 +396,9 @@ export function CalcsTab() {
       </div>
       <div className="border-t border-border-subtle mt-4 pt-4">
         <TimelessSearch />
+      </div>
+      <div className="border-t border-border-subtle mt-4 pt-4">
+        <UpgradeSuggester />
       </div>
     </div>
   );

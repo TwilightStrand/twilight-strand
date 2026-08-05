@@ -795,16 +795,33 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
 
       progress(id, "Running calculations...");
       await lua.doString(`
-        -- Run OnFrame cycles to let tree load and calcs settle.
-        -- Tree parsing (2.9 MB) can take many frames.
-        local maxFrames = 30
+        -- Run OnFrame cycles to let tree load, config apply, and calcs settle.
+        -- Complex builds need many frames: load XML -> parse tree -> process items
+        -- -> build config mod list -> run full calc pipeline.
+        local maxFrames = 80
+        local lastDPS = -1
+        local stableCount = 0
         for i = 1, maxFrames do
           if mainObject and mainObject.OnFrame then
             pcall(runCallback, "OnFrame")
           end
           local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
-          if b and b.calcsTab and b.calcsTab.mainOutput then
-            break
+          if b then
+            -- Force a full recalc on early frames
+            if i <= 5 and b.buildFlag ~= nil then
+              b.buildFlag = true
+            end
+            -- Check if calcs have stabilized (DPS stopped changing)
+            if b.calcsTab and b.calcsTab.mainOutput then
+              local curDPS = b.calcsTab.mainOutput.TotalDPS or b.calcsTab.mainOutput.CombinedDPS or 0
+              if curDPS == lastDPS and curDPS > 0 then
+                stableCount = stableCount + 1
+                if stableCount >= 3 then break end
+              else
+                stableCount = 0
+              end
+              lastDPS = curDPS
+            end
           end
         end
       `);
