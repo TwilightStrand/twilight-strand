@@ -75,7 +75,7 @@ export function StatusBar() {
   const className = stats?.class_name ?? "Scion";
   const ascendancy = stats?.ascendancy || "";
   const level = stats?.level ?? 1;
-  const dps = stats?.combined_dps ?? stats?.total_dps ?? 0;
+  const dps = (stats?.full_dps && stats.full_dps > 0 ? stats.full_dps : null) ?? stats?.combined_dps ?? stats?.total_dps ?? 0;
   const life = stats?.life ?? 0;
 
   return (

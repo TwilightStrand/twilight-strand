@@ -704,6 +704,7 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
     const stats: BuildStats = {
       total_dps: 0,
       combined_dps: 0,
+      full_dps: 0,
       total_ehp: 0,
       life: 60,
       energy_shield: 0,
@@ -849,6 +850,16 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
               _tsc_debug_info = _tsc_debug_info .. " modDB=" .. n .. "/" .. t
             end
           end)
+          pcall(function()
+            if b.skillsTab and b.skillsTab.socketGroupList then
+              local total, fdps = 0, 0
+              for _, g in ipairs(b.skillsTab.socketGroupList) do
+                total = total + 1
+                if g.includeInFullDPS then fdps = fdps + 1 end
+              end
+              _tsc_debug_info = _tsc_debug_info .. " groups=" .. total .. " fullDPSGroups=" .. fdps
+            end
+          end)
         end
       `);
       const debugInfo = String(lua.global.get("_tsc_debug_info") ?? "");
@@ -905,6 +916,7 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
             local out = b.calcsTab.mainOutput
             result.total_dps = out.TotalDPS or out.CombinedDPS or 0
             result.combined_dps = out.CombinedDPS or out.TotalDPS or 0
+            result.full_dps = out.FullDPS or 0
             result.total_ehp = out.TotalEHP or 0
             result.life = out.Life or 0
             result.energy_shield = out.EnergyShield or 0

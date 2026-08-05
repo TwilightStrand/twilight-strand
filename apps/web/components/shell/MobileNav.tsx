@@ -28,7 +28,7 @@ export function MobileNav() {
   const life = stats?.life ?? 60;
   const es = stats?.energy_shield ?? 0;
   const mana = stats?.mana ?? 50;
-  const dps = stats?.combined_dps ?? stats?.total_dps ?? 0;
+  const dps = (stats?.full_dps && stats.full_dps > 0 ? stats.full_dps : null) ?? stats?.combined_dps ?? stats?.total_dps ?? 0;
   const level = stats?.level ?? 1;
   const className = stats?.ascendancy || stats?.class_name || "Scion";
 

@@ -391,7 +391,7 @@ export function StatsSidebar() {
   const manaUnreserved = stats?.mana_unreserved ?? mana;
   const manaReservedPct = stats?.mana_reserved_percent ?? 0;
 
-  const dps = stats?.combined_dps ?? stats?.total_dps ?? 0;
+  const dps = (stats?.full_dps && stats.full_dps > 0 ? stats.full_dps : null) ?? stats?.combined_dps ?? stats?.total_dps ?? 0;
   const critChance = stats?.crit_chance ?? 0;
   const critMulti = stats?.crit_multiplier ?? 150;
   const atkSpd = stats?.attack_speed ?? 1.2;
@@ -533,7 +533,7 @@ export function StatsSidebar() {
               value={fmtNum(dps)}
               statKey="total_dps"
               delta={cmp ? calcDelta(dps, cmp.combined_dps ?? cmp.total_dps) : undefined}
-              title={`Total DPS: ${fmtNum(stats?.total_dps ?? 0)} | Combined: ${fmtNum(stats?.combined_dps ?? 0)}`}
+              title={`Full DPS: ${fmtNum(stats?.full_dps ?? 0)} | Combined: ${fmtNum(stats?.combined_dps ?? 0)} | Total: ${fmtNum(stats?.total_dps ?? 0)}`}
             />
             {stats && <DpsBar stats={stats} />}
             <StatRow

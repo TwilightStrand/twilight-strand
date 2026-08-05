@@ -26,12 +26,13 @@ export default function Home() {
       document.title = `${buildName} - Twilight Strand`;
       const meta = document.querySelector('meta[name="description"]');
       if (meta) {
+        const rawDps = (stats.full_dps && stats.full_dps > 0 ? stats.full_dps : null) ?? stats.total_dps;
         const dps =
-          stats.total_dps >= 1e6
-            ? `${(stats.total_dps / 1e6).toFixed(1)}M`
-            : stats.total_dps >= 1e3
-              ? `${Math.round(stats.total_dps / 1e3)}k`
-              : String(Math.round(stats.total_dps));
+          rawDps >= 1e6
+            ? `${(rawDps / 1e6).toFixed(1)}M`
+            : rawDps >= 1e3
+              ? `${Math.round(rawDps / 1e3)}k`
+              : String(Math.round(rawDps));
         meta.setAttribute(
           "content",
           `${stats.ascendancy || stats.class_name} Lv ${stats.level} - ${dps} DPS, ${stats.life} Life, ${stats.energy_shield} ES - Twilight Strand Build Planner`,
