@@ -7,6 +7,9 @@ import { EmptyState } from "@/components/shell/EmptyState";
 import { CalcRow, CalcSubheader } from "./CalcRow";
 import { ClusterSearch } from "@/components/tree/ClusterSearch";
 import { PowerReport } from "@/components/tree/PowerReport";
+import { TreeDiff } from "@/components/tree/TreeDiff";
+import { UniqueRanker } from "@/components/items/UniqueRanker";
+import { TimelessSearch } from "@/components/tree/TimelessSearch";
 import type { BuildStats } from "@/engine/types";
 
 function fmtNum(n: number): string {
@@ -393,6 +396,15 @@ export function CalcsTab() {
       </div>
       <div className="border-t border-border-subtle mt-4 pt-4">
         <PowerReport />
+      </div>
+      <div className="border-t border-border-subtle mt-4 pt-4">
+        <TreeDiff />
+      </div>
+      <div className="border-t border-border-subtle mt-4 pt-4">
+        <UniqueRanker />
+      </div>
+      <div className="border-t border-border-subtle mt-4 pt-4">
+        <TimelessSearch />
       </div>
     </div>
   );

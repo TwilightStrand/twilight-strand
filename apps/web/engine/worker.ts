@@ -338,13 +338,18 @@ async function fetchAndMountFiles(
     return mounted;
   }
 
-  // Cache miss – fetch from network
-  const listResp = await fetch(`${baseUrl}/file-list.json?v=${Date.now()}`);
+  // Cache miss - fetch essential files first (deferred loaded post-boot)
+  let listUrl = `${baseUrl}/file-list-essential.json?v=${Date.now()}`;
+  let listResp = await fetch(listUrl);
+  if (!listResp.ok) {
+    listUrl = `${baseUrl}/file-list.json?v=${Date.now()}`;
+    listResp = await fetch(listUrl);
+  }
   if (!listResp.ok) throw new Error(`Failed to fetch file list: ${listResp.status}`);
   const files: string[] = await listResp.json();
 
   let mounted = 0;
-  const batchSize = 20;
+  const batchSize = 50;
   const toCache: Record<string, string> = {};
 
   for (let i = 0; i < files.length; i += batchSize) {
@@ -1057,6 +1062,10 @@ self.onmessage = async (e: MessageEvent<EngineRequest>) => {
       reply({ id: msg.id, type: "pong" });
       break;
     case "debug": {
+      if (typeof process !== "undefined" && process.env?.NODE_ENV === "production") {
+        reply({ id: msg.id, type: "error", message: "debug disabled in production" } as never);
+        break;
+      }
       if (!lua) { reply({ id: msg.id, type: "error", message: "not init" }); break; }
       try {
         const code = (msg as { id: number; type: string; code: string }).code;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { GEM_DATA, type GemData as GeneratedGem } from "@/data/gem-data.generated";
+import type { GemData as GeneratedGem } from "@/data/gem-data.generated";
 
 const TAG_COLORS: Record<string, string> = {
   spell: "#44c", attack: "#c44", minion: "#8c4",
@@ -41,16 +41,22 @@ interface GemBrowserProps {
 export function GemBrowser({ onSelect, onClose, supportOnly }: GemBrowserProps) {
   const [search, setSearch] = useState("");
   const [tagFilter, setTagFilter] = useState("All");
+  const [gemData, setGemData] = useState<Record<string, GeneratedGem> | null>(null);
+
+  useEffect(() => {
+    import("@/data/gem-data.generated").then((mod) => setGemData(mod.GEM_DATA));
+  }, []);
 
   const allGems = useMemo(() => {
-    return Object.entries(GEM_DATA).map(([id, gem]) => ({
+    if (!gemData) return [];
+    return Object.entries(gemData).map(([id, gem]) => ({
       id,
       displayName: displayName(id),
       isSupport: isSupport(id),
       tags: gemTags(gem),
       gem,
     }));
-  }, []);
+  }, [gemData]);
 
   const filtered = useMemo(() => {
     return allGems.filter(g => {

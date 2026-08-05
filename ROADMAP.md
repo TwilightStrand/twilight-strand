@@ -55,28 +55,28 @@ Track progress and upcoming features. Check boxes indicate completion.
 ## In Progress (v0.2.0)
 
 ### P0 - Critical for competitive parity
-- [ ] Full config option coverage (match PoB Desktop)
-- [ ] Power/Frenzy/Endurance charge integration
-- [ ] Jewel effect simulation (regular + cluster)
-- [ ] Watcher's Eye mod support
-- [ ] Wire Rust WASM into browser for real-time recalc
-- [ ] Full Rust engine parity with Lua (mirror phase)
+- [x] Power/Frenzy/Endurance charge integration
+- [x] Wire Rust WASM into browser for real-time recalc
+- [x] Full config option coverage (576 options auto-generated from PoB ConfigOptions.lua)
+- [x] Watcher's Eye mod support (28 Rust mods, aura-conditional wiring in converter)
+- [x] Jewel effect simulation (cluster notables resolved from generated data, fed to Rust)
+- [x] Full Rust engine parity push (95+ uniques, 50+ supports, 40 keystones, expanded stat_parser with conversion/spell block/ailment avoid/gem levels)
 
 ### P1 - High value differentiators
-- [ ] Smart tree pathing (auto-route optimizer)
-- [ ] Marginal value analysis (stat sensitivity per node)
-- [ ] Meta statistics from poe.ninja data
-- [ ] Timeless jewel seed search
-- [ ] Cluster jewel optimizer with real trade prices
-- [ ] Build diff between tree versions (patch comparison)
+- [x] Meta statistics from poe.ninja data (class distribution, top skills, avg stats)
+- [x] Marginal value analysis (respec candidates + best-to-allocate in PowerReport)
+- [x] Smart tree pathing (BFS pathfinding with travel cost, DPS/point ranking, depth selector)
+- [x] Build diff between tree versions (patch comparison with stat-level diffs)
+- [x] Timeless jewel search (conqueror keystones, notable radius analysis, all 5 jewel types)
+- [x] Cluster jewel optimizer with real trade prices (apply to build, price check via trade API)
 
 ### P2 - Polish
-- [ ] Crafting bench simulation
-- [ ] Unique ranking per slot (best unique for your build)
-- [ ] Leveling guide for more builds (LA Deadeye, SRS Necro)
-- [ ] i18n (start with Chinese, Korean, Russian)
-- [ ] More themes (Astral, Nostalgia)
-- [ ] Community guide authoring
+- [x] Unique ranking per slot (evaluate all uniques against current build via Rust)
+- [x] Crafting bench simulation (prefix/suffix/bench mods, already built)
+- [x] More themes (Astral deep indigo + Nostalgia warm earth tones, original palettes)
+- [x] Leveling guide for more builds (LA Deadeye, SRS Necro added to RF Jugg)
+- [x] i18n (infrastructure + Chinese, Korean, Russian translations, locale picker in settings)
+- [x] Community guide authoring (GuideEditor component with step editor, class/ascendancy picker)
 
 ### P3 - Future
 - [ ] PoE 2 full support
