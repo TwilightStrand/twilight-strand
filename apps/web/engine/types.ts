@@ -3,6 +3,7 @@ export type GameId = "poe1" | "poe2";
 export interface BuildStats {
   total_dps: number;
   combined_dps: number;
+  full_dps: number;
   total_ehp: number;
   life: number;
   energy_shield: number;

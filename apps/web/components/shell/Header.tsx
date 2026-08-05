@@ -252,11 +252,7 @@ export function Header() {
             <span>{allocNodes.size > 1 ? allocNodes.size - 1 : 0} pts</span>
             <span className="text-text-dim/30">|</span>
             <span>
-              {stats.total_dps >= 1e6
-                ? `${(stats.total_dps / 1e6).toFixed(1)}M`
-                : stats.total_dps >= 1e3
-                  ? `${Math.round(stats.total_dps / 1e3)}k`
-                  : Math.round(stats.total_dps)}{" "}
+              {(() => { const d = (stats.full_dps && stats.full_dps > 0 ? stats.full_dps : null) ?? stats.total_dps; return d >= 1e6 ? `${(d / 1e6).toFixed(1)}M` : d >= 1e3 ? `${Math.round(d / 1e3)}k` : Math.round(d); })()}{" "}
               DPS
             </span>
           </div>
