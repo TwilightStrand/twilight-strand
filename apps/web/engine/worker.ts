@@ -13,6 +13,9 @@ function progress(id: number, stage: string): void {
 }
 
 const LUA_SHIMS = `
+  -- Lua 5.4 compat: math.pow was removed (use ^ operator instead)
+  if not math.pow then math.pow = function(x, y) return x ^ y end end
+
   -- Rendering stubs (PoB desktop rendering API)
   function SetDrawLayer(l, s) end
   function SetDrawColor(r, g, b, a) end
