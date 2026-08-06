@@ -962,6 +962,49 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
               _tsc_debug_info = _tsc_debug_info .. " skill=" .. tostring(ms.activeEffect and ms.activeEffect.grantedEffect and ms.activeEffect.grantedEffect.name or "?")
             end
           end)
+          -- INC/MORE damage from modDB
+          pcall(function()
+            local env = b.calcsTab.mainEnv or b.calcsTab.calcsEnv
+            if env and env.modDB and env.modDB.mods then
+              local incDmg, moreDmg, critBase = 0, 1.0, 0
+              for _, name in ipairs({"Damage", "SpellDamage", "ColdDamage", "ElementalDamage"}) do
+                local mods = env.modDB.mods[name]
+                if mods then
+                  for _, m in ipairs(mods) do
+                    if m.type == "INC" and type(m.value) == "number" then incDmg = incDmg + m.value
+                    elseif m.type == "MORE" and type(m.value) == "number" then moreDmg = moreDmg * (1 + m.value / 100) end
+                  end
+                end
+              end
+              local critMods = env.modDB.mods["CritMultiplier"]
+              if critMods then for _, m in ipairs(critMods) do if m.type == "BASE" and type(m.value) == "number" then critBase = critBase + m.value end end end
+              _tsc_debug_info = _tsc_debug_info .. " INC=" .. string.format("%.0f", incDmg) .. "%% MORE=" .. string.format("%.2f", moreDmg) .. "x crit=" .. string.format("%.0f", critBase + 150) .. "%%"
+            end
+          end)
+          -- Jewel socket diagnostics - just non-zero sockets + Elegant Hubris item IDs
+          pcall(function()
+            if b.spec and b.spec.jewels then
+              local socketed = {}
+              for nodeId, itemId in pairs(b.spec.jewels) do
+                if itemId > 0 then
+                  local item = b.itemsTab and b.itemsTab.items[itemId]
+                  local name = item and (item.title or item.name or "?") or "nil"
+                  socketed[#socketed+1] = tostring(nodeId) .. "=id" .. tostring(itemId) .. ":" .. name
+                end
+              end
+              _tsc_debug_info = _tsc_debug_info .. " socketed=[" .. table.concat(socketed, ",") .. "]"
+            end
+            -- Find all Elegant Hubris items and their IDs
+            if b.itemsTab and b.itemsTab.items then
+              local eh = {}
+              for id, item in pairs(b.itemsTab.items) do
+                if item.title and item.title:match("Elegant Hubris") then
+                  eh[#eh+1] = "id" .. tostring(id) .. ":" .. (item.title or "") .. " slot=" .. tostring(item.slotName or "NONE")
+                end
+              end
+              if #eh > 0 then _tsc_debug_info = _tsc_debug_info .. " EH=[" .. table.concat(eh, ",") .. "]" end
+            end
+          end)
         end
       `);
       const debugInfo = String(lua.global.get("_tsc_debug_info") ?? "");
@@ -971,7 +1014,7 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
       // Detailed damage breakdown for DPS gap analysis
       await lua.doString(`
         _tsc_dmg_breakdown = ""
-        pcall(function()
+        local _dmg_ok, _dmg_err = pcall(function()
           local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
           if not b or not b.calcsTab or not b.calcsTab.mainEnv then return end
           local env = b.calcsTab.mainEnv
@@ -1058,11 +1101,11 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
           end
           _tsc_dmg_breakdown = _tsc_dmg_breakdown .. " INC=" .. string.format("%.0f", incDmg) .. "%% MORE=" .. string.format("%.2f", moreDmg) .. "x critMultBase=" .. string.format("%.0f", baseCrit)
         end)
+        if not _dmg_ok then _tsc_dmg_breakdown = "ERR:" .. tostring(_dmg_err) end
       `);
-      const dmgBreakdown = lua.global.get("_tsc_dmg_breakdown");
-      if (dmgBreakdown) {
-        console.log("[dmg]", String(dmgBreakdown));
-        (stats as Record<string, unknown>)._dmg = String(dmgBreakdown);
+      const dmgBreakdown = String(lua.global.get("_tsc_dmg_breakdown") ?? "");
+      if (dmgBreakdown.length > 0) {
+        console.log("[dmg]", dmgBreakdown);
       }
 
       // LUT data integrity check
