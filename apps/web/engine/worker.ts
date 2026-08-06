@@ -1057,7 +1057,7 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
           pcall(function()
             local o = b.calcsTab and b.calcsTab.mainOutput
             if o then
-              _tsc_debug_info = "dps=" .. tostring(o.CombinedDPS or 0) .. " es=" .. tostring(o.EnergyShield or 0) .. " life=" .. tostring(o.Life or 0) .. " pwr=" .. tostring(o.PowerCharges or 0) .. " abs=" .. tostring(o.AbsorptionCharges or 0)
+              _tsc_debug_info = "dps=" .. tostring(o.CombinedDPS or 0) .. " es=" .. tostring(o.EnergyShield or 0) .. " life=" .. tostring(o.Life or 0) .. " pwr=" .. tostring(o.PowerCharges or 0) .. " abs=" .. tostring(o.AbsorptionCharges or 0) .. " critM=" .. tostring(o.CritMultiplier or "nil") .. " critC=" .. tostring(o.CritChance or "nil")
               if o.FullDPS and o.FullDPS > 0 then _tsc_debug_info = _tsc_debug_info .. " full=" .. tostring(o.FullDPS) end
             else
               _tsc_debug_info = "NO_OUTPUT"
@@ -1446,7 +1446,7 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
             result.lightning_res_max = out.LightningResistMax or 75
             result.chaos_res_max = out.ChaosResistMax or 75
             result.crit_chance = out.CritChance or 0
-            result.crit_multiplier = out.CritMultiplier or 150
+            result.crit_multiplier = (out.CritMultiplier or 1.5) * 100
             result.attack_speed = out.Speed or 0
             result.hit_chance = out.HitChance or 0
             result.accuracy = out.Accuracy or 0

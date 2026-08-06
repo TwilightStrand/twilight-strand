@@ -16,6 +16,7 @@ export function classifyBuildInput(input: string): BuildInputKind {
   if (trimmed.includes("pobb.in/")) return "pobbin-url";
   if (trimmed.includes("pathofexile.com/account/view-profile/")) return "poe-profile-url";
   if (trimmed.includes("poe.ninja") && (trimmed.includes("/char/") || trimmed.includes("/character/"))) return "poe-ninja-url";
+  if (trimmed.includes("poe.ninja") && trimmed.includes("/pob/")) return "pobbin-url";
   const cleaned = trimmed.replace(/\s/g, "");
   if (cleaned.length >= 40 && /^[A-Za-z0-9+/=_-]+$/.test(cleaned)) return "pob-code";
   return "unknown";
