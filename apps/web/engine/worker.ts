@@ -886,6 +886,61 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
         console.warn("PoB loadBuild error:", String(loadErr).substring(0, 500));
       }
 
+      // Diagnose item set selection
+      await lua.doString(`
+        _tsc_itemset_diag = "no-build"
+        pcall(function()
+          local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
+          if not b then return end
+          local parts = {}
+          if b.itemsTab then
+            parts[#parts+1] = "activeSetId=" .. tostring(b.itemsTab.activeItemSetId or "nil")
+            local numSets = 0
+            if b.itemsTab.itemSets then
+              for k in pairs(b.itemsTab.itemSets) do numSets = numSets + 1 end
+            end
+            parts[#parts+1] = "numSets=" .. numSets
+            -- Count equipped gear slots (not jewel sockets)
+            local equipped = 0
+            local emptyGear = {}
+            if b.itemsTab.orderedSlots then
+              for _, slot in ipairs(b.itemsTab.orderedSlots) do
+                if not slot.nodeId then
+                  if slot.selItemId and slot.selItemId > 0 then
+                    equipped = equipped + 1
+                  else
+                    if #emptyGear < 5 then
+                      emptyGear[#emptyGear+1] = slot.slotName or "?"
+                    end
+                  end
+                end
+              end
+            end
+            parts[#parts+1] = "equipped=" .. equipped
+            if #emptyGear > 0 then
+              parts[#parts+1] = "empty=[" .. table.concat(emptyGear, ",") .. "]"
+            end
+            -- Check active item set's slot assignments
+            if b.itemsTab.activeItemSet then
+              local setSlots = 0
+              for k, v in pairs(b.itemsTab.activeItemSet) do
+                if type(v) == "number" and v > 0 then setSlots = setSlots + 1 end
+                if type(v) == "table" and v.selItemId and v.selItemId > 0 then setSlots = setSlots + 1 end
+              end
+              parts[#parts+1] = "activeSetSlots=" .. setSlots
+              parts[#parts+1] = "setTitle=" .. tostring(b.itemsTab.activeItemSet.title or "nil")
+            end
+          end
+          -- Check spec
+          if b.spec then
+            parts[#parts+1] = "specTitle=" .. tostring(b.spec.title or "nil")
+          end
+          _tsc_itemset_diag = table.concat(parts, " ")
+        end)
+      `);
+      const itemsetDiag = lua.global.get("_tsc_itemset_diag");
+      console.log("[itemset]", String(itemsetDiag ?? "UNSET"));
+
       progress(id, "Running calculations...");
       await lua.doString(`
         -- Phase 1: Run OnFrame cycles to let the mode switch happen and
@@ -944,7 +999,7 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
           pcall(function()
             local o = b.calcsTab and b.calcsTab.mainOutput
             if o then
-              _tsc_debug_info = "dps=" .. tostring(o.CombinedDPS or 0) .. " es=" .. tostring(o.EnergyShield or 0) .. " life=" .. tostring(o.Life or 0)
+              _tsc_debug_info = "dps=" .. tostring(o.CombinedDPS or 0) .. " es=" .. tostring(o.EnergyShield or 0) .. " life=" .. tostring(o.Life or 0) .. " pwr=" .. tostring(o.PowerCharges or 0) .. " abs=" .. tostring(o.AbsorptionCharges or 0)
               if o.FullDPS and o.FullDPS > 0 then _tsc_debug_info = _tsc_debug_info .. " full=" .. tostring(o.FullDPS) end
             else
               _tsc_debug_info = "NO_OUTPUT"
@@ -994,6 +1049,13 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
               end
               _tsc_debug_info = _tsc_debug_info .. " socketed=[" .. table.concat(socketed, ",") .. "]"
             end
+            -- Active item set and spec
+            if b.itemsTab then
+              _tsc_debug_info = _tsc_debug_info .. " itemSet=" .. tostring(b.itemsTab.activeItemSetId or "?")
+            end
+            if b.spec then
+              _tsc_debug_info = _tsc_debug_info .. " specIdx=" .. tostring(b.spec.treeVersion or "?")
+            end
             -- Find all Elegant Hubris items and their IDs
             if b.itemsTab and b.itemsTab.items then
               local eh = {}
@@ -1010,6 +1072,38 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
       const debugInfo = String(lua.global.get("_tsc_debug_info") ?? "");
       (stats as Record<string, unknown>)._debug = debugInfo;
       console.log("[engine]", debugInfo);
+
+      // Jewel mod diagnostics - check "New Item" rare jewels directly from items list
+      await lua.doString(`
+        _tsc_jewel_mods = "CHECKING "
+        pcall(function()
+          local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
+          if not b or not b.itemsTab then _tsc_jewel_mods = "NO_BUILD"; return end
+          local parts = {}
+          for id, item in pairs(b.itemsTab.items) do
+            if item.type == "Jewel" and (item.name == "New Item" or item.rarity == "RARE") then
+              local modCount = 0
+              if item.modList then
+                local i = 1
+                while rawget(item.modList, i) do modCount = modCount + 1; i = i + 1 end
+              end
+              local explicitCount = item.explicitModLines and #item.explicitModLines or 0
+              local sampleMods = {}
+              if item.modList and modCount > 0 then
+                for j = 1, math.min(2, modCount) do
+                  local m = rawget(item.modList, j)
+                  if m then sampleMods[#sampleMods+1] = m.name .. "=" .. tostring(m.value) end
+                end
+              end
+              parts[#parts+1] = "id" .. id .. ":" .. explicitCount .. "exp/" .. modCount .. "mods"
+              if #sampleMods > 0 then parts[#parts] = parts[#parts] .. "[" .. table.concat(sampleMods, ",") .. "]" end
+            end
+          end
+          _tsc_jewel_mods = #parts .. " rare jewels: " .. table.concat(parts, " ")
+        end)
+      `);
+      const jewelMods = String(lua.global.get("_tsc_jewel_mods") ?? "");
+      console.log("[jewel-mods]", jewelMods);
 
       // Detailed damage breakdown for DPS gap analysis
       await lua.doString(`
