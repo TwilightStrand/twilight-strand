@@ -1003,6 +1003,22 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
               if o.FullDPS and o.FullDPS > 0 then _tsc_debug_info = _tsc_debug_info .. " full=" .. tostring(o.FullDPS) end
             else
               _tsc_debug_info = "NO_OUTPUT"
+              -- Debug why no output
+              if b.calcsTab then
+                _tsc_debug_info = _tsc_debug_info .. " calcsTab=yes"
+                if b.calcsTab.mainEnv then _tsc_debug_info = _tsc_debug_info .. " mainEnv=yes" end
+              else
+                _tsc_debug_info = _tsc_debug_info .. " calcsTab=NIL"
+              end
+              _tsc_debug_info = _tsc_debug_info .. " mainGrp=" .. tostring(b.mainSocketGroup)
+              if b.skillsTab and b.skillsTab.socketGroupList then
+                _tsc_debug_info = _tsc_debug_info .. " skills=" .. #b.skillsTab.socketGroupList
+                for i, g in ipairs(b.skillsTab.socketGroupList) do
+                  local gems = g.gemList and #g.gemList or 0
+                  _tsc_debug_info = _tsc_debug_info .. " g" .. i .. "=" .. (g.slot or "?") .. "/" .. gems .. "gems"
+                  if i >= 5 then break end
+                end
+              end
             end
           end)
           pcall(function()
