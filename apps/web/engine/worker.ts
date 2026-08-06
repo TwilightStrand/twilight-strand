@@ -946,25 +946,6 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
       const itemsetDiag = lua.global.get("_tsc_itemset_diag");
       console.log("[itemset]", String(itemsetDiag ?? "UNSET"));
 
-      // Auto-apply combat config defaults ONLY for builds with empty config
-      // (e.g. poe.ninja imports that lack any config settings)
-      await lua.doString(`
-        pcall(function()
-          local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
-          if not b or not b.configTab or not b.configTab.input then return end
-          local ci = b.configTab.input
-          -- Count existing config entries to detect empty config
-          local configCount = 0
-          for _ in pairs(ci) do configCount = configCount + 1 end
-          -- Only auto-apply if config is mostly empty (< 3 entries = no user config)
-          if configCount >= 3 then return end
-          ci.usePowerCharges = true
-          ci.useFrenzyCharges = true
-          pcall(function() b.configTab:BuildModList() end)
-          b.buildFlag = true
-        end)
-      `);
-
       progress(id, "Running calculations...");
       await lua.doString(`
         -- Phase 1: Run OnFrame cycles to let the mode switch happen and
@@ -977,9 +958,29 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
           end
         end
 
+        -- Auto-apply combat config defaults AFTER init (so PoB doesn't overwrite).
+        -- Enable charges, shock, and includeInFullDPS for builds missing them.
+        local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
+        if b and b.configTab and b.configTab.input then
+          local ci = b.configTab.input
+          if not ci.usePowerCharges then ci.usePowerCharges = true end
+          if not ci.useFrenzyCharges then ci.useFrenzyCharges = true end
+          if not ci.conditionEnemyShocked then
+            ci.conditionEnemyShocked = true
+            ci.conditionShockEffect = 15
+          end
+        end
+        -- Auto-enable includeInFullDPS on the main socket group
+        if b and b.skillsTab and b.skillsTab.socketGroupList and b.mainSocketGroup then
+          local mainGroup = b.skillsTab.socketGroupList[b.mainSocketGroup]
+          if mainGroup and not mainGroup.includeInFullDPS then
+            mainGroup.includeInFullDPS = true
+          end
+        end
+
         -- Phase 2: Force a full recalc. The build should be loaded now.
         -- Set buildFlag to trigger calcsTab:BuildOutput() on next OnFrame.
-        local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
+        b = b or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
         if b then
           -- Force config tab to rebuild its mod list (applies charges, boss, shock etc.)
           if b.configTab then
@@ -1146,6 +1147,125 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
       const debugInfo = String(lua.global.get("_tsc_debug_info") ?? "");
       (stats as Record<string, unknown>)._debug = debugInfo;
       console.log("[engine]", debugInfo);
+
+      // Mod source breakdown: how many mods reached modDB from each source
+      await lua.doString(`
+        _tsc_mod_sources = ""
+        pcall(function()
+          local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
+          if not b or not b.calcsTab or not b.calcsTab.mainEnv then return end
+          local env = b.calcsTab.mainEnv
+          if not env.modDB or not env.modDB.mods then return end
+          local totalMods, itemMods, treeMods, otherMods = 0, 0, 0, 0
+          local dmgInc, dmgMore = {}, {}
+          for name, list in pairs(env.modDB.mods) do
+            for _, m in ipairs(list) do
+              totalMods = totalMods + 1
+              local src = m.source or ""
+              if src:match("^Item") or src:match("^Weapon") or src:match("^Body") or src:match("^Helm") or src:match("^Ring") or src:match("^Amulet") or src:match("^Belt") or src:match("^Glove") or src:match("^Boot") then
+                itemMods = itemMods + 1
+              elseif src:match("^Tree") or src:match("^Node") then
+                treeMods = treeMods + 1
+              else
+                otherMods = otherMods + 1
+              end
+              -- Track damage mods
+              if name:match("Damage") or name == "SpellDamage" or name == "ColdDamage" or name == "ElementalDamage" then
+                if m.type == "INC" and type(m.value) == "number" then
+                  dmgInc[src] = (dmgInc[src] or 0) + m.value
+                elseif m.type == "MORE" and type(m.value) == "number" then
+                  dmgMore[src] = (dmgMore[src] or 0) + m.value
+                end
+              end
+            end
+          end
+          -- itemModDB mod count
+          local itemDBMods = 0
+          if env.itemModDB and env.itemModDB.mods then
+            for _, list in pairs(env.itemModDB.mods) do itemDBMods = itemDBMods + #list end
+          end
+          local incSrcs = {}
+          for src, val in pairs(dmgInc) do incSrcs[#incSrcs+1] = src .. "=" .. string.format("%.0f", val) end
+          table.sort(incSrcs)
+          _tsc_mod_sources = "total=" .. totalMods .. " item=" .. itemMods .. " tree=" .. treeMods .. " other=" .. otherMods .. " itemDB=" .. itemDBMods
+          if #incSrcs > 0 then
+            _tsc_mod_sources = _tsc_mod_sources .. " dmgINC=[" .. table.concat(incSrcs, ";") .. "]"
+          end
+        end)
+      `);
+      const modSources = String(lua.global.get("_tsc_mod_sources") ?? "");
+      if (modSources.length > 0) console.log("[mods]", modSources);
+
+      // Show unparsed item mod lines (explicit text that didn't become mods)
+      await lua.doString(`
+        _tsc_unparsed = ""
+        pcall(function()
+          local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
+          if not b or not b.itemsTab then return end
+          local unparsed = {}
+          for id, item in pairs(b.itemsTab.items) do
+            if item.explicitModLines then
+              for _, ml in ipairs(item.explicitModLines) do
+                if ml.extra and ml.extra ~= "" then
+                  if #unparsed < 20 then
+                    unparsed[#unparsed+1] = (item.title or item.name or "?") .. ":" .. ml.line:sub(1,60) .. "|extra=" .. ml.extra:sub(1,40)
+                  end
+                end
+              end
+            end
+          end
+          _tsc_unparsed = #unparsed .. " unparsed: " .. table.concat(unparsed, " || ")
+        end)
+      `);
+      const unparsed = String(lua.global.get("_tsc_unparsed") ?? "");
+      if (unparsed.length > 0) console.log("[unparsed]", unparsed);
+
+      // Check raw text newlines for a specific item
+      await lua.doString(`
+        _tsc_rawcheck = ""
+        pcall(function()
+          local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
+          if not b or not b.itemsTab then return end
+          for id, item in pairs(b.itemsTab.items) do
+            if item.title and (item.title:match("Malachai") or item.title:match("Rapture")) then
+              local rawLen = item.raw and #item.raw or 0
+              local nlCount = item.raw and select(2, item.raw:gsub("\n", "\n")) or 0
+              local lineCount = item.rawLines and #item.rawLines or 0
+              local explCount = item.explicitModLines and #item.explicitModLines or 0
+              local sample = item.raw and item.raw:sub(1, 200):gsub("\n", "\\n"):gsub("\r", "\\r") or "nil"
+              _tsc_rawcheck = _tsc_rawcheck .. item.title .. ": rawLen=" .. rawLen .. " nl=" .. nlCount .. " lines=" .. lineCount .. " expl=" .. explCount .. " raw=" .. sample .. " || "
+              break
+            end
+          end
+        end)
+      `);
+      // Direct parseMod test via item's own modList
+      await lua.doString(`
+        _tsc_parsetest = ""
+        local ok, err = xpcall(function()
+          local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
+          if not b or not b.itemsTab then _tsc_parsetest = "no-build"; return end
+          -- Count total explicit mods vs parsed across all items
+          local totalExpl, totalParsed, totalExtra = 0, 0, 0
+          local samples = {}
+          for id, item in pairs(b.itemsTab.items) do
+            if item.explicitModLines then
+              for _, ml in ipairs(item.explicitModLines) do
+                totalExpl = totalExpl + 1
+                local mods = ml.modList and #ml.modList or 0
+                if mods > 0 then totalParsed = totalParsed + 1 end
+                if ml.extra and ml.extra ~= "" then
+                  totalExtra = totalExtra + 1
+                end
+              end
+            end
+          end
+          _tsc_parsetest = "expl=" .. totalExpl .. " parsed=" .. totalParsed .. " withExtra=" .. totalExtra
+        end, debug.traceback)
+        if not ok then _tsc_parsetest = "ERR:" .. tostring(err):sub(1,200) end
+      `);
+      const parseTest = String(lua.global.get("_tsc_parsetest") ?? "");
+      if (parseTest.length > 0) console.log("[parsetest]", parseTest);
 
       // Jewel mod diagnostics - check "New Item" rare jewels directly from items list
       await lua.doString(`
