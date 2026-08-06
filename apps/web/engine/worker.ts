@@ -69,19 +69,15 @@ const LUA_SHIMS = `
     return nil
   end
 
-  -- Inflate: read pre-decompressed .bin file instead of decompressing at runtime.
-  -- Tracks the last opened .zip path via io.open override, then reads the .bin equivalent.
+  -- Inflate: return pre-injected binary data keyed by the last-opened .zip path.
+  -- Binary data is injected from JS via lua_pushlstring to avoid UTF-8 corruption.
   _tsc_last_opened_zip = nil
+  _tsc_jewel_bin_data = {}
   Inflate = function(d)
     if _tsc_last_opened_zip then
-      local binPath = _tsc_last_opened_zip:gsub("%.zip$", ".bin"):gsub("%.zip%.part%d*$", ".bin")
-      local f = io.open(binPath, "rb")
-      if f then
-        local data = f:read("*a")
-        f:close()
-        if data and #data > 0 then
-          return data
-        end
+      local key = _tsc_last_opened_zip:match("([^/]+)%.zip")
+      if key and _tsc_jewel_bin_data[key] then
+        return _tsc_jewel_bin_data[key]
       end
     end
     return ""
@@ -436,10 +432,14 @@ const mountedJewelTypes = new Set<string>();
 
 async function mountTimelessJewelData(
   f: import("wasmoon").default,
+  luaEngine: Awaited<ReturnType<import("wasmoon").default["createEngine"]>>,
   baseUrl: string,
   jewelTypes: string[],
 ): Promise<number> {
   let mounted = 0;
+  const L = luaEngine.global.address;
+  const luaWasm = luaEngine.global.lua;
+
   for (const name of jewelTypes) {
     if (mountedJewelTypes.has(name)) continue;
 
@@ -457,11 +457,22 @@ async function mountTimelessJewelData(
       }
     }
 
-    const mountPath = `/pob/Data/TimelessJewelData/${name}.bin`;
-    await f.mountFile(mountPath, new Uint8Array(data));
-    // Also mount a dummy .zip so PoB's unpatched loadJewelFile can open it,
-    // triggering our Inflate shim which reads from the .bin instead.
+    // Mount dummy .zip so PoB's loadJewelFile can open it and trigger Inflate
     await f.mountFile(`/pob/Data/TimelessJewelData/${name}.zip`, "PLACEHOLDER");
+
+    // Inject binary data directly into Lua via lua_pushlstring (bypasses UTF-8 corruption).
+    // Access Emscripten's memory management through the module property.
+    const bytes = new Uint8Array(data);
+    const mod = (luaWasm as unknown as { module: { _malloc: (n: number) => number; _free: (p: number) => void; HEAPU8: Uint8Array } }).module;
+    const ptr = mod._malloc(bytes.length);
+    mod.HEAPU8.set(bytes, ptr);
+    luaWasm.lua_pushlstring(L, ptr, bytes.length);
+    luaWasm.lua_setglobal(L, `_tsc_jewel_raw_${name}`);
+    mod._free(ptr);
+
+    // Move from global into the _tsc_jewel_bin_data table for the Inflate shim
+    await luaEngine.doString(`_tsc_jewel_bin_data["${name}"] = _tsc_jewel_raw_${name}; _tsc_jewel_raw_${name} = nil`);
+
     mountedJewelTypes.add(name);
     mounted++;
   }
@@ -835,7 +846,7 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
         if (needed.length > 0) {
           try {
             progress(id, `Loading timeless jewel data (${needed.join(", ")})...`);
-            const count = await mountTimelessJewelData(factory, "/data/pob", needed);
+            const count = await mountTimelessJewelData(factory, lua!, "/data/pob", needed);
             if (count > 0 && lua) {
               await lua.doString(`
                 pcall(function()
@@ -955,6 +966,199 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
       `);
       const debugInfo = String(lua.global.get("_tsc_debug_info") ?? "");
       (stats as Record<string, unknown>)._debug = debugInfo;
+      console.log("[engine]", debugInfo);
+
+      // Detailed damage breakdown for DPS gap analysis
+      await lua.doString(`
+        _tsc_dmg_breakdown = ""
+        pcall(function()
+          local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
+          if not b or not b.calcsTab or not b.calcsTab.mainEnv then return end
+          local env = b.calcsTab.mainEnv
+          if not env.player or not env.player.mainSkill then return end
+          local ms = env.player.mainSkill
+
+          local parts = {}
+          local function a(k, v) if v and type(v) == "number" and v ~= 0 then parts[#parts+1] = k .. "=" .. string.format("%.1f", v) end end
+
+          -- Dump all numeric keys from mainOutput to find what exists
+          local mainOut = b.calcsTab.mainOutput
+          if mainOut then
+            local outKeys = {}
+            for k, v in pairs(mainOut) do
+              if type(v) == "number" and v ~= 0 then
+                outKeys[#outKeys+1] = k .. "=" .. string.format("%.4g", v)
+              end
+            end
+            table.sort(outKeys)
+            -- Show first 30 output keys to understand what's available
+            local shown = {}
+            for i = 1, math.min(30, #outKeys) do shown[i] = outKeys[i] end
+            parts[#parts+1] = "OUT=[" .. table.concat(shown, ";") .. "](" .. #outKeys .. "total)"
+          else
+            parts[#parts+1] = "mainOutput=NIL"
+          end
+
+          -- Gem level and added damage
+          if ms.activeEffect and ms.activeEffect.level then
+            parts[#parts+1] = "gemLv=" .. ms.activeEffect.level
+          end
+
+          -- Skill part
+          parts[#parts+1] = "part=" .. tostring(ms.skillPart or "nil")
+          if ms.skillPartName then
+            parts[#parts+1] = "partName=" .. ms.skillPartName
+          end
+
+          -- Stages
+          a("Stages", mainOut and mainOut.Stages)
+          a("StageCountMax", ms.skillData and ms.skillData.stagesMax)
+
+          -- Support multipliers
+          if ms.supportList then
+            local sups = {}
+            for _, sup in ipairs(ms.supportList) do
+              if sup.activeEffect and sup.activeEffect.grantedEffect then
+                sups[#sups+1] = sup.activeEffect.grantedEffect.name
+              end
+            end
+            if #sups > 0 then
+              parts[#parts+1] = "supports=[" .. table.concat(sups, ",") .. "]"
+            end
+          end
+
+          _tsc_dmg_breakdown = table.concat(parts, " ")
+
+          -- Sum INC and MORE damage mods
+          local incDmg, moreDmg = 0, 1.0
+          local incCrit, baseCrit = 0, 0
+          if env.modDB and env.modDB.mods then
+            -- Sum increased spell/cold/elemental damage
+            for _, name in ipairs({"Damage", "SpellDamage", "ColdDamage", "ElementalDamage"}) do
+              local mods = env.modDB.mods[name]
+              if mods then
+                for _, m in ipairs(mods) do
+                  if m.type == "INC" and type(m.value) == "number" then
+                    incDmg = incDmg + m.value
+                  elseif m.type == "MORE" and type(m.value) == "number" then
+                    moreDmg = moreDmg * (1 + m.value / 100)
+                  end
+                end
+              end
+            end
+            -- Crit multi total
+            local critMods = env.modDB.mods["CritMultiplier"]
+            if critMods then
+              for _, m in ipairs(critMods) do
+                if m.type == "BASE" and type(m.value) == "number" then
+                  baseCrit = baseCrit + m.value
+                end
+              end
+            end
+          end
+          _tsc_dmg_breakdown = _tsc_dmg_breakdown .. " INC=" .. string.format("%.0f", incDmg) .. "%% MORE=" .. string.format("%.2f", moreDmg) .. "x critMultBase=" .. string.format("%.0f", baseCrit)
+        end)
+      `);
+      const dmgBreakdown = lua.global.get("_tsc_dmg_breakdown");
+      if (dmgBreakdown) {
+        console.log("[dmg]", String(dmgBreakdown));
+        (stats as Record<string, unknown>)._dmg = String(dmgBreakdown);
+      }
+
+      // LUT data integrity check
+      await lua.doString(`
+        _tsc_lut_check = ""
+        pcall(function()
+          if data and data.timelessJewelLUTs and data.timelessJewelLUTs[5] then
+            local lut = data.timelessJewelLUTs[5]
+            if lut.data then
+              local len = #lut.data
+              _tsc_lut_check = "LUT5=#" .. len
+              -- Check first 20 bytes for corruption (bytes > 127 would be mangled by UTF-8)
+              local bytes = {}
+              for i = 1, math.min(20, len) do
+                bytes[#bytes+1] = lut.data:byte(i)
+              end
+              _tsc_lut_check = _tsc_lut_check .. " first20=[" .. table.concat(bytes, ",") .. "]"
+              -- Check byte distribution - if UTF-8 corrupted, bytes > 127 would be wrong
+              local gt127 = 0
+              local zeros = 0
+              local sample = math.min(1000, len)
+              for i = 1, sample do
+                local b = lut.data:byte(i)
+                if b > 127 then gt127 = gt127 + 1 end
+                if b == 0 then zeros = zeros + 1 end
+              end
+              _tsc_lut_check = _tsc_lut_check .. " gt127=" .. gt127 .. "/" .. sample .. " zeros=" .. zeros
+            else
+              _tsc_lut_check = "LUT5=no-data"
+            end
+          else
+            _tsc_lut_check = "no-LUT5"
+          end
+
+          -- Check conquered node replacements (both allocated and all nodes)
+          local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
+          if b and b.spec then
+            local conquered = 0
+            local replaced = 0
+            local sampleNodes = {}
+            local byType = {Notable=0, Normal=0, Keystone=0, other=0}
+            local allConquered = 0
+            for id, node in pairs(b.spec.nodes) do
+              if node.conqueredBy then allConquered = allConquered + 1 end
+            end
+            for id, node in pairs(b.spec.allocNodes) do
+              if node.conqueredBy then
+                conquered = conquered + 1
+                local t = node.type or "other"
+                byType[t] = (byType[t] or 0) + 1
+                if node.sd and #node.sd > 0 then
+                  replaced = replaced + 1
+                  if #sampleNodes < 3 then
+                    sampleNodes[#sampleNodes+1] = id .. ":" .. (node.dn or "?") .. ":" .. #node.sd .. "mods"
+                  end
+                end
+              end
+            end
+            _tsc_lut_check = _tsc_lut_check .. " allConq=" .. allConquered .. " allocConq=" .. conquered .. " replaced=" .. replaced .. " types=N:" .. (byType.Notable or 0) .. "/n:" .. (byType.Normal or 0) .. "/K:" .. (byType.Keystone or 0)
+            if #sampleNodes > 0 then
+              _tsc_lut_check = _tsc_lut_check .. " [" .. table.concat(sampleNodes, ",") .. "]"
+            end
+
+            -- Test readLUT for ALL conquered notable nodes
+            if data and data.readLUT then
+              local okCount, failCount = 0, 0
+              local failNodes = {}
+              for id, node in pairs(b.spec.allocNodes) do
+                if node.conqueredBy and node.type == "Notable" then
+                  local jtype = 5
+                  if node.conqueredBy.conqueror.type == "templar" then jtype = 4
+                  elseif node.conqueredBy.conqueror.type == "karui" then jtype = 2
+                  elseif node.conqueredBy.conqueror.type == "maraketh" then jtype = 3
+                  elseif node.conqueredBy.conqueror.type == "vaal" then jtype = 1
+                  end
+                  local result = data.readLUT(node.conqueredBy.id, id, jtype)
+                  if result and #result > 0 and result[1] then
+                    okCount = okCount + 1
+                  else
+                    failCount = failCount + 1
+                    if #failNodes < 3 then
+                      failNodes[#failNodes+1] = id .. ":" .. (node.dn or "?") .. ":seed=" .. tostring(node.conqueredBy.id) .. ":t" .. jtype
+                    end
+                  end
+                end
+              end
+              _tsc_lut_check = _tsc_lut_check .. " readLUT:ok=" .. okCount .. ",fail=" .. failCount
+              if #failNodes > 0 then
+                _tsc_lut_check = _tsc_lut_check .. " failNodes=[" .. table.concat(failNodes, "|") .. "]"
+              end
+            end
+          end
+        end)
+      `);
+      const lutCheck = lua.global.get("_tsc_lut_check");
+      if (lutCheck) console.log("[lut-check]", String(lutCheck));
 
       // Apply any manual config overrides on top of what the XML set
       if (config && Object.keys(config).length > 0) {
