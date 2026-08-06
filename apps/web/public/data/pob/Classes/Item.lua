@@ -1161,7 +1161,6 @@ function ItemClass:ParseRaw(raw, rarity, highQuality)
 				end
 				local rangedLine = itemLib.applyRange(line, 1, catalystScalar, modLine.corruptedRange)
 				local modList, extra = modLib.parseMod(rangedLine)
-				if modList and #modList > 0 then extra = nil end
 				local nextModGroup = self.rawLines[l + 1]
 					and self.rawLines[l + 1]:match("{modGroup:([^}]+)}")
 				-- Only combine generated lines that came from the same modifier.
