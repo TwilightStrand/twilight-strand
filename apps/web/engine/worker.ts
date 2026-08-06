@@ -946,22 +946,22 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
       const itemsetDiag = lua.global.get("_tsc_itemset_diag");
       console.log("[itemset]", String(itemsetDiag ?? "UNSET"));
 
-      // Auto-apply combat config defaults for builds that lack config (e.g. poe.ninja imports)
+      // Auto-apply combat config defaults ONLY for builds with empty config
+      // (e.g. poe.ninja imports that lack any config settings)
       await lua.doString(`
         pcall(function()
           local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
           if not b or not b.configTab or not b.configTab.input then return end
           local ci = b.configTab.input
-          local changed = false
-          if not ci.usePowerCharges then ci.usePowerCharges = true; changed = true end
-          if not ci.useFrenzyCharges then ci.useFrenzyCharges = true; changed = true end
-          if b.calcsTab and b.calcsTab.input and not b.calcsTab.input.misc_buffMode then
-            b.calcsTab.input.misc_buffMode = "EFFECTIVE"
-          end
-          if changed then
-            pcall(function() b.configTab:BuildModList() end)
-            b.buildFlag = true
-          end
+          -- Count existing config entries to detect empty config
+          local configCount = 0
+          for _ in pairs(ci) do configCount = configCount + 1 end
+          -- Only auto-apply if config is mostly empty (< 3 entries = no user config)
+          if configCount >= 3 then return end
+          ci.usePowerCharges = true
+          ci.useFrenzyCharges = true
+          pcall(function() b.configTab:BuildModList() end)
+          b.buildFlag = true
         end)
       `);
 
