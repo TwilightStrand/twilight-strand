@@ -17,6 +17,8 @@ export async function GET(req: NextRequest) {
       const id = url.split("pastebin.com/").pop()?.replace("raw/", "").split(/[?#]/)[0];
       if (!id) throw new Error("Invalid pastebin URL");
       codeUrl = `https://pastebin.com/raw/${id}`;
+    } else if (url.includes("poe.ninja/") && url.includes("/pob/")) {
+      codeUrl = url.includes("/pob/raw/") ? url : url.replace("/pob/", "/pob/raw/");
     } else {
       return NextResponse.json({ error: "Unsupported URL" }, { status: 400 });
     }
