@@ -871,21 +871,6 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
 
       lua.global.set("_tsc_build_xml", xml);
 
-      // JS-side check: does the XML have \n inside Item elements?
-      {
-        const itemMatch = xml.match(/<Item id="15"[^>]*>([\s\S]*?)<\/Item>/);
-        if (!itemMatch) {
-          const anyItem = xml.match(/<Item id="\d+"[^>]*>([\s\S]*?)<\/Item>/);
-          if (anyItem) {
-            const nlCount = (anyItem[1].match(/\n/g) || []).length;
-            console.log("[xml-check] item has", nlCount, "newlines. First 100:", JSON.stringify(anyItem[1].substring(0, 100)));
-          }
-        } else {
-          const nlCount = (itemMatch[1].match(/\n/g) || []).length;
-          console.log("[xml-check] item15 has", nlCount, "newlines");
-        }
-      }
-
       progress(id, "Loading build XML...");
       await lua.doString(`
         _tsc_eval_ok = false
@@ -1235,51 +1220,6 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
       `);
       const unparsed = String(lua.global.get("_tsc_unparsed") ?? "");
       if (unparsed.length > 0) console.log("[unparsed]", unparsed);
-
-      // Check raw text newlines for a specific item
-      await lua.doString(`
-        _tsc_rawcheck = ""
-        pcall(function()
-          local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
-          if not b or not b.itemsTab then return end
-          for id, item in pairs(b.itemsTab.items) do
-            if item.title and (item.title:match("Malachai") or item.title:match("Rapture")) then
-              local rawLen = item.raw and #item.raw or 0
-              local nlCount = item.raw and select(2, item.raw:gsub("\n", "\n")) or 0
-              local lineCount = item.rawLines and #item.rawLines or 0
-              local explCount = item.explicitModLines and #item.explicitModLines or 0
-              local sample = item.raw and item.raw:sub(1, 200):gsub("\n", "\\n"):gsub("\r", "\\r") or "nil"
-              _tsc_rawcheck = _tsc_rawcheck .. item.title .. ": rawLen=" .. rawLen .. " nl=" .. nlCount .. " lines=" .. lineCount .. " expl=" .. explCount .. " raw=" .. sample .. " || "
-              break
-            end
-          end
-        end)
-      `);
-      {
-        const pmLog = String(lua.global.get("_tsc_parsemod_log") ?? "");
-        if (pmLog.length > 0) console.log("[parsemod-log]", pmLog.substring(0, 500));
-      }
-      // Check rawLines count for an item to verify newline preservation
-      try {
-        await lua.doString(
-          '_tsc_rawlines = "no-build"\n' +
-          'pcall(function()\n' +
-          '  local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])\n' +
-          '  if not b or not b.itemsTab then return end\n' +
-          '  local r = {}\n' +
-          '  for id, item in pairs(b.itemsTab.items) do\n' +
-          '    local rl = item.rawLines and #item.rawLines or 0\n' +
-          '    local el = item.explicitModLines and #item.explicitModLines or 0\n' +
-          '    r[#r+1] = "id" .. id .. ":" .. rl .. "rl/" .. el .. "el"\n' +
-          '    if #r >= 5 then break end\n' +
-          '  end\n' +
-          '  _tsc_rawlines = table.concat(r, " ")\n' +
-          'end)\n'
-        );
-        console.log("[rawlines]", String(lua.global.get("_tsc_rawlines") ?? "UNSET"));
-      } catch (e) {
-        console.warn("[rawlines-err]", e instanceof Error ? e.message : String(e));
-      }
 
       // Jewel mod diagnostics - check "New Item" rare jewels directly from items list
       await lua.doString(`
