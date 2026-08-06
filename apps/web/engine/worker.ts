@@ -1148,6 +1148,26 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
       (stats as Record<string, unknown>)._debug = debugInfo;
       console.log("[engine]", debugInfo);
 
+      // Check config state
+      await lua.doString(
+        '_tsc_config_check = ""\n' +
+        'pcall(function()\n' +
+        '  local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])\n' +
+        '  if not b or not b.configTab then return end\n' +
+        '  local ci = b.configTab.input\n' +
+        '  local ct = 0\n' +
+        '  local active = {}\n' +
+        '  for k, v in pairs(ci) do\n' +
+        '    ct = ct + 1\n' +
+        '    if v == true then active[#active+1] = k end\n' +
+        '  end\n' +
+        '  table.sort(active)\n' +
+        '  local ml = b.configTab.modList and #b.configTab.modList or 0\n' +
+        '  _tsc_config_check = "inputs=" .. ct .. " active=" .. #active .. " mods=" .. ml .. " [" .. table.concat(active, ",") .. "]"\n' +
+        'end)\n'
+      );
+      console.log("[config]", String(lua.global.get("_tsc_config_check") ?? "UNSET"));
+
       // Mod source breakdown: how many mods reached modDB from each source
       await lua.doString(`
         _tsc_mod_sources = ""
