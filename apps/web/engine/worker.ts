@@ -989,6 +989,40 @@ async function handleEvaluate(id: number, xml: string, config?: Record<string, s
         end
       `);
 
+      // If calcsTab.mainOutput is nil, try calling BuildOutput explicitly
+      try {
+        await lua.doString(`
+          local ok2, err2 = pcall(function()
+            local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
+            local hasB = b ~= nil
+            local hasCT = hasB and b.calcsTab ~= nil
+            local moType = hasCT and type(b.calcsTab.mainOutput) or "N/A"
+            local hasEnv = hasCT and b.calcsTab.mainEnv ~= nil
+            _tsc_build_output_fallback = "b=" .. tostring(hasB) .. " ct=" .. tostring(hasCT) .. " mo=" .. moType .. " env=" .. tostring(hasEnv)
+            if hasB and hasCT and not b.calcsTab.mainOutput then
+              local ok, err = xpcall(function()
+                b.calcsTab:BuildOutput()
+              end, debug.traceback)
+              if ok then
+                _tsc_build_output_fallback = _tsc_build_output_fallback .. " EXPLICIT_OK"
+                if b.calcsTab.mainOutput then
+                  _tsc_build_output_fallback = _tsc_build_output_fallback .. " dps=" .. tostring(b.calcsTab.mainOutput.CombinedDPS or 0)
+                end
+              else
+                _tsc_build_output_fallback = _tsc_build_output_fallback .. " EXPLICIT_FAIL:" .. tostring(err):sub(1, 400)
+              end
+            end
+          end)
+          if not ok2 then
+            _tsc_build_output_fallback = "OUTER_ERR:" .. tostring(err2):sub(1, 400)
+          end
+        `);
+      } catch (e) {
+        console.warn("[build-output-fallback] JS error:", e instanceof Error ? e.message : String(e));
+      }
+      const fallback = lua.global.get("_tsc_build_output_fallback");
+      console.log("[build-output-fallback]", String(fallback ?? "UNSET"));
+
       // Compact engine debug
       await lua.doString(`
         local b = build or (mainObject and mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"])
