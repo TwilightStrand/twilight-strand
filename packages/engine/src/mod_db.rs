@@ -267,6 +267,161 @@ define_stats! {
     (WITHERED_EFFECT, "WitheredEffect") = 182,
     // Rage effect
     (RAGE_EFFECT, "RageEffect") = 183,
+    // Passive skill points
+    (PASSIVE_SKILL_POINTS, "PassiveSkillPoints") = 184,
+    // Boolean flags (presence = 1.0)
+    (STUN_IMMUNE, "StunImmune") = 185,
+    (CHILL_IMMUNE, "ChillImmune") = 186,
+    (FREEZE_IMMUNE, "FreezeImmune") = 187,
+    (IGNITE_IMMUNE, "IgniteImmune") = 188,
+    (SHOCK_IMMUNE, "ShockImmune") = 189,
+    (BLEED_IMMUNE, "BleedImmune") = 190,
+    (POISON_IMMUNE, "PoisonImmune") = 191,
+    (REFLECT_IMMUNE, "ReflectImmune") = 192,
+    (REFLECT_PHYS_IMMUNE, "ReflectPhysImmune") = 193,
+    (REFLECT_ELE_IMMUNE, "ReflectEleImmune") = 194,
+    (KNOCKBACK_IMMUNE, "KnockbackImmune") = 195,
+    (BLIND_IMMUNE, "BlindImmune") = 196,
+    (OFFERINGS_AFFECT_YOU, "OfferingsAffectYou") = 197,
+    (TAILWIND, "Tailwind") = 198,
+    (CULLING_STRIKE, "CullingStrike") = 199,
+    (HITS_CANT_EVADE, "HitsCantEvade") = 200,
+    (CANNOT_EVADE, "CannotEvade") = 201,
+    (IGNORE_MOVE_PENALTY, "IgnoreMovePenalty") = 202,
+    (LEECH_NOT_REMOVED_FULL, "LeechNotRemovedFull") = 203,
+    (DW_BONUS_DOUBLED, "DualWieldBonusDoubled") = 204,
+    (CRIT_STRIKE_LUCKY, "CritStrikeLucky") = 205,
+    // Summoned creature limits
+    (MAX_ZOMBIES, "MaxZombies") = 206,
+    (MAX_SKELETONS, "MaxSkeletons") = 207,
+    (MAX_SPECTRES, "MaxSpectres") = 208,
+    (MAX_GOLEMS, "MaxGolems") = 209,
+    (MAX_TOTEMS, "MaxTotems") = 210,
+    (MAX_BALLISTA, "MaxBallista") = 211,
+    (MAX_TRAPS, "MaxTraps") = 212,
+    (MAX_MINES, "MaxMines") = 213,
+    // Projectile mechanics
+    (ADDITIONAL_PROJECTILES, "AdditionalProjectiles") = 214,
+    (PIERCE_COUNT, "PierceCount") = 215,
+    (CHAIN_COUNT, "ChainCount") = 216,
+    (FORK_ANGLE, "ForkAngle") = 217,
+    // Rage
+    (RAGE_ON_HIT, "RageOnHit") = 218,
+    (RAGE_ON_MELEE_HIT, "RageOnMeleeHit") = 219,
+    (RAGE_LOSS_RATE, "RageLossRate") = 220,
+    (RAGE_LOSS_DELAY, "RageLossDelay") = 221,
+    (MIN_RAGE, "MinRage") = 222,
+    // Charge on event
+    (POWER_CHARGE_ON_BLOCK, "PowerChargeOnBlock") = 223,
+    (ENDURANCE_CHARGE_ON_BLOCK, "EnduranceChargeOnBlock") = 224,
+    (POWER_CHARGE_ON_CRIT, "PowerChargeOnCrit") = 225,
+    (POWER_CHARGE_ON_KILL, "PowerChargeOnKill") = 226,
+    (FRENZY_CHARGE_ON_KILL, "FrenzyChargeOnKill") = 227,
+    (ENDURANCE_CHARGE_ON_HIT, "EnduranceChargeOnHit") = 228,
+    (CHARGE_ON_KILL, "ChargeOnKill") = 229,
+    // Impale
+    (IMPALE_HITS, "ImpaleHits") = 230,
+    // Wisp/League
+    (WISP_QUANTITY, "WispQuantity") = 231,
+    (VALOUR_GAINED, "ValourGained") = 232,
+    (MAX_VALOUR, "MaxValour") = 233,
+    (TINCTURE_MANA_BURN, "TinctureManaBurn") = 234,
+    // Ward from armour
+    (WARD_FROM_ARMOUR, "WardFromArmour") = 235,
+    // Brand
+    (BRAND_ATTACHMENT_RANGE, "BrandAttachmentRange") = 236,
+    // Consecrated ground
+    (CONSECRATED_GROUND_EFFECT, "ConsecratedGroundEffect") = 237,
+    // Phasing chance
+    (PHASING_ON_KILL, "PhasingOnKill") = 238,
+    // Debuff expiry
+    (DEBUFF_EXPIRY_RATE, "DebuffExpiryRate") = 239,
+    // Ignore phys reduction
+    (IGNORE_PHYS_REDUCTION, "IgnorePhysReduction") = 240,
+    // Ignore stuns while casting
+    (IGNORE_STUN_CASTING, "IgnoreStunCasting") = 241,
+    // Ailment speed
+    (AILMENT_DAMAGE_SPEED, "AilmentDamageSpeed") = 242,
+    (BLEED_DAMAGE_SPEED, "BleedDamageSpeed") = 243,
+    (IGNITE_DAMAGE_SPEED, "IgniteDamageSpeed") = 244,
+    // Flask charge gen
+    (FLASK_CHARGE_REGEN, "FlaskChargeRegen") = 245,
+    (LIFE_FLASK_CHARGE_REGEN, "LifeFlaskChargeRegen") = 246,
+    (MANA_FLASK_CHARGE_REGEN, "ManaFlaskChargeRegen") = 247,
+    // Link skills
+    (LINK_BUFF_EFFECT, "LinkBuffEffect") = 248,
+    // Additional curse
+    (ADDITIONAL_CURSES, "AdditionalCurses") = 249,
+    // Retaliation
+    (RETALIATION_DURATION, "RetaliationDuration") = 250,
+    (RETALIATION_SPEED, "RetaliationSpeed") = 251,
+    // Mirage archer
+    (MIRAGE_ARCHER_DURATION, "MirageArcherDuration") = 252,
+    // Maim on hit
+    (MAIM_CHANCE, "MaimChance") = 253,
+    // ES leech rate
+    (ES_LEECH_RATE_INC, "ESLeechRateInc") = 254,
+    (MAX_ES_LEECH_RATE, "MaxESLeechRate") = 255,
+    // Taunt on hit
+    (TAUNT_ON_HIT, "TauntOnHit") = 256,
+    // Intimidate
+    (INTIMIDATE_ON_HIT, "IntimidateOnHit") = 257,
+    // Unnerve
+    (UNNERVE_ON_CURSE, "UnnerveOnCurse") = 258,
+    // Aggravate bleed
+    (AGGRAVATE_BLEED_CHANCE, "AggravateBleedChance") = 259,
+    // Stun duration with weapon
+    (STUN_DURATION_WEAPON, "StunDurationWeapon") = 260,
+    // Double stun duration
+    (DOUBLE_STUN_CHANCE, "DoubleStunChance") = 261,
+    // Warcry power
+    (WARCRY_POWER, "WarcryPower") = 262,
+    // Mark effect (already exists as 148 MarkEffect but adding extra)
+    (MARK_FLASK_CHARGES, "MarkFlaskCharges") = 263,
+    // Mine detonation chance
+    (MINE_EXTRA_DETONATION, "MineExtraDetonation") = 264,
+    // Onslaught on kill
+    (ONSLAUGHT_ON_KILL, "OnslaughtOnKill") = 265,
+    // Reduced ailment duration on you
+    (AILMENT_DURATION_ON_YOU, "AilmentDurationOnYou") = 266,
+    // Unaffected flags
+    (UNAFFECTED_SHOCKED_GROUND, "UnaffectedShockedGround") = 267,
+    (UNAFFECTED_CHILLED_GROUND, "UnaffectedChilledGround") = 268,
+    (UNAFFECTED_BURNING_GROUND, "UnaffectedBurningGround") = 269,
+    (UNAFFECTED_DAMAGING_AILMENTS, "UnaffectedDamagingAilments") = 270,
+    // Soul gain prevention
+    (SOUL_GAIN_PREVENTION, "SoulGainPrevention") = 271,
+    // Withered duration
+    (WITHERED_DURATION, "WitheredDuration") = 272,
+    // Max chaos res
+    (CHAOS_RES_MAX, "ChaosResMax") = 273,
+    // Reduced effect of curses on you
+    (CURSE_EFFECT_ON_YOU, "CurseEffectOnYou") = 274,
+    // Fortify on stun
+    (FORTIFY_ON_STUN, "FortifyOnStun") = 275,
+    // Recover life on block
+    (LIFE_ON_BLOCK, "LifeOnBlock") = 276,
+    // ES on block
+    (ES_ON_BLOCK, "ESOnBlock") = 277,
+    // Mana leech rate
+    (MANA_LEECH_RATE_INC, "ManaLeechRateInc") = 278,
+    // Action speed floor
+    (ACTION_SPEED_FLOOR, "ActionSpeedFloor") = 279,
+    // Transfiguration
+    (TRANSFIGURATION_MIND, "TransfigurationMind") = 280,
+    (TRANSFIGURATION_BODY, "TransfigurationBody") = 281,
+    // Vaal soul
+    (VAAL_SOUL_COST, "VaalSoulCost") = 282,
+    (VAAL_EXTRA_USE, "VaalExtraUse") = 283,
+    // Herald
+    (HERALD_CRIT_CHANCE, "HeraldCritChance") = 284,
+    // Grants skill
+    (GRANTS_SKILL, "GrantsSkill") = 285,
+    // Min power charges
+    (MIN_POWER_CHARGES, "MinPowerCharges") = 286,
+    // Physical damage reduction per stat
+    (PHYS_REDUCTION_PER_MINION, "PhysReductionPerMinion") = 287,
+    (ELE_REDUCTION_PER_ENDURANCE, "EleReductionPerEndurance") = 288,
 }
 
 // ---------------------------------------------------------------------------

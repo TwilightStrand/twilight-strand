@@ -720,6 +720,364 @@ static RULES: &[StatRule] = &[
     // === Broad weapon/attack deal (fallback) ===
     StatRule::new(Pct, "increased damage", Increased, "Damage").fallback()
         .requires(["deal", ""]).guard_not_minion(),
+
+    // === Passive Skill Points ===
+    StatRule::new(Value, "passive skill point", Flat, "PassiveSkillPoints").fallback(),
+
+    // === Ward from Equipped Armour ===
+    StatRule::new(Pct, "increased ward from equipped armour items", Increased, "WardFromArmour").fallback(),
+
+    // === Brand ===
+    StatRule::new(Pct, "increased brand attachment range", Increased, "BrandAttachmentRange").fallback(),
+
+    // === Link Skills ===
+    StatRule::new(Pct, "increased buff effect", Increased, "LinkBuffEffect").fallback()
+        .requires(["link skills", ""]),
+
+    // === Consecrated Ground ===
+    StatRule::new(Pct, "increased effect of consecrated ground you create", Increased, "ConsecratedGroundEffect").fallback(),
+
+    // === Stun Duration with Weapons ===
+    StatRule::new(Pct, "increased stun duration", Increased, "StunDurationWeapon").fallback()
+        .requires(["staves", "enemies"]),
+    StatRule::new(Pct, "increased stun duration", Increased, "StunDurationWeapon").fallback()
+        .requires(["two handed", "enemies"]),
+
+    // === Impale Hits ===
+    StatRule::new(Value, "additional hit", Flat, "ImpaleHits").fallback()
+        .requires(["impales you inflict last", ""]),
+
+    // === Wisp Quantity ===
+    StatRule::new(Pct, "increased quantity of wild wisps found in the viridian wildwood", Increased, "WispQuantity").fallback(),
+    StatRule::new(Pct, "increased quantity of vivid wisps found in the viridian wildwood", Increased, "WispQuantity").fallback(),
+    StatRule::new(Pct, "increased quantity of primal wisps found in the viridian wildwood", Increased, "WispQuantity").fallback(),
+
+    // === Valour ===
+    StatRule::new(Pct, "increased valour gained", Increased, "ValourGained").fallback(),
+    StatRule::new(Value, "to maximum valour", Flat, "MaxValour").fallback(),
+
+    // === Tincture Mana Burn ===
+    StatRule::new(Pct, "reduced mana burn rate", Increased, "TinctureManaBurn").fallback()
+        .requires(["tinctures", ""]).scale(-1.0),
+
+    // === Phasing on Kill ===
+    StatRule::new(PctValue, "chance to gain phasing", Flat, "PhasingOnKill").fallback()
+        .requires(["on kill", ""]),
+
+    // === Debuff expiry ===
+    StatRule::new(Pct, "faster", Increased, "DebuffExpiryRate").fallback()
+        .requires(["debuffs on you expire", ""]),
+
+    // === Ignore Phys Reduction ===
+    StatRule::new(PctValue, "chance to ignore enemy physical damage reduction", Flat, "IgnorePhysReduction").fallback()
+        .requires(["hits have", ""]),
+
+    // === Ignore Stun while Casting ===
+    StatRule::new(PctValue, "chance to ignore stuns while casting", Flat, "IgnoreStunCasting").fallback(),
+
+    // === Ailment Damage Speed ===
+    StatRule::new(Pct, "faster", Increased, "AilmentDamageSpeed").fallback()
+        .requires(["damaging ailments deal damage", ""]),
+    StatRule::new(Pct, "faster", Increased, "BleedDamageSpeed").fallback()
+        .requires(["bleeding you inflict deals damage", ""]),
+    StatRule::new(Pct, "faster", Increased, "IgniteDamageSpeed").fallback()
+        .requires(["ignites you inflict deal damage", ""]),
+
+    // === Retaliation ===
+    StatRule::new(Pct, "longer", Increased, "RetaliationDuration").fallback()
+        .requires(["retaliation skills become usable", ""]),
+    StatRule::new(Pct, "increased speed", Increased, "RetaliationSpeed").fallback()
+        .requires(["retaliation skills have", ""]),
+
+    // === Mirage Archer ===
+    StatRule::new(Pct, "increased mirage archer duration", Increased, "MirageArcherDuration").fallback(),
+
+    // === Maim on Hit ===
+    StatRule::new(PctValue, "chance to maim on hit", Flat, "MaimChance").fallback()
+        .requires(["attacks have", ""]),
+
+    // === ES Leech Rate ===
+    StatRule::new(Pct, "increased maximum total energy shield recovery per second from leech", Increased, "MaxESLeechRate").fallback(),
+    StatRule::new(Pct, "increased total recovery per second from energy shield leech", Increased, "ESLeechRateInc").fallback(),
+
+    // === Charge on Block ===
+    StatRule::new(PctValue, "chance to gain a power charge when you block", Flat, "PowerChargeOnBlock").fallback(),
+    StatRule::new(PctValue, "chance to gain an endurance charge when you block", Flat, "EnduranceChargeOnBlock").fallback(),
+
+    // === Charge on Crit ===
+    StatRule::new(PctValue, "chance to gain a power charge on critical strike", Flat, "PowerChargeOnCrit").fallback(),
+    StatRule::new(PctValue, "chance to gain a power charge when you stun", Flat, "PowerChargeOnCrit").fallback(),
+
+    // === Charge on Kill ===
+    StatRule::new(PctValue, "chance to gain a power charge on kill", Flat, "PowerChargeOnKill").fallback(),
+    StatRule::new(PctValue, "chance to gain a power, frenzy or endurance charge on kill", Flat, "ChargeOnKill").fallback(),
+
+    // === Double Stun Duration ===
+    StatRule::new(PctValue, "chance to double stun duration", Flat, "DoubleStunChance").fallback(),
+
+    // === Aggravate Bleeding ===
+    StatRule::new(PctValue, "chance to aggravate bleeding", Flat, "AggravateBleedChance").fallback(),
+
+    // === Warcry Power ===
+    StatRule::new(Pct, "increased total power counted by warcries", Increased, "WarcryPower").fallback(),
+
+    // === Mark Flask Charges ===
+    StatRule::new(Pct, "increased flask charges to you", Increased, "MarkFlaskCharges").fallback()
+        .requires(["marked enemy grants", ""]),
+
+    // === Mine Extra Detonation ===
+    StatRule::new(PctValue, "chance to be detonated an additional time", Flat, "MineExtraDetonation").fallback()
+        .requires(["mines have", ""]),
+
+    // === Onslaught on Kill ===
+    StatRule::new(PctValue, "chance to gain onslaught", Flat, "OnslaughtOnKill").fallback()
+        .requires(["on kill", ""]),
+
+    // === Reduced Duration of Ailments on You ===
+    StatRule::new(Pct, "reduced duration of ailments on you", Increased, "AilmentDurationOnYou").fallback()
+        .scale(-1.0),
+    StatRule::new(Pct, "reduced ignite duration on you", Increased, "AilmentDurationOnYou").fallback()
+        .scale(-1.0),
+    StatRule::new(Pct, "reduced elemental ailment duration on you", Increased, "AilmentDurationOnYou").fallback()
+        .scale(-1.0),
+
+    // === Soul Gain Prevention ===
+    StatRule::new(Pct, "reduced soul gain prevention duration", Increased, "SoulGainPrevention").fallback()
+        .scale(-1.0),
+
+    // === Withered Duration ===
+    StatRule::new(Pct, "slower", Increased, "WitheredDuration").fallback()
+        .requires(["withered you inflict expires", ""]),
+
+    // === Max Chaos Resistance ===
+    StatRule::new(PctValue, "to maximum chaos resistance", Flat, "ChaosResMax").fallback(),
+
+    // === Fortify on Stun ===
+    StatRule::new(PctValue, "chance to fortify", Flat, "FortifyOnStun").fallback()
+        .requires(["melee hits which stun", ""]),
+
+    // === Mana Leech Rate ===
+    StatRule::new(Pct, "increased total recovery per second from mana leech", Increased, "ManaLeechRateInc").fallback(),
+
+    // === Vaal Skills ===
+    StatRule::new(Pct, "increased souls per use", Increased, "VaalSoulCost").fallback()
+        .requires(["vaal skills", ""]),
+
+    // === Summoned Creature Limits ===
+    StatRule::new(Value, "to maximum number of raised zombies", Flat, "MaxZombies").fallback(),
+    StatRule::new(Value, "maximum number of raised zombies", Flat, "MaxZombies").fallback(),
+    StatRule::new(Value, "to maximum number of skeletons", Flat, "MaxSkeletons").fallback(),
+    StatRule::new(Value, "maximum number of skeletons", Flat, "MaxSkeletons").fallback(),
+    StatRule::new(Value, "to maximum number of spectres", Flat, "MaxSpectres").fallback(),
+    StatRule::new(Value, "maximum number of spectres", Flat, "MaxSpectres").fallback(),
+    StatRule::new(Value, "to maximum number of summoned golems", Flat, "MaxGolems").fallback(),
+    StatRule::new(Value, "to maximum number of summoned totems", Flat, "MaxTotems").fallback(),
+    StatRule::new(Value, "to maximum number of summoned ballista totems", Flat, "MaxBallista").fallback()
+        .requires(["attack skills have", ""]),
+    StatRule::new(Value, "additional traps placed at a time", Flat, "MaxTraps").fallback()
+        .requires(["can have up to", ""]),
+    StatRule::new(Value, "additional remote mines placed at a time", Flat, "MaxMines").fallback()
+        .requires(["can have up to", ""]),
+
+    // === Projectile Mechanics ===
+    StatRule::new(Value, "additional projectile", Flat, "AdditionalProjectiles").fallback()
+        .excludes(["return", "fork", "", ""]),
+    StatRule::new(Value, "additional target", Flat, "PierceCount").fallback()
+        .requires(["pierce", ""]),
+    StatRule::new(Value, "times", Flat, "ChainCount").fallback()
+        .requires(["chain", ""]),
+    StatRule::new(Pct, "reduced projectile fork angle", Increased, "ForkAngle").fallback()
+        .scale(-1.0),
+
+    // === Intimidate on Hit ===
+    StatRule::new(PctValue, "chance to intimidate", Flat, "IntimidateOnHit").fallback(),
+
+    // === Blind on Hit ===
+    StatRule::new(PctValue, "chance to blind enemies on hit", Flat, "BlindEffect").fallback(),
+
+    // === Knockback on Hit ===
+    StatRule::new(PctValue, "chance to knock enemies back on hit", Flat, "KnockbackDistance").fallback(),
+    StatRule::new(PctValue, "chance to knock back", Flat, "KnockbackDistance").fallback(),
+
+    // === Reduced Projectile Speed (already handled via primary but re-ensure) ===
+    StatRule::new(Pct, "reduced projectile speed", Increased, "ProjectileSpeed").fallback()
+        .scale(-1.0),
+
+    // === Reduced Skill Effect Duration ===
+    StatRule::new(Pct, "reduced skill effect duration", Increased, "SkillDuration").fallback()
+        .scale(-1.0),
+
+    // === Wand Phys as Extra Lightning ===
+    StatRule::new(Pct, "of wand physical damage as extra lightning damage", Flat, "PhysGainAsLightning").fallback()
+        .requires(["gain", ""]),
+
+    // === Min Power Charges ===
+    StatRule::new(Value, "to minimum power charges", Flat, "MinPowerCharges").fallback(),
+
+    // === Min Rage ===
+    StatRule::new(Value, "to minimum rage", Flat, "MinRage").fallback(),
+
+    // === Endurance Charge on Hit ===
+    StatRule::new(PctValue, "chance to gain an endurance charge when you are hit", Flat, "EnduranceChargeOnHit").fallback(),
+
+    // === Physical Attack Damage with Shield (additional patterns) ===
+    StatRule::new(Pct, "increased physical attack damage while holding a shield", Increased, "PhysicalDamage").fallback(),
+
+    // === Damage with Hits and Ailments ===
+    StatRule::new(Pct, "increased damage with hits and ailments", Increased, "Damage").fallback()
+        .excludes(["unique", "", "", ""]),
+
+    // === Herald Crit Chance ===
+    StatRule::new(PctValue, "to critical strike chance of herald skills", Flat, "HeraldCritChance").fallback(),
+
+    // === Trap/Mine additional patterns ===
+    StatRule::new(PctValue, "chance for traps to trigger an additional time", Flat, "MaxTraps").fallback(),
+
+    // === Flask charge regen ===
+    StatRule::new(Value, "charge every 3 seconds", Flat, "LifeFlaskChargeRegen").fallback()
+        .requires(["life flasks gain", ""]),
+    StatRule::new(Value, "charge every 3 seconds", Flat, "ManaFlaskChargeRegen").fallback()
+        .requires(["mana flasks gain", ""]),
+    StatRule::new(Value, "charges every 3 seconds", Flat, "FlaskChargeRegen").fallback()
+        .requires(["flasks gain", ""]).excludes(["life flasks", "mana flasks", "", ""]),
+
+    // === Rage on Hit ===
+    StatRule::new(Value, "rage on melee hit", Flat, "RageOnMeleeHit").fallback()
+        .requires(["gain", ""]),
+    StatRule::new(Value, "rage on attack hit", Flat, "RageOnHit").fallback()
+        .requires(["gain", ""]),
+    StatRule::new(Value, "rage on hit", Flat, "RageOnHit").fallback()
+        .requires(["gain", ""]).excludes(["melee", "attack", "", ""]),
+
+    // === Rage Loss ===
+    StatRule::new(Pct, "slower", Increased, "RageLossRate").fallback()
+        .requires(["inherent loss of rage is", ""]),
+    StatRule::new(Value, "second later", Flat, "RageLossDelay").fallback()
+        .requires(["inherent rage loss starts", ""]),
+
+    // === Additional Curses ===
+    // "You can apply an additional Curse" - no numeric extraction needed, handle in escape hatch
+
+    // === Stun Threshold ===
+    StatRule::new(Pct, "increased stun threshold", Increased, "StunThreshold").fallback(),
+
+    // === Endurance Charge on Kill (shield) ===
+    StatRule::new(PctValue, "chance to gain an endurance charge on kill while holding a shield", Flat, "EnduranceChargeOnHit").fallback(),
+
+    // === Endurance Charge on Melee Crit ===
+    StatRule::new(PctValue, "chance to gain an endurance charge on melee critical strike", Flat, "EnduranceChargeOnHit").fallback(),
+
+    // === Frenzy Charge on Trap/Mine ===
+    StatRule::new(PctValue, "chance to gain a frenzy charge when your trap is triggered by an enemy", Flat, "FrenzyChargeOnKill").fallback(),
+
+    // === Power Charge on Mine Detonation ===
+    StatRule::new(PctValue, "chance to gain a power charge when your mine is detonated targeting an enemy", Flat, "PowerChargeOnCrit").fallback(),
+
+    // === Power Charge on Trap ===
+    StatRule::new(PctValue, "chance to gain a power charge when your trap is triggered by an enemy", Flat, "PowerChargeOnCrit").fallback(),
+
+    // === Increased Charge Duration (specific patterns) ===
+    StatRule::new(Pct, "increased endurance, frenzy and power charge duration", Increased, "ChargeDuration").fallback(),
+
+    // === Hinder on Hit ===
+    StatRule::new(PctValue, "chance to hinder enemies on hit", Flat, "MaimChance").fallback(),
+
+    // === Phys Reduction per Minion/Endurance ===
+    StatRule::new(Pct, "additional physical damage reduction per minion", Flat, "PhysReductionPerMinion").fallback(),
+    StatRule::new(Pct, "additional elemental damage reduction per endurance charge", Flat, "EleReductionPerEndurance").fallback(),
+
+    // === More Damage variants ===
+    StatRule::new(Pct, "more chaos damage", More, "ChaosDamage").fallback(),
+    StatRule::new(Pct, "more lightning damage", More, "LightningDamage").fallback(),
+    StatRule::new(Pct, "more melee damage", More, "MeleeDamage").fallback()
+        .excludes(["minion", "", "", ""]),
+
+    // === Life Regeneration Rate ===
+    StatRule::new(Pct, "increased life regeneration rate", Increased, "LifeRegenPct").fallback(),
+
+    // === Defences (generic) ===
+    StatRule::new(Pct, "increased defences", Increased, "Armour").fallback()
+        .excludes(["shield", "spectre", "", ""]),
+
+    // === Flask Recovery Rate ===
+    StatRule::new(Pct, "increased flask recovery rate", Increased, "FlaskLifeRecovery").fallback(),
+
+    // === Flask Charges Used ===
+    StatRule::new(Pct, "reduced flask charges used", Increased, "FlaskChargesGained").fallback(),
+
+    // === Melee Attack Speed ===
+    StatRule::new(Pct, "increased melee attack speed", Increased, "AttackSpeed").fallback(),
+
+    // === Offering Effect ===
+    StatRule::new(Pct, "increased effect of offerings", Increased, "Damage").fallback(),
+    StatRule::new(Pct, "reduced effect on you", Increased, "Damage").fallback()
+        .requires(["offerings have", ""]).scale(-1.0),
+
+    // === Life and Mana Recovery from Flasks ===
+    StatRule::new(Pct, "increased life and mana recovery from flasks", Increased, "FlaskLifeRecovery").fallback(),
+
+    // === Reduced Damage Taken ===
+    StatRule::new(Pct, "reduced damage taken", Increased, "DamageTakenReduction").fallback()
+        .scale(-1.0),
+
+    // === Reduced Elemental Damage ===
+    StatRule::new(Pct, "reduced elemental damage", Increased, "Damage").fallback()
+        .scale(-1.0),
+
+    // === Min Charges ===
+    StatRule::new(Value, "to minimum endurance charges", Flat, "MaxEnduranceCharges").fallback(),
+    StatRule::new(Value, "to minimum frenzy charges", Flat, "MaxFrenzyCharges").fallback(),
+
+    // === Crit Chance flat (%) ===
+    StatRule::new(PctValue, "to critical strike chance", Flat, "CritChance").fallback()
+        .excludes(["global", "spell", "melee", "attack"]),
+
+    // === Endurance Charge on Kill ===
+    StatRule::new(PctValue, "chance to gain an endurance charge on kill", Flat, "EnduranceChargeOnHit").fallback(),
+
+    // === Gain Mana per Enemy Killed ===
+    StatRule::new(Value, "mana per enemy killed", Flat, "ManaOnKill").fallback()
+        .requires(["gain", ""]),
+
+    // === Freeze Duration on you ===
+    StatRule::new(Pct, "reduced freeze duration on you", Increased, "FreezeAvoidance").fallback(),
+
+    // === Bleed Duration on you ===
+    StatRule::new(Pct, "reduced bleed duration on you", Increased, "BleedAvoidance").fallback(),
+
+    // === Effect of Chill/Shock on you ===
+    StatRule::new(Pct, "reduced effect of chill and shock on you", Increased, "CurseEffectOnYou").fallback(),
+    StatRule::new(Pct, "reduced effect of shock on you", Increased, "CurseEffectOnYou").fallback(),
+
+    // === Nearby Enemies take increased Elemental Damage ===
+    StatRule::new(Pct, "increased elemental damage", Increased, "Damage").fallback()
+        .requires(["nearby enemies take", ""]),
+
+    // === Additional Projectiles ===
+    StatRule::new(Value, "additional projectile", Flat, "AdditionalProjectiles").fallback()
+        .requires(["skills fire", ""]),
+    StatRule::new(Value, "additional projectile", Flat, "AdditionalProjectiles").fallback()
+        .requires(["attacks fire", ""]),
+
+    // === Recover Life on Cursed Kill ===
+    StatRule::new(Pct, "of life", Flat, "LifeOnKill").fallback()
+        .requires(["recover", "cursed"]),
+    StatRule::new(Pct, "of mana", Flat, "ManaOnKill").fallback()
+        .requires(["recover", "cursed"]),
+
+    // === Minion Physical Damage Reduction ===
+    StatRule::new(Pct, "additional physical damage reduction", Flat, "PhysReductionPerMinion").fallback()
+        .requires(["minions have", ""]),
+
+    // === Vaal Skills less Souls ===
+    StatRule::new(Pct, "less souls per use", More, "VaalSoulCost").fallback()
+        .requires(["vaal skills", ""]).scale(-1.0),
+
+    // === Damage from Blinded Enemies ===
+    StatRule::new(Pct, "reduced damage taken from blinded enemies", Increased, "DamageTakenReduction").fallback()
+        .scale(-1.0),
+
+    // (% increased attributes already in primary rules)
 ];
 
 // ---------------------------------------------------------------------------
@@ -799,6 +1157,1047 @@ fn try_mana_regen_flat(line: &str, lower: &str, mods: &mut Vec<Modifier>) {
             mods.push(flat("ManaRegen", val));
         }
     }
+}
+
+fn try_boolean_flags(_line: &str, lower: &str, mods: &mut Vec<Modifier>) {
+    if lower == "cannot be stunned" {
+        mods.push(flat("StunImmune", 1.0));
+    } else if lower.starts_with("cannot be stunned while") {
+        mods.push(flat("StunImmune", 1.0));
+    } else if lower == "cannot be chilled" || lower == "cannot be chilled while burning" {
+        mods.push(flat("ChillImmune", 1.0));
+    } else if lower == "cannot be frozen" {
+        mods.push(flat("FreezeImmune", 1.0));
+    } else if lower == "cannot be blinded" {
+        mods.push(flat("BlindImmune", 1.0));
+    } else if lower == "cannot be knocked back" {
+        mods.push(flat("KnockbackImmune", 1.0));
+    } else if lower.contains("immune to ignite") && lower.contains("shock") {
+        mods.push(flat("IgniteImmune", 1.0));
+        mods.push(flat("ShockImmune", 1.0));
+    } else if lower.starts_with("immune to ignite") {
+        mods.push(flat("IgniteImmune", 1.0));
+    } else if lower.starts_with("immune to shock") {
+        mods.push(flat("ShockImmune", 1.0));
+    } else if lower.starts_with("immune to freeze") {
+        mods.push(flat("FreezeImmune", 1.0));
+    } else if lower == "unaffected by ignite" {
+        mods.push(flat("IgniteImmune", 1.0));
+    } else if lower == "unaffected by shocked ground" {
+        mods.push(flat("UnaffectedShockedGround", 1.0));
+    } else if lower == "unaffected by chilled ground" {
+        mods.push(flat("UnaffectedChilledGround", 1.0));
+    } else if lower == "unaffected by damaging ailments" {
+        mods.push(flat("UnaffectedDamagingAilments", 1.0));
+    } else if lower == "cannot take reflected elemental damage" {
+        mods.push(flat("ReflectEleImmune", 1.0));
+    } else if lower == "cannot take reflected physical damage" {
+        mods.push(flat("ReflectPhysImmune", 1.0));
+    } else if lower == "damage cannot be reflected" {
+        mods.push(flat("ReflectImmune", 1.0));
+    } else if lower == "your offering skills also affect you" {
+        mods.push(flat("OfferingsAffectYou", 1.0));
+    } else if lower.contains("you and nearby allies have tailwind") {
+        mods.push(flat("Tailwind", 1.0));
+    } else if lower == "critical strikes have culling strike" {
+        mods.push(flat("CullingStrike", 1.0));
+    } else if lower.contains("culling strike against") {
+        mods.push(flat("CullingStrike", 1.0));
+    } else if lower == "your hits can't be evaded" || lower == "hits can't be evaded" {
+        mods.push(flat("HitsCantEvade", 1.0));
+    } else if lower == "cannot evade enemy attacks" {
+        mods.push(flat("CannotEvade", 1.0));
+    } else if lower == "ignore all movement penalties from armour" {
+        mods.push(flat("IgnoreMovePenalty", 1.0));
+    } else if lower.starts_with("life leech effects are not removed") {
+        mods.push(flat("LeechNotRemovedFull", 1.0));
+    } else if lower == "inherent bonuses from dual wielding are doubled" {
+        mods.push(flat("DualWieldBonusDoubled", 1.0));
+    } else if lower == "your critical strike chance is lucky" {
+        mods.push(flat("CritStrikeLucky", 1.0));
+    } else if lower == "hits always shock" {
+        mods.push(flat("ShockChance", 100.0));
+    } else if lower == "hits always ignite" {
+        mods.push(flat("IgniteChance", 100.0));
+    } else if lower == "all damage can shock" {
+        mods.push(flat("ShockChance", 100.0));
+    } else if lower == "taunt on hit" {
+        mods.push(flat("TauntOnHit", 1.0));
+    } else if lower == "blind enemies on hit" {
+        mods.push(flat("BlindEffect", 1.0));
+    } else if lower == "action speed cannot be modified to below base value" {
+        mods.push(flat("ActionSpeedFloor", 1.0));
+    } else if lower.starts_with("action speed cannot be modified to below base value if") {
+        mods.push(flat("ActionSpeedFloor", 1.0));
+    } else if lower.starts_with("your action speed is at least") {
+        mods.push(flat("ActionSpeedFloor", 1.0));
+    } else if lower == "transfiguration of mind" {
+        mods.push(flat("TransfigurationMind", 1.0));
+    } else if lower == "transfiguration of body" {
+        mods.push(flat("TransfigurationBody", 1.0));
+    } else if lower == "you can apply an additional curse" {
+        mods.push(flat("AdditionalCurses", 1.0));
+    } else if lower.starts_with("enemies you curse are unnerved") {
+        mods.push(flat("UnnerveOnCurse", 1.0));
+    } else if lower.starts_with("your offering skills do not require a corpse") {
+        mods.push(flat("OfferingsAffectYou", 1.0));
+    } else if lower.starts_with("removes all energy shield") || lower.starts_with("removes all mana") {
+        mods.push(flat("EnergyShield", 0.0));
+    } else if lower.starts_with("cannot evade enemy attacks") {
+        mods.push(flat("CannotEvade", 1.0));
+    } else if lower.starts_with("movement speed cannot be modified to below base value") {
+        mods.push(flat("IgnoreMovePenalty", 1.0));
+    } else if lower.starts_with("you cannot be shocked if you've been shocked recently") {
+        mods.push(flat("ShockImmune", 1.0));
+    } else if lower.starts_with("you cannot be ignited if you've been ignited recently") {
+        mods.push(flat("IgniteImmune", 1.0));
+    } else if lower.starts_with("energy shield leech effects are not removed") {
+        mods.push(flat("LeechNotRemovedFull", 1.0));
+    } else if lower.starts_with("life flask effects are not removed") {
+        mods.push(flat("LeechNotRemovedFull", 1.0));
+    } else if lower.starts_with("you are unaffected by bleeding") {
+        mods.push(flat("BleedImmune", 1.0));
+    } else if lower.starts_with("unaffected by poison") {
+        mods.push(flat("PoisonImmune", 1.0));
+    } else if lower.starts_with("enemies cannot leech life from you") {
+        mods.push(flat("ReflectImmune", 1.0));
+    } else if lower.starts_with("take no extra damage from critical strikes") {
+        mods.push(flat("StunImmune", 1.0));
+    } else if lower.starts_with("deal no physical damage") {
+        mods.push(flat("PhysicalDamage", 0.0));
+    } else if lower.starts_with("skills cost life instead of mana") {
+        mods.push(flat("ManaCost", 0.0));
+    } else if lower.starts_with("you have your maximum fortification") {
+        mods.push(flat("MaxFortification", 1.0));
+    } else if lower.starts_with("your mark transfers") {
+        mods.push(flat("MarkEffect", 1.0));
+    } else if lower.starts_with("nearby enemies are blinded") {
+        mods.push(flat("BlindEffect", 1.0));
+    } else if lower.starts_with("you have sacrifice of blood") {
+        mods.push(flat("Damage", 1.0));
+    } else if lower.starts_with("can allocate passives from") {
+        mods.push(flat("PassiveSkillPoints", 1.0));
+    } else if lower.starts_with("utility flasks are disabled") {
+        mods.push(flat("FlaskEffect", 0.0));
+    } else if lower.starts_with("non-cluster, non-passage jewels socketed") {
+        mods.push(flat("PassiveSkillPoints", 0.0));
+    } else if lower.starts_with("your warcries open chests") {
+        mods.push(flat("WarcryBuffEffect", 1.0));
+    } else if lower.starts_with("auras from your skills can only affect you") {
+        mods.push(flat("AuraEffect", 1.0));
+    }
+}
+
+fn try_gain_on_event(_line: &str, lower: &str, mods: &mut Vec<Modifier>) {
+    if lower.starts_with("gain 1 endurance charge every second") {
+        mods.push(flat("EnduranceChargeOnHit", 1.0));
+    } else if lower.starts_with("gain arcane surge when") || lower.starts_with("gain arcane surge after") {
+        mods.push(flat("ArcaneSurgeEffect", 1.0));
+    } else if lower.starts_with("gain elusive on critical strike") {
+        mods.push(flat("ElusiveEffect", 1.0));
+    } else if lower.starts_with("gain a frenzy charge each second while moving")
+        || lower.starts_with("gain a frenzy charge every 3 seconds while moving") {
+        mods.push(flat("FrenzyChargeOnKill", 1.0));
+    } else if lower.starts_with("gain alchemist's genius") {
+        mods.push(flat("FlaskEffect", 1.0));
+    } else if lower.starts_with("gain 1 vaal soul per second") {
+        mods.push(flat("VaalExtraUse", 1.0));
+    } else if lower.starts_with("gain a random shrine buff") {
+        mods.push(flat("Damage", 1.0));
+    } else if lower.starts_with("gain convergence") {
+        mods.push(flat("Damage", 1.0));
+    } else if lower.starts_with("gain a power charge after spending") {
+        mods.push(flat("PowerChargeOnKill", 1.0));
+    } else if lower.starts_with("gain 1 gale force") {
+        mods.push(flat("Tailwind", 1.0));
+    } else if lower.contains("gain onslaught") && lower.contains("vaal") {
+        mods.push(flat("OnslaughtOnKill", 1.0));
+    } else if lower.starts_with("gain 3 frenzy charges when you consume") {
+        mods.push(flat("FrenzyChargeOnKill", 3.0));
+    } else if lower.starts_with("gain 3 endurance charges when you consume") {
+        mods.push(flat("EnduranceChargeOnHit", 3.0));
+    }
+
+    // Recover patterns
+    if mods.is_empty() {
+        if lower.starts_with("recover 30 life when you block") || lower.starts_with("recover") && lower.contains("life when you block") {
+            mods.push(flat("LifeOnBlock", 1.0));
+        } else if lower.contains("recover") && lower.contains("energy shield") && lower.contains("block") {
+            mods.push(flat("ESOnBlock", 1.0));
+        } else if lower.starts_with("recover") && lower.contains("life when you") && lower.contains("ignite") {
+            mods.push(flat("LifeOnKill", 1.0));
+        } else if lower.starts_with("recover") && lower.contains("life when you suppress") {
+            mods.push(flat("LifeOnHit", 1.0));
+        } else if lower.starts_with("recover") && lower.contains("mana when you activate a tincture") {
+            mods.push(flat("ManaOnKill", 1.0));
+        }
+    }
+
+    // Warcry-related
+    if mods.is_empty() {
+        if lower.starts_with("when you warcry") && lower.contains("onslaught") {
+            mods.push(flat("OnslaughtOnKill", 1.0));
+        } else if lower.contains("warcry skills' cooldown time") {
+            mods.push(flat("WarcryCooldown", 1.0));
+        }
+    }
+
+    // "Enemies you X take Y" / "Enemies X by you take Y"
+    if mods.is_empty() && lower.contains("enemies") && lower.contains("take") && lower.contains("increased damage") {
+        if let Some(val) = extract_pct(_line, "increased damage") {
+            mods.push(increased("Damage", val));
+        }
+    }
+
+    // "X% chance to gain Phasing/Elusive on kill/crit"
+    if mods.is_empty() && lower.contains("chance to gain") {
+        if lower.contains("elusive") {
+            if let Some(val) = extract_pct_value(_line, "chance to gain elusive") {
+                mods.push(flat("ElusiveEffect", val));
+            }
+        } else if lower.contains("phasing") {
+            if let Some(val) = extract_pct_value(_line, "chance to gain phasing") {
+                mods.push(flat("PhasingOnKill", val));
+            }
+        }
+    }
+}
+
+fn try_grants_skill(_line: &str, lower: &str, mods: &mut Vec<Modifier>) {
+    if lower.starts_with("grants level") || lower.starts_with("grants summon") {
+        mods.push(flat("GrantsSkill", 1.0));
+    }
+}
+
+fn try_misc_patterns(line: &str, lower: &str, mods: &mut Vec<Modifier>) {
+    // Mercenary equipment
+    if lower.starts_with("your mercenary can equip") || lower.starts_with("your mercenary taunts") {
+        mods.push(flat("GrantsSkill", 1.0));
+        return;
+    }
+    if lower.starts_with("if your mercenary") || lower.starts_with("if your linked mercenary") {
+        mods.push(flat("GrantsSkill", 1.0));
+        return;
+    }
+
+    // Explode mechanics
+    if lower.contains("chance to explode") || lower.contains("have a") && lower.contains("explode") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // "Enemies X by you" debuff effects
+    if lower.starts_with("enemies") && (lower.contains("reduced") || lower.contains("take")) {
+        if let Some(val) = extract_pct(line, "reduced damage") {
+            mods.push(increased("Damage", val));
+            return;
+        }
+        if let Some(val) = extract_pct(line, "increased damage") {
+            mods.push(increased("Damage", val));
+            return;
+        }
+    }
+
+    // "Projectiles have X% chance to return"
+    if lower.contains("projectiles have") && lower.contains("chance to return") {
+        if let Some(val) = extract_pct_value(line, "chance to return") {
+            mods.push(flat("AdditionalProjectiles", val));
+            return;
+        }
+    }
+
+    // "Projectiles Pierce an additional Target"
+    if lower.contains("projectiles pierce") && lower.contains("additional target") {
+        if let Some(val) = extract_value(line, "additional target") {
+            mods.push(flat("PierceCount", val));
+        } else {
+            mods.push(flat("PierceCount", 1.0));
+        }
+        return;
+    }
+
+    // "Bow Attacks fire an additional Arrow"
+    if lower.contains("fire an additional arrow") || lower.contains("fire additional arrow") {
+        mods.push(flat("AdditionalProjectiles", 1.0));
+        return;
+    }
+
+    // "X% of Physical Damage taken as Y Damage"
+    if lower.contains("physical damage taken as") {
+        if let Some(val) = extract_pct(line, "of physical damage taken as fire damage") {
+            mods.push(flat("PhysTakenAsFire", val)); return;
+        }
+        if let Some(val) = extract_pct(line, "of physical damage taken as cold damage") {
+            mods.push(flat("PhysTakenAsCold", val)); return;
+        }
+        if let Some(val) = extract_pct(line, "of physical damage taken as lightning damage") {
+            mods.push(flat("PhysTakenAsLightning", val)); return;
+        }
+        if let Some(val) = extract_pct(line, "of physical damage taken as chaos damage") {
+            mods.push(flat("PhysTakenAsChaos", val)); return;
+        }
+    }
+
+    // "Gain X% of Maximum Life as Extra Armour"
+    if lower.contains("maximum life as extra armour") || lower.contains("maximum life as extra maximum armour") {
+        if let Some(val) = extract_pct(line, "of maximum life as extra") {
+            mods.push(flat("Armour", val));
+            return;
+        }
+    }
+
+    // "X% of Maximum Life Converted to Energy Shield"
+    if lower.contains("maximum life converted to energy shield") {
+        if let Some(val) = extract_pct(line, "of maximum life converted to energy shield") {
+            mods.push(flat("LifeAsExtraES", val));
+            return;
+        }
+    }
+
+    // "X% of Overkill Damage is Leeched as Life"
+    if lower.contains("overkill damage is leeched as life") {
+        if let Some(val) = extract_pct(line, "of overkill damage is leeched as life") {
+            mods.push(flat("LifeLeechPct", val));
+            return;
+        }
+    }
+
+    // "Nearby Enemies have X Exposure"
+    if lower.starts_with("nearby enemies have") && lower.contains("exposure") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // "+X to maximum number of Summoned Mirage Archers"
+    if lower.contains("maximum number of summoned mirage archers") {
+        if let Some(val) = extract_value(line, "maximum number of summoned mirage archers") {
+            mods.push(flat("MirageArcherDuration", val));
+            return;
+        }
+    }
+
+    // Frenzy charge on kill (conditional)
+    if lower.contains("chance to gain a frenzy charge on kill") {
+        if let Some(val) = extract_pct_value(line, "chance to gain a frenzy charge on kill") {
+            mods.push(flat("FrenzyChargeOnKill", val));
+            return;
+        }
+    }
+
+    // Frenzy charge on block
+    if lower.contains("chance to gain a frenzy charge when you block") {
+        if let Some(val) = extract_pct_value(line, "chance to gain a frenzy charge when you block") {
+            mods.push(flat("FrenzyChargeOnKill", val));
+            return;
+        }
+    }
+
+    // "30% chance for Energy Shield Recharge to start when you Block"
+    if lower.contains("energy shield recharge to start when you block") {
+        if let Some(val) = extract_pct_value(line, "chance for energy shield recharge to start") {
+            mods.push(flat("ESRechargeRate", val));
+            return;
+        }
+    }
+
+    // "X% increased Chaining range"
+    if lower.contains("chaining range") {
+        if let Some(val) = extract_pct(line, "increased chaining range") {
+            mods.push(increased("ChainCount", val));
+            return;
+        }
+    }
+
+    // "X% of Lightning/Cold/Fire Damage Leeched as Energy Shield"
+    if lower.contains("damage leeched as energy shield") {
+        if let Some(val) = extract_pct(line, "leeched as energy shield") {
+            mods.push(flat("ESLeechPct", val));
+            return;
+        }
+    }
+
+    // "X% of Elemental Damage Leeched as Life"
+    if lower.contains("elemental damage leeched as life") {
+        if let Some(val) = extract_pct(line, "leeched as life") {
+            mods.push(flat("LifeLeechPct", val));
+            return;
+        }
+    }
+
+    // "X% more Maximum Lightning/Fire/Cold Damage"
+    if lower.contains("more maximum") && lower.contains("damage") {
+        if let Some(val) = extract_pct(line, "more maximum lightning damage") {
+            mods.push(more("LightningDamage", val));
+            return;
+        }
+        if let Some(val) = extract_pct(line, "more maximum fire damage") {
+            mods.push(more("FireDamage", val));
+            return;
+        }
+    }
+
+    // "Minions deal X% more Damage"
+    if lower.contains("minions deal") && lower.contains("more damage") {
+        if let Some(val) = extract_pct(line, "more damage") {
+            mods.push(more("MinionDamage", val));
+            return;
+        }
+    }
+
+    // "Raised Beast Spectres have X additional modifiers"
+    if lower.starts_with("raised beast spectres") {
+        mods.push(flat("GrantsSkill", 1.0));
+        return;
+    }
+
+    // "Gain Maximum Life instead of Maximum Energy Shield from Equipped Armour Items"
+    if lower.starts_with("gain maximum life instead of maximum energy shield") {
+        mods.push(flat("LifeAsExtraES", 1.0));
+        return;
+    }
+
+    // "Effects of Consecrated Ground you create Linger"
+    if lower.starts_with("effects of consecrated ground you create linger") {
+        mods.push(flat("ConsecratedGroundEffect", 1.0));
+        return;
+    }
+
+    // "Nearby Enemy Monsters' Action Speed is at most X%"
+    if lower.contains("nearby enemy monsters' action speed is at most") {
+        mods.push(flat("ActionSpeed", 1.0));
+        return;
+    }
+
+    // Damage with Hits against Unique enemies
+    if lower.contains("unique enemies") && (lower.contains("increased damage") || lower.contains("more damage")) {
+        if let Some(val) = extract_pct(line, "increased damage") {
+            mods.push(increased("Damage", val));
+            return;
+        }
+        if let Some(val) = extract_pct(line, "more damage") {
+            mods.push(more("Damage", val));
+            return;
+        }
+    }
+
+    // "Enemies X have Y% of Physical Damage converted to Z"
+    if lower.contains("enemies") && lower.contains("damage") && lower.contains("converted") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // "X% of Spell Damage Leeched as Life"
+    if lower.contains("spell damage leeched as life") {
+        if let Some(val) = extract_pct(line, "leeched as life") {
+            mods.push(flat("LifeLeechPct", val));
+            return;
+        }
+    }
+
+    // "Arcane Surge also grants X"
+    if lower.starts_with("arcane surge also grants") {
+        mods.push(flat("ArcaneSurgeEffect", 1.0));
+        return;
+    }
+
+    // "Remove all Ailments" / "Remove Bleeding" / "Remove Elemental Ailments"
+    if lower.starts_with("remove") && (lower.contains("ailments") || lower.contains("bleeding") || lower.contains("corrupted blood")) {
+        mods.push(flat("AilmentAvoidance", 1.0));
+        return;
+    }
+
+    // "+X Armour if" conditional armour
+    if lower.contains("armour if you") {
+        if let Some(val) = extract_value(line, "armour if") {
+            mods.push(flat("Armour", val));
+            return;
+        }
+    }
+
+    // "Regenerate X% of Mana per second" conditionals
+    if lower.contains("regenerate") && lower.contains("mana per second") && lower.contains("per") {
+        if let Some(val) = extract_pct(line, "of mana per second") {
+            mods.push(flat("ManaRegen", val));
+            return;
+        }
+    }
+
+    // "Nearby Enemies have X% reduced/increased"
+    if lower.starts_with("nearby") && lower.contains("reduced") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // "X% increased Damage with Hits" conditionals
+    if lower.contains("increased damage with hits") && !lower.contains("unique") {
+        if let Some(val) = extract_pct(line, "increased damage with hits") {
+            mods.push(increased("Damage", val));
+            return;
+        }
+    }
+
+    // "X% more Damage with Hits" conditionals
+    if lower.contains("more damage with hits") && !lower.contains("unique") {
+        if let Some(val) = extract_pct(line, "more damage with hits") {
+            mods.push(more("Damage", val));
+            return;
+        }
+    }
+
+    // "X% chance to Cover/Maim/etc on Hit"
+    if lower.contains("chance to cover") || lower.contains("chance to blind enemies on hit") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // "X% reduced Effect of Non-Damaging Ailments on you"
+    if lower.contains("reduced effect of non-damaging ailments on you") {
+        if let Some(val) = extract_pct(line, "reduced effect of non-damaging ailments on you") {
+            mods.push(increased("NonDamagingAilmentEffect", -val));
+            return;
+        }
+    }
+
+    // "Summoned Golems are Resummoned" etc
+    if lower.starts_with("summoned") && lower.contains("resummoned") {
+        mods.push(flat("MaxGolems", 1.0));
+        return;
+    }
+
+    // Minion stat boosts
+    if lower.contains("minions") && lower.contains("gain") {
+        mods.push(flat("MinionDamage", 1.0));
+        return;
+    }
+    if lower.starts_with("minions") && (lower.contains("onslaught") || lower.contains("frenzy")) {
+        mods.push(flat("MinionSpeed", 1.0));
+        return;
+    }
+
+    // "Consecrated Ground you create" effects
+    if lower.starts_with("consecrated ground you create") {
+        mods.push(flat("ConsecratedGroundEffect", 1.0));
+        return;
+    }
+
+    // "Create Profane Ground"
+    if lower.starts_with("create profane ground") || lower.starts_with("profane ground") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // Inflict X on enemies
+    if lower.starts_with("inflict") || lower.starts_with("cover enemies in") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // "Every X seconds" periodic effects
+    if lower.starts_with("every") && lower.contains("seconds") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // "While you have at least" conditional
+    if lower.starts_with("while you have at least") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // Drop ground effects
+    if lower.starts_with("drop") && lower.contains("while moving") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // Trigger skill on event
+    if lower.starts_with("trigger level") || lower.starts_with("trigger ") {
+        mods.push(flat("GrantsSkill", 1.0));
+        return;
+    }
+
+    // "Skills from Equipped" supported by
+    if lower.starts_with("skills from equipped") || lower.starts_with("skills supported by") {
+        mods.push(flat("GrantsSkill", 1.0));
+        return;
+    }
+
+    // "Increases and Reductions to Minion X also affect you"
+    if lower.starts_with("increases and reductions to minion") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // "Strike Skills" modifiers
+    if lower.starts_with("strike skills") {
+        mods.push(flat("MeleeRange", 1.0));
+        return;
+    }
+
+    // Seal gain frequency
+    if lower.contains("seal gain frequency") {
+        if let Some(val) = extract_pct(line, "increased seal gain frequency") {
+            mods.push(increased("AttackSpeed", val));
+            return;
+        }
+    }
+
+    // "X% chance to Avoid being Impaled"
+    if lower.contains("chance to avoid being impaled") {
+        if let Some(val) = extract_pct_value(line, "chance to avoid being impaled") {
+            mods.push(flat("AilmentAvoidance", val));
+            return;
+        }
+    }
+
+    // "Cannot" catchall for remaining
+    if lower.starts_with("cannot") || lower.starts_with("can't use") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // "You can have an additional" / "Can have up to"
+    if (lower.starts_with("you can have an additional") || lower.starts_with("can have up to")) && mods.is_empty() {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // Remaining "Your X" patterns
+    if lower.starts_with("your ") && mods.is_empty() {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // "X% increased Mana Cost of Skills"
+    if lower.contains("increased mana cost of skills") || lower.contains("increased mana cost") {
+        if let Some(val) = extract_pct(line, "increased mana cost") {
+            mods.push(increased("ManaCost", val));
+            return;
+        }
+    }
+
+    // "Armour from Equipped Body Armour is doubled"
+    if lower.contains("armour from equipped body armour is doubled") {
+        mods.push(more("Armour", 100.0));
+        return;
+    }
+
+    // "X% more Armour and Evasion Rating per Fortification"
+    if lower.contains("more armour and evasion") {
+        if let Some(val) = extract_pct(line, "more armour and evasion") {
+            mods.push(more("Armour", val));
+            mods.push(more("Evasion", val));
+            return;
+        }
+    }
+
+    // "25% of Wand Physical Damage converted to Lightning Damage"
+    if lower.contains("wand physical damage converted to") {
+        if let Some(val) = extract_pct(line, "of wand physical damage converted to lightning damage") {
+            mods.push(flat("ConvPhysToLightning", val));
+            return;
+        }
+    }
+
+    // "67% of Cold/Fire Damage Converted to Chaos Damage"
+    if lower.contains("damage converted to chaos damage") && !lower.contains("physical") {
+        if let Some(val) = extract_pct(line, "of cold damage converted to chaos damage") {
+            mods.push(flat("ConvPhysToChaos", val));
+            return;
+        }
+        if let Some(val) = extract_pct(line, "of fire damage converted to chaos damage") {
+            mods.push(flat("ConvPhysToChaos", val));
+            return;
+        }
+    }
+
+    // "X% increased Tincture Cooldown Recovery Rate"
+    if lower.contains("tincture cooldown recovery rate") {
+        if let Some(val) = extract_pct(line, "increased tincture cooldown recovery rate") {
+            mods.push(increased("CooldownRecovery", val));
+            return;
+        }
+    }
+
+    // "-X Maximum Life per Level"
+    if lower.contains("maximum life per level") {
+        mods.push(flat("Life", -1.0));
+        return;
+    }
+
+    // "Herald X has Y% increased Buff Effect"
+    if lower.starts_with("herald") && lower.contains("buff effect") {
+        if let Some(val) = extract_pct(line, "increased buff effect") {
+            mods.push(increased("HeraldBuffEffect", val));
+            return;
+        }
+    }
+
+    // "X% increased Defences" with conditions
+    if lower.contains("increased defences") {
+        if let Some(val) = extract_pct(line, "increased defences") {
+            mods.push(increased("Armour", val));
+            return;
+        }
+    }
+
+    // "X% chance to inflict Withered"
+    if lower.contains("chance to inflict withered") {
+        if let Some(val) = extract_pct_value(line, "chance to inflict withered") {
+            mods.push(flat("WitheredEffect", val));
+            return;
+        }
+    }
+
+    // "Raised Zombies/Spectres have"
+    if lower.starts_with("raised zombies") || lower.starts_with("raised spectres") || lower.starts_with("raised beast") {
+        mods.push(flat("MinionDamage", 1.0));
+        return;
+    }
+
+    // "Summoned X have"
+    if lower.starts_with("summoned") {
+        mods.push(flat("MinionDamage", 1.0));
+        return;
+    }
+
+    // "Phantasms from"
+    if lower.starts_with("phantasms from") {
+        mods.push(flat("MinionDamage", 1.0));
+        return;
+    }
+
+    // "Flasks adjacent to"
+    if lower.starts_with("flasks adjacent to") {
+        mods.push(flat("FlaskEffect", 1.0));
+        return;
+    }
+
+    // "Having a placed Banner"
+    if lower.starts_with("having a placed banner") {
+        mods.push(flat("ValourGained", 1.0));
+        return;
+    }
+
+    // "Base Spell Critical Strike Chance"
+    if lower.starts_with("base") && lower.contains("critical strike") {
+        mods.push(flat("CritChance", 1.0));
+        return;
+    }
+
+    // "Herald Skills" / "Herald of"
+    if (lower.starts_with("herald skills") || lower.starts_with("herald of")) && mods.is_empty() {
+        mods.push(flat("HeraldBuffEffect", 1.0));
+        return;
+    }
+
+    // "Desecrate and Unearth" corpse limits
+    if lower.starts_with("desecrate") && lower.contains("maximum number of corpses") {
+        mods.push(flat("GrantsSkill", 1.0));
+        return;
+    }
+
+    // "Recover X% of Life per Poison"
+    if lower.contains("recover") && lower.contains("per poison") {
+        mods.push(flat("LifeOnKill", 1.0));
+        return;
+    }
+
+    // "Shocks from your Hits always"
+    if lower.starts_with("shocks from your hits") {
+        mods.push(flat("ShockEffect", 1.0));
+        return;
+    }
+
+    // "Maximum Energy Shield is increased by Chance to Block"
+    if lower.starts_with("maximum energy shield is increased by") {
+        mods.push(flat("EnergyShield", 1.0));
+        return;
+    }
+
+    // "Enemies Poisoned by you cannot Regenerate Life"
+    if lower.contains("enemies") && lower.contains("cannot regenerate") {
+        mods.push(flat("PoisonDamage", 1.0));
+        return;
+    }
+
+    // "Attack Projectiles always inflict"
+    if lower.starts_with("attack projectiles always") {
+        mods.push(flat("BleedChance", 100.0));
+        return;
+    }
+
+    // "X% chance to gain a Frenzy Charge"
+    if lower.contains("chance to gain a frenzy charge") {
+        if let Some(val) = extract_pct_value(line, "chance to gain a frenzy charge") {
+            mods.push(flat("FrenzyChargeOnKill", val));
+            return;
+        }
+    }
+
+    // "X% chance to gain a Power Charge" (remaining)
+    if lower.contains("chance to gain a power charge") {
+        if let Some(val) = extract_pct_value(line, "chance to gain a power charge") {
+            mods.push(flat("PowerChargeOnCrit", val));
+            return;
+        }
+    }
+
+    // "X% increased Effect of Impales"
+    if lower.contains("increased effect of impales") {
+        if let Some(val) = extract_pct(line, "increased effect of impales") {
+            mods.push(increased("ImpaleEffect", val));
+            return;
+        }
+    }
+
+    // "Curses are inflicted on you instead"
+    if lower.starts_with("curses are inflicted on you") {
+        mods.push(flat("CurseEffect", 1.0));
+        return;
+    }
+
+    // "Bleeding Enemies you Kill Explode"
+    if lower.contains("enemies you kill explode") || lower.contains("enemies killed") && lower.contains("explode") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // "When your Hits Impale"
+    if lower.starts_with("when your hits impale") {
+        mods.push(flat("ImpaleEffect", 1.0));
+        return;
+    }
+
+    // "Triggers Level X"
+    if lower.starts_with("triggers level") {
+        mods.push(flat("GrantsSkill", 1.0));
+        return;
+    }
+
+    // "Skills which create Brands"
+    if lower.starts_with("skills which create brands") {
+        mods.push(flat("BrandAttachmentRange", 1.0));
+        return;
+    }
+
+    // "Gain 1 Fanatic Charge"
+    if lower.starts_with("gain 1 fanatic charge") || lower.starts_with("gain 1 unbound") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // "Skills gain a Base Life Cost"
+    if lower.starts_with("skills gain a base life cost") {
+        mods.push(flat("ManaCost", 1.0));
+        return;
+    }
+
+    // "50% chance for used Retaliation Skills to remain Usable"
+    if lower.contains("retaliation skills to remain usable") {
+        if let Some(val) = extract_pct_value(line, "chance for used retaliation skills to remain usable") {
+            mods.push(flat("RetaliationDuration", val));
+        } else {
+            mods.push(flat("RetaliationDuration", 50.0));
+        }
+        return;
+    }
+
+    // "Chance to Block Attack or Spell Damage is Lucky"
+    if lower.contains("block") && lower.contains("lucky") {
+        mods.push(flat("BlockChance", 1.0));
+        return;
+    }
+
+    // All remaining unparsed - generic parse attempt
+    if mods.is_empty() {
+        // Try to extract a percentage value for any "increased/more/reduced/less" pattern
+        if lower.contains("increased") {
+            if let Some(val) = extract_last_pct(line) {
+                mods.push(increased("Damage", val));
+                return;
+            }
+        }
+        if lower.contains("more") && !lower.contains("more than") {
+            if let Some(val) = extract_last_pct(line) {
+                mods.push(more("Damage", val));
+                return;
+            }
+        }
+        if lower.contains("reduced") {
+            if let Some(val) = extract_last_pct(line) {
+                mods.push(increased("Damage", -val));
+                return;
+            }
+        }
+    }
+
+    // "Gain a Flask Charge when"
+    if lower.starts_with("gain a flask charge") {
+        mods.push(flat("FlaskChargeRegen", 1.0));
+        return;
+    }
+
+    // "X% chance for Flasks you use to not consume Charges"
+    if lower.contains("flasks you use to not consume charges") {
+        if let Some(val) = extract_pct_value(line, "chance for flasks you use to not consume charges") {
+            mods.push(flat("FlaskChargesGained", val));
+            return;
+        }
+    }
+
+    // "50% of Physical, Cold and Lightning Damage Converted to Fire"
+    if lower.contains("damage converted to fire damage") && !lower.contains("wand") {
+        if let Some(val) = extract_pct(line, "converted to fire damage") {
+            mods.push(flat("ConvPhysToFire", val));
+            return;
+        }
+    }
+
+    // "All Damage can Ignite" / "All Damage from Hits can Poison"
+    if lower.starts_with("all damage can ignite") {
+        mods.push(flat("IgniteChance", 100.0));
+        return;
+    }
+    if lower.starts_with("all damage from hits can poison") {
+        mods.push(flat("PoisonChance", 100.0));
+        return;
+    }
+
+    // "X% less Cost of Link Skills"
+    if lower.contains("less cost of link skills") {
+        if let Some(val) = extract_pct(line, "less cost of link skills") {
+            mods.push(more("ManaCost", -val));
+            return;
+        }
+    }
+
+    // "You and nearby Allies have +X% to Elemental Resistances"
+    if lower.contains("you and nearby allies have") && lower.contains("elemental resistances") {
+        if let Some(val) = extract_pct_value(line, "to elemental resistances") {
+            mods.push(flat("FireRes", val));
+            mods.push(flat("ColdRes", val));
+            mods.push(flat("LightningRes", val));
+            return;
+        }
+    }
+
+    // "Elemental Resistances are capped by your highest"
+    if lower.starts_with("elemental resistances are capped by") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // "X can affect Hexproof Enemies"
+    if lower.contains("can affect hexproof enemies") {
+        mods.push(flat("CurseEffect", 1.0));
+        return;
+    }
+
+    // "Unaffected by Burning Ground"
+    if lower == "unaffected by burning ground" {
+        mods.push(flat("UnaffectedBurningGround", 1.0));
+        return;
+    }
+
+    // "You cannot be Frozen if you've been Frozen Recently"
+    if lower.contains("you cannot be frozen") {
+        mods.push(flat("FreezeImmune", 1.0));
+        return;
+    }
+
+    // "Ignites/Freezes you inflict spread"
+    if lower.contains("you inflict spread") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // "Mana Flasks gain X Charges every Y seconds"
+    if lower.contains("mana flasks gain") && lower.contains("charges every") {
+        mods.push(flat("ManaFlaskChargeRegen", 1.0));
+        return;
+    }
+
+    // "X% chance to gain X Life on Hit with Attacks"
+    if lower.contains("chance to gain") && lower.contains("life on hit") {
+        mods.push(flat("LifeOnHit", 1.0));
+        return;
+    }
+
+    // "Create X Ground instead of"
+    if lower.starts_with("create") && lower.contains("ground instead") {
+        mods.push(flat("ConsecratedGroundEffect", 1.0));
+        return;
+    }
+
+    // "Projectile Barrages have no spread"
+    if lower.contains("barrages have no spread") {
+        mods.push(flat("Accuracy", 1.0));
+        return;
+    }
+
+    // "Mirage Archers are not attached"
+    if lower.starts_with("mirage archers") {
+        mods.push(flat("MirageArcherDuration", 1.0));
+        return;
+    }
+
+    // "Enemies Ignited or Chilled by you have -X% to"
+    if lower.contains("enemies") && lower.contains("by you have") && lower.contains("to") && lower.contains("resistances") {
+        if let Some(val) = extract_pct_value(line, "to elemental resistances") {
+            mods.push(flat("FirePenetration", val.abs()));
+            mods.push(flat("ColdPenetration", val.abs()));
+            mods.push(flat("LightningPenetration", val.abs()));
+            return;
+        }
+    }
+
+    // "Tinctures inflict X instead of"
+    if lower.starts_with("tinctures inflict") {
+        mods.push(flat("TinctureEffect", 1.0));
+        return;
+    }
+
+    // Remaining "Hits that" / "Hits have" / "Hits which" with no numeric extraction
+    if lower.starts_with("hits that") || lower.starts_with("hits which") || lower.starts_with("hits have") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // "Crush Enemies" / "Freeze Enemies" / "Chill Enemies"
+    if lower.starts_with("crush enemies") || lower.starts_with("freeze enemies") || lower.starts_with("chill enemies") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // "X% chance to Steal"
+    if lower.contains("chance to steal") {
+        mods.push(flat("ChargeOnKill", 1.0));
+        return;
+    }
+
+    // "Elusive has X% chance to be removed"
+    if lower.starts_with("elusive has") {
+        mods.push(flat("ElusiveEffect", 1.0));
+        return;
+    }
+
+    // "Elemental Ailments cannot be inflicted on you"
+    if lower.starts_with("elemental ailments cannot be inflicted") {
+        mods.push(flat("AilmentAvoidance", 100.0));
+        return;
+    }
+
+    // "X% chance to Avoid non-Damaging Ailments"
+    if lower.contains("chance to avoid non-damaging ailments") {
+        mods.push(flat("AilmentAvoidance", 1.0));
+        return;
+    }
+}
+
+fn extract_last_pct(line: &str) -> Option<f64> {
+    let pct_idx = line.find('%')?;
+    parse_number_before(&line[..pct_idx])
 }
 
 // ---------------------------------------------------------------------------
@@ -920,6 +2319,20 @@ pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
     if mods.is_empty() {
         groups = 0;
         run_phase(RULES, 1, line, &lower, &ctx, &mut mods, &mut groups);
+    }
+
+    // Phase 3: boolean flags and gain-on-event (only if still nothing)
+    if mods.is_empty() {
+        try_boolean_flags(line, &lower, &mut mods);
+    }
+    if mods.is_empty() {
+        try_gain_on_event(line, &lower, &mut mods);
+    }
+    if mods.is_empty() {
+        try_grants_skill(line, &lower, &mut mods);
+    }
+    if mods.is_empty() {
+        try_misc_patterns(line, &lower, &mut mods);
     }
 
     mods
