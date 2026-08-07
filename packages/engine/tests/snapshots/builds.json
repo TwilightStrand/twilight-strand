@@ -159,13 +159,13 @@
     "name": "Cyclone Slayer - Endgame Phys",
     "snapshot": {
       "armour": 8161.0,
-      "attack_speed": 2.95,
-      "bleed_dps": 7692.81,
+      "attack_speed": 2.76,
+      "bleed_dps": 6410.68,
       "chaos_res": -20.0,
       "cold_res": 75.0,
-      "combined_dps": 49206.73,
+      "combined_dps": 37409.97,
       "crit_chance": 17.4,
-      "crit_multiplier": 260.0,
+      "crit_multiplier": 230.0,
       "dexterity": 83.0,
       "energy_shield": 0.0,
       "evasion": 16.0,
@@ -174,14 +174,14 @@
       "ignite_dps": 0.0,
       "impale_dps": 0.0,
       "intelligence": 14.0,
-      "life": 4269.0,
-      "life_regen": 64.04,
+      "life": 4122.0,
+      "life_regen": 61.83,
       "lightning_res": 70.0,
       "mana": 605.0,
       "poison_dps": 0.0,
       "strength": 173.0,
-      "total_dps": 41513.92,
-      "total_ehp": 53362.5
+      "total_dps": 30999.29,
+      "total_ehp": 51525.0
     }
   },
   {
@@ -321,7 +321,7 @@
     },
     "name": "RF Juggernaut - Endgame Tank",
     "snapshot": {
-      "armour": 16330.0,
+      "armour": 15115.0,
       "attack_speed": 1.0,
       "bleed_dps": 0.0,
       "chaos_res": 0.0,
@@ -333,18 +333,18 @@
       "energy_shield": 0.0,
       "evasion": 2.0,
       "fire_res": 78.0,
-      "hit_chance": 100.0,
+      "hit_chance": 92.32,
       "ignite_dps": 0.0,
       "impale_dps": 0.0,
       "intelligence": 14.0,
-      "life": 6946.0,
-      "life_regen": 655.68,
+      "life": 6811.0,
+      "life_regen": 644.88,
       "lightning_res": 75.0,
       "mana": 587.0,
       "poison_dps": 0.0,
-      "strength": 242.0,
+      "strength": 232.0,
       "total_dps": 399.32,
-      "total_ehp": 69460.0
+      "total_ehp": 68110.0
     }
   },
   {
@@ -481,7 +481,7 @@
       "crit_chance": 9.0,
       "crit_multiplier": 210.0,
       "dexterity": 14.0,
-      "energy_shield": 3493.0,
+      "energy_shield": 3168.0,
       "evasion": 2.0,
       "fire_res": 75.0,
       "hit_chance": 92.77,
@@ -495,7 +495,7 @@
       "poison_dps": 0.0,
       "strength": 14.0,
       "total_dps": -0.0,
-      "total_ehp": 4371.71
+      "total_ehp": 3965.07
     }
   },
   {
@@ -653,12 +653,12 @@
     "name": "Lightning Arrow Deadeye - Ele Bow",
     "snapshot": {
       "armour": 2.0,
-      "attack_speed": 3.8,
-      "bleed_dps": 485.58,
+      "attack_speed": 3.59,
+      "bleed_dps": 422.24,
       "chaos_res": -60.0,
       "cold_res": 75.0,
-      "combined_dps": 16822.59,
-      "crit_chance": 17.5,
+      "combined_dps": 13463.93,
+      "crit_chance": 16.0,
       "crit_multiplier": 358.0,
       "dexterity": 212.0,
       "energy_shield": 0.0,
@@ -674,7 +674,7 @@
       "mana": 593.0,
       "poison_dps": 0.0,
       "strength": 14.0,
-      "total_dps": 16337.01,
+      "total_dps": 13041.69,
       "total_ehp": 9141.98
     }
   },
@@ -821,13 +821,13 @@
     "name": "Poison BV Assassin - DoT Stacker",
     "snapshot": {
       "armour": 2.0,
-      "attack_speed": 2.63,
-      "bleed_dps": 453.1,
+      "attack_speed": 2.45,
+      "bleed_dps": 409.25,
       "chaos_res": 0.0,
       "cold_res": 60.0,
-      "combined_dps": 4228.48,
-      "crit_chance": 25.35,
-      "crit_multiplier": 240.0,
+      "combined_dps": 3266.53,
+      "crit_chance": 22.1,
+      "crit_multiplier": 200.0,
       "dexterity": 143.0,
       "energy_shield": 0.0,
       "evasion": 2750.0,
@@ -840,9 +840,9 @@
       "life_regen": 0.0,
       "lightning_res": 70.0,
       "mana": 591.0,
-      "poison_dps": 951.64,
+      "poison_dps": 716.29,
       "strength": 14.0,
-      "total_dps": 2823.74,
+      "total_dps": 2140.99,
       "total_ehp": 5431.61
     }
   }
