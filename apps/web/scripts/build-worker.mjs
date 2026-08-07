@@ -8,7 +8,7 @@ const root = resolve(__dirname, "..");
 await build({
   entryPoints: [resolve(root, "engine/worker.ts")],
   bundle: true,
-  format: "iife",
+  format: "esm",
   target: "es2022",
   outfile: resolve(root, "public/engine-worker.js"),
   platform: "browser",
@@ -19,14 +19,7 @@ await build({
     "process.argv": "[]",
     "process.exitCode": "0",
   },
-  // wasmoon's Emscripten glue references Node.js builtins in dead code branches.
-  // Shimming them as empty modules is safe because the browser path never calls them.
-  alias: {
-    "module": resolve(root, "engine/shims/empty.js"),
-    "url": resolve(root, "engine/shims/url-shim.js"),
-    "fs": resolve(root, "engine/shims/empty.js"),
-    "path": resolve(root, "engine/shims/path-shim.js"),
-  },
+  external: ["/data/pob/driver/driver.mjs"],
   sourcemap: true,
   minify: process.argv.includes("--minify"),
   logLevel: "info",
