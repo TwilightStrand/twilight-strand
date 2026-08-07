@@ -294,6 +294,30 @@ pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
             }
         }
 
+        // Broad weapon/attack pattern: "X deal Y% increased Damage with/while..."
+        // Catches: "Attacks with Two Handed Melee Weapons deal X% increased Damage with Hits"
+        //          "Attack Skills deal X% increased Damage while Dual Wielding"
+        //          "Mace or Sceptre Attacks deal X% increased Damage with Ailments"
+        if !is_minion && mods.is_empty() && lower.contains("deal") && lower.contains("increased damage") {
+            if let Some(val) = extract_pct(line, "increased damage") {
+                mods.push(increased("Damage", val));
+            }
+        }
+
+        // Ailment chance patterns
+        if !is_minion {
+            if lower.contains("chance to cause bleeding") || lower.contains("chance to bleed") {
+                if let Some(val) = extract_pct_value(line, "chance to cause bleeding") {
+                    mods.push(flat("BleedDamage", 0.0)); // placeholder
+                }
+            }
+            if lower.contains("chance to ignite") {
+                if let Some(val) = extract_pct_value(line, "chance to ignite") {
+                    // Track ignite chance if we add a stat later
+                }
+            }
+        }
+
         // Global damage (generic, after specific types)
         if !is_minion {
             let has_type_keyword = lower.contains("physical") || lower.contains("fire")
