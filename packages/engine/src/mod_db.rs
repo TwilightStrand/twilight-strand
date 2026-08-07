@@ -674,6 +674,138 @@ define_stats! {
     (ANIMATE_WEAPON_COUNT, "AnimateWeaponCount") = 423,
     // Fortify duration
     (FORTIFY_DURATION, "FortifyDuration") = 424,
+    // Timeless jewel seed
+    (TIMELESS_JEWEL_SEED, "TimelessJewelSeed") = 425,
+    // Item source/upgrade metadata
+    (ITEM_SOURCE, "ItemSource") = 426,
+    (ITEM_UPGRADE, "ItemUpgrade") = 427,
+    // Reflect damage
+    (REFLECT_COLD_DAMAGE, "ReflectColdDamage") = 428,
+    (REFLECT_FIRE_DAMAGE, "ReflectFireDamage") = 429,
+    (REFLECT_LIGHTNING_DAMAGE, "ReflectLightningDamage") = 430,
+    // Curse immune
+    (CURSE_IMMUNE, "CurseImmune") = 431,
+    // No reservation (skill-specific)
+    (NO_RESERVATION, "NoReservation") = 432,
+    // Jewel radius effects
+    (JEWEL_RADIUS_EFFECT, "JewelRadiusEffect") = 434,
+    // Enchantment capacity
+    (ENCHANTMENT_CAPACITY, "EnchantmentCapacity") = 435,
+    // Item metadata flags
+    (ITEM_METADATA, "ItemMetadata") = 436,
+    // Knockback reverse
+    (KNOCKBACK_REVERSE, "KnockbackReverse") = 437,
+    // Weapon type flags
+    (WEAPON_TYPE_ALL, "WeaponTypeAll") = 438,
+    // Eldritch battery
+    (ELDRITCH_BATTERY, "EldritchBattery") = 439,
+    // Hex mechanics
+    (HEX_TRANSFER, "HexTransfer") = 440,
+    (HEX_ADDITIONAL_CURSES, "HexAdditionalCurses") = 441,
+    // Spectres cannot travel
+    (SPECTRES_NO_TRAVEL, "SpectresNoTravel") = 442,
+    // Intelligence no mana bonus
+    (INT_NO_MANA_BONUS, "IntNoManaBonus") = 443,
+    // Strength no life bonus
+    (STR_NO_LIFE_BONUS, "StrNoLifeBonus") = 444,
+    // Evasion from overcapped res
+    (EVASION_FROM_OVERCAPPED_RES, "EvasionFromOvercappedRes") = 445,
+    // Crucible metadata
+    (CRUCIBLE_META, "CrucibleMeta") = 446,
+    // Max crit chance
+    (MAX_CRIT_CHANCE, "MaxCritChance") = 447,
+    // Max charges zero
+    (MAX_CHARGES_ZERO, "MaxChargesZero") = 448,
+    // Max quality
+    (MAX_QUALITY, "MaxQuality") = 449,
+    // Lose charge per second
+    (LOSE_CHARGE_PER_SECOND, "LoseChargePerSecond") = 450,
+    // Lose life/ES on crit
+    (LOSE_LIFE_ON_CRIT, "LoseLifeOnCrit") = 451,
+    (LOSE_ES_ON_CRIT, "LoseESOnCrit") = 452,
+    // Lose mana on attack
+    (LOSE_MANA_ON_ATTACK, "LoseManaOnAttack") = 453,
+    // Life reserved flat
+    (LIFE_RESERVED_FLAT, "LifeReservedFlat") = 454,
+    // Sacrifice life for ES
+    (SACRIFICE_LIFE_FOR_ES, "SacrificeLifeForES") = 455,
+    // Poison expire slower
+    (POISON_EXPIRE_SLOWER, "PoisonExpireSlower") = 456,
+    // Rage spell damage
+    (RAGE_SPELL_DAMAGE, "RageSpellDamage") = 457,
+    // Nova at target
+    (NOVA_AT_TARGET, "NovaAtTarget") = 458,
+    // Life lost reserved
+    (LIFE_LOST_RESERVED, "LifeLostReserved") = 459,
+    // Light radius from ES
+    (LIGHT_RADIUS_FROM_ES, "LightRadiusFromES") = 460,
+    // Melee without mana
+    (MELEE_WITHOUT_MANA, "MeleeWithoutMana") = 461,
+    // Mine extra detonation (additional)
+    (MINE_DETONATION_ADDITIONAL, "MineDetonationAdditional") = 462,
+    // Summon extra skeletons
+    (SUMMON_EXTRA_SKELETONS, "SummonExtraSkeletons") = 463,
+    // Summon max skeletons limit
+    (SUMMON_SKELETON_LIMIT, "SummonSkeletonLimit") = 464,
+    // Half strength to minions
+    (STR_TO_MINIONS, "StrToMinions") = 465,
+    // Implicit mods
+    (IMPLICIT_TRIPLED, "ImplicitTripled") = 466,
+    (IMPLICIT_LOCKED, "ImplicitLocked") = 467,
+    // Chaos can ailment
+    (CHAOS_CAN_AILMENT, "ChaosCanAilment") = 468,
+    // Splash cold
+    (COLD_SPLASH, "ColdSplash") = 469,
+    // Converted to element
+    (CONVERTED_COLD, "ConvertedCold") = 470,
+    // Rampage effects
+    (RAMPAGE_EFFECT, "RampageEffect") = 471,
+    // Hits against you crit
+    (HITS_AGAINST_CRIT, "HitsAgainstCrit") = 472,
+    // Skitterbots extra
+    (SKITTERBOTS_EXTRA, "SkitterbotsExtra") = 473,
+    // Lightning res no effect
+    (LIGHTNING_RES_NO_EFFECT, "LightningResNoEffect") = 474,
+    // Resistance override
+    (FIRE_RES_OVERRIDE, "FireResOverride") = 475,
+    (COLD_RES_OVERRIDE, "ColdResOverride") = 476,
+    (LIGHTNING_RES_OVERRIDE, "LightningResOverride") = 477,
+    // Treat resist as inverted
+    (RESIST_INVERTED, "ResistInverted") = 478,
+    // Life regenerated as ES
+    (LIFE_REGEN_AS_ES, "LifeRegenAsES") = 479,
+    // Additional implicit
+    (ADDITIONAL_IMPLICIT, "AdditionalImplicit") = 480,
+    // Influence
+    (ALL_INFLUENCE, "AllInfluence") = 481,
+    // Flask instant on low life
+    (FLASK_INSTANT_LOW_LIFE, "FlaskInstantLowLife") = 482,
+    // Maim on crit attack
+    (MAIM_ON_CRIT_ATTACK, "MaimOnCritAttack") = 483,
+    // Phys damage extra cold/lightning
+    (PHYS_EXTRA_COLD_OR_LIGHTNING, "PhysExtraColdOrLightning") = 484,
+    // Flask immunity
+    (FLASK_IGNITE_IMMUNE, "FlaskIgniteImmune") = 485,
+    // Charges consumed on use
+    (CONSUMES_FRENZY_ON_USE, "ConsumesFrenzyOnUse") = 486,
+    (CONSUMES_ALL_CHARGES, "ConsumesAllCharges") = 487,
+    // Ground immunity
+    (GROUND_IMMUNE, "GroundImmune") = 488,
+    // Fragile regrowth
+    (FRAGILE_REGROWTH, "FragileRegrowth") = 489,
+    // Endurance charge lose per sec
+    (LOSE_ENDURANCE_PER_SEC, "LoseEndurancePerSec") = 490,
+    // Temporal chains on hit
+    (TEMPORAL_CHAINS_ON_HIT, "TemporalChainsOnHit") = 491,
+    // Damage from totem life
+    (DAMAGE_FROM_TOTEM_LIFE, "DamageFromTotemLife") = 492,
+    // Chance lose charge on event
+    (CHANCE_LOSE_CHARGE, "ChanceLoseCharge") = 493,
+    // Misc flask
+    (FLASK_NO_CHARGES, "FlaskNoCharges") = 494,
+    (MAGIC_FLASK_DISABLED, "MagicFlaskDisabled") = 495,
+    // Misc unique
+    (MISC_UNIQUE, "MiscUnique") = 496,
 }
 
 // ---------------------------------------------------------------------------
