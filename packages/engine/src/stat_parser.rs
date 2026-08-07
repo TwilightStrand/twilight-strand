@@ -61,6 +61,11 @@ pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
     }
     if let Some(val) = extract_pct(line, "increased maximum energy shield") {
         mods.push(increased("EnergyShield", val));
+    } else if let Some(val) = extract_pct(line, "increased energy shield") {
+        mods.push(increased("EnergyShield", val));
+    }
+    if let Some(val) = extract_pct(line, "more energy shield") {
+        mods.push(more("EnergyShield", val));
     }
 
     // --- Mana ---------------------------------------------------------------
@@ -69,6 +74,11 @@ pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
     }
     if let Some(val) = extract_pct(line, "increased maximum mana") {
         mods.push(increased("Mana", val));
+    } else if let Some(val) = extract_pct(line, "increased mana") {
+        let l = line.to_lowercase();
+        if !l.contains("mana regen") && !l.contains("mana cost") && !l.contains("mana reservation") {
+            mods.push(increased("Mana", val));
+        }
     }
 
     // --- Attributes ---------------------------------------------------------
@@ -106,6 +116,31 @@ pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
     }
     if let Some(val) = extract_pct_value(line, "to chaos resistance") {
         mods.push(flat("ChaosRes", val));
+    }
+    if let Some(val) = extract_pct_value(line, "to all resistances") {
+        mods.push(flat("FireRes", val));
+        mods.push(flat("ColdRes", val));
+        mods.push(flat("LightningRes", val));
+        mods.push(flat("ChaosRes", val));
+    }
+    // Combined dual-resistance patterns: "to Fire and Lightning Resistances"
+    {
+        let lower = line.to_lowercase();
+        if lower.contains("resistances") && !lower.contains("all") {
+            let fire = lower.contains("fire");
+            let cold = lower.contains("cold");
+            let light = lower.contains("lightning");
+            let chaos = lower.contains("chaos");
+            let count = [fire, cold, light, chaos].iter().filter(|&&x| x).count();
+            if count == 2 {
+                if let Some(val) = extract_pct_value(line, "resistances") {
+                    if fire { mods.push(flat("FireRes", val)); }
+                    if cold { mods.push(flat("ColdRes", val)); }
+                    if light { mods.push(flat("LightningRes", val)); }
+                    if chaos { mods.push(flat("ChaosRes", val)); }
+                }
+            }
+        }
     }
 
     // --- Armour / Evasion ---------------------------------------------------
@@ -384,6 +419,8 @@ pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
     }
     if let Some(val) = extract_pct_value(line, "to critical strike multiplier") {
         mods.push(flat("CritMultiplier", val));
+    } else if let Some(val) = extract_pct_value(line, "to global critical strike multiplier") {
+        mods.push(flat("CritMultiplier", val));
     }
 
     // --- Block --------------------------------------------------------------
@@ -639,6 +676,28 @@ pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
     }
     if let Some(val) = extract_value(line, "mana gained on kill") {
         mods.push(flat("ManaOnKill", val));
+    }
+
+    // --- Duration / Effect ---------------------------------------------------
+    {
+        let lower = line.to_lowercase();
+        if mods.is_empty() && lower.contains("increased") && lower.contains("duration") {
+            if let Some(val) = extract_pct(line, "increased duration") {
+                mods.push(increased("SkillDuration", val));
+            }
+        }
+
+        if lower.contains("cooldown recovery") {
+            if let Some(val) = extract_pct(line, "increased cooldown recovery") {
+                mods.push(increased("CooldownRecovery", val));
+            }
+        }
+
+        if mods.is_empty() && lower.contains("global critical strike chance") {
+            if let Some(val) = extract_pct(line, "increased global critical strike chance") {
+                mods.push(increased("CritChance", val));
+            }
+        }
     }
 
     mods
