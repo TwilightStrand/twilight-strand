@@ -1285,6 +1285,10 @@ fn try_boolean_flags(_line: &str, lower: &str, mods: &mut Vec<Modifier>) {
         mods.push(flat("WarcryBuffEffect", 1.0));
     } else if lower.starts_with("auras from your skills can only affect you") {
         mods.push(flat("AuraEffect", 1.0));
+    } else if lower.starts_with("gain fanaticism for") {
+        mods.push(flat("MaxFanaticCharges", 1.0));
+    } else if lower.starts_with("lose all fanatic charges on reaching") {
+        mods.push(flat("MaxFanaticCharges", 1.0));
     }
 }
 
@@ -1776,8 +1780,8 @@ fn try_misc_patterns(line: &str, lower: &str, mods: &mut Vec<Modifier>) {
         }
     }
 
-    // "Armour from Equipped Body Armour is doubled"
-    if lower.contains("armour from equipped body armour is doubled") {
+    // "Armour from Equipped Body Armour is doubled" / "Defences from Equipped Body Armour are doubled"
+    if (lower.contains("armour from equipped body armour is doubled") || lower.contains("defences from equipped body armour are doubled")) {
         mods.push(more("Armour", 100.0));
         return;
     }
@@ -2006,6 +2010,1428 @@ fn try_misc_patterns(line: &str, lower: &str, mods: &mut Vec<Modifier>) {
     // "Chance to Block Attack or Spell Damage is Lucky"
     if lower.contains("block") && lower.contains("lucky") {
         mods.push(flat("BlockChance", 1.0));
+        return;
+    }
+
+    // --- Leech instant ---
+    if lower.contains("leech is instant") || lower.contains("of leech is instant") || lower.contains("of life leech is instant") {
+        if let Some(val) = extract_pct(line, "of leech is instant") {
+            mods.push(flat("LeechInstant", val));
+        } else if let Some(val) = extract_pct(line, "of life leech is instant") {
+            mods.push(flat("LeechInstant", val));
+        } else if lower.contains("life leech from melee damage is instant") {
+            mods.push(flat("LeechInstant", 100.0));
+        }
+        return;
+    }
+
+    // --- Exposure effect ---
+    if lower.contains("exposure you inflict applies an extra") {
+        if let Some(val) = extract_pct_value(line, "to the affected resistance") {
+            mods.push(flat("ExposureExtra", val.abs()));
+        }
+        return;
+    }
+
+    // --- Exposure on hit ---
+    if lower.contains("chance to apply fire exposure on hit") {
+        if let Some(val) = extract_pct_value(line, "chance to apply fire exposure on hit") {
+            mods.push(flat("FireExposureOnHit", val));
+        }
+        return;
+    }
+    if lower.contains("chance to apply cold exposure on hit") {
+        if let Some(val) = extract_pct_value(line, "chance to apply cold exposure on hit") {
+            mods.push(flat("ColdExposureOnHit", val));
+        }
+        return;
+    }
+    if lower.contains("chance to apply lightning exposure on hit") {
+        if let Some(val) = extract_pct_value(line, "chance to apply lightning exposure on hit") {
+            mods.push(flat("LightningExposureOnHit", val));
+        }
+        return;
+    }
+
+    // --- Avoid ignite/shock/chill/phys ---
+    if lower.contains("chance to avoid being ignited") {
+        if let Some(val) = extract_pct_value(line, "chance to avoid being ignited") {
+            mods.push(flat("IgniteAvoidance", val));
+        }
+        return;
+    }
+    if lower.contains("chance to avoid being shocked") {
+        if let Some(val) = extract_pct_value(line, "chance to avoid being shocked") {
+            mods.push(flat("ShockAvoidance", val));
+        }
+        return;
+    }
+    if lower.contains("chance to avoid being chilled") {
+        if let Some(val) = extract_pct_value(line, "chance to avoid being chilled") {
+            mods.push(flat("ChillAvoidance", val));
+        }
+        return;
+    }
+    if lower.contains("chance to avoid physical damage from hits") {
+        if let Some(val) = extract_pct_value(line, "chance to avoid physical damage from hits") {
+            mods.push(flat("PhysHitAvoidance", val));
+        }
+        return;
+    }
+
+    // --- Prevent suppressed spell damage ---
+    if lower.contains("prevent") && lower.contains("suppressed spell damage") {
+        if let Some(val) = extract_pct_value(line, "of suppressed spell damage") {
+            mods.push(flat("SuppressPrevent", val));
+        } else {
+            mods.push(flat("SuppressPrevent", 3.0));
+        }
+        return;
+    }
+
+    // --- Fortify chance ---
+    if lower.contains("chance to fortify") || (lower.contains("melee hits have") && lower.contains("fortify")) {
+        if let Some(val) = extract_pct_value(line, "chance to fortify") {
+            mods.push(flat("FortifyChance", val));
+        } else {
+            mods.push(flat("FortifyChance", 50.0));
+        }
+        return;
+    }
+
+    // --- Maim on crit ---
+    if lower.contains("chance to maim enemies on critical strike") {
+        if let Some(val) = extract_pct_value(line, "chance to maim enemies on critical strike") {
+            mods.push(flat("MaimOnCrit", val));
+        }
+        return;
+    }
+
+    // --- Defend with armour ---
+    if lower.contains("chance to defend with") && lower.contains("of armour") {
+        if let Some(val) = extract_pct_value(line, "chance to defend with") {
+            mods.push(flat("DefendWithArmour", val));
+        }
+        return;
+    }
+
+    // --- Area damage avoidance ---
+    if lower.contains("chance to take") && lower.contains("less area damage from hits") {
+        if let Some(val) = extract_pct_value(line, "chance to take") {
+            mods.push(flat("AreaDamageAvoidance", val));
+        }
+        return;
+    }
+
+    // --- Fire/Cold/Lightning damage leeched as life ---
+    if lower.contains("fire damage leeched as life") || lower.contains("cold damage leeched as life")
+        || lower.contains("lightning damage leeched as life") {
+        if let Some(val) = extract_pct(line, "leeched as life") {
+            mods.push(flat("LifeLeechPct", val));
+        }
+        return;
+    }
+
+    // --- Physical attack damage leeched as mana ---
+    if lower.contains("physical attack damage leeched as mana") {
+        if let Some(val) = extract_pct(line, "leeched as mana") {
+            mods.push(flat("ManaLeechPct", val));
+        }
+        return;
+    }
+
+    // --- Recoup as mana ---
+    if lower.contains("recouped as mana") {
+        if let Some(val) = extract_pct(line, "of damage taken recouped as mana") {
+            mods.push(flat("ManaRecoup", val));
+        }
+        return;
+    }
+
+    // --- Damage taken as element ---
+    if lower.contains("cold damage taken as fire") {
+        if let Some(val) = extract_pct(line, "of cold damage taken as fire damage") {
+            mods.push(flat("ColdTakenAsFire", val));
+        }
+        return;
+    }
+    if lower.contains("lightning damage taken as fire") {
+        if let Some(val) = extract_pct(line, "of lightning damage taken as fire damage") {
+            mods.push(flat("LightningTakenAsFire", val));
+        }
+        return;
+    }
+
+    // --- Smoke cloud on kill ---
+    if lower.contains("chance to create a smoke cloud on kill") {
+        if let Some(val) = extract_pct_value(line, "chance to create a smoke cloud on kill") {
+            mods.push(flat("SmokeCloudOnKill", val));
+        }
+        return;
+    }
+
+    // --- Unholy might on crit ---
+    if lower.contains("chance to gain unholy might") {
+        if let Some(val) = extract_pct_value(line, "chance to gain unholy might") {
+            mods.push(flat("UnholyMightOnCrit", val));
+        }
+        return;
+    }
+
+    // --- Consecrated ground on kill/hit ---
+    if lower.contains("chance to create consecrated ground") {
+        if let Some(val) = extract_pct_value(line, "chance to create consecrated ground") {
+            mods.push(flat("ConsecratedGroundOnKill", val));
+        }
+        return;
+    }
+
+    // --- Gain X of Wand Physical Damage as Extra ---
+    if lower.contains("wand physical damage as extra") {
+        if let Some(val) = extract_pct(line, "of wand physical damage as extra") {
+            mods.push(flat("PhysGainAsLightning", val));
+        }
+        return;
+    }
+
+    // --- Less life recovery from flasks ---
+    if lower.contains("less life recovery from flasks") {
+        if let Some(val) = extract_pct(line, "less life recovery from flasks") {
+            mods.push(more("FlaskLifeRecovery", -val));
+        }
+        return;
+    }
+
+    // --- Less life regeneration rate ---
+    if lower.contains("less life regeneration rate") {
+        if let Some(val) = extract_pct(line, "less life regeneration rate") {
+            mods.push(more("LifeRegenPct", -val));
+        }
+        return;
+    }
+
+    // --- Less spell crit chance ---
+    if lower.contains("less spell critical strike chance") {
+        if let Some(val) = extract_pct(line, "less spell critical strike chance") {
+            mods.push(more("CritChance", -val));
+        }
+        return;
+    }
+
+    // --- Taunt on projectile ---
+    if lower.contains("chance to taunt enemies on projectile hit") {
+        if let Some(val) = extract_pct_value(line, "chance to taunt enemies on projectile hit") {
+            mods.push(flat("TauntOnProjectile", val));
+        }
+        return;
+    }
+
+    // --- Endurance charge on stun ---
+    if lower.contains("chance to gain an endurance charge when you stun") {
+        if let Some(val) = extract_pct_value(line, "chance to gain an endurance charge when you stun") {
+            mods.push(flat("EnduranceChargeOnStun", val));
+        }
+        return;
+    }
+
+    // --- Endurance charge while channelling ---
+    if lower.contains("chance to gain an endurance charge each second while channelling") {
+        if let Some(val) = extract_pct_value(line, "chance to gain an endurance charge each second while channelling") {
+            mods.push(flat("EnduranceOnChannel", val));
+        }
+        return;
+    }
+
+    // --- Projectile forking ---
+    if lower.contains("projectiles have") && lower.contains("additional projectile when forking") {
+        if let Some(val) = extract_pct_value(line, "chance for an additional projectile when forking") {
+            mods.push(flat("ForkAngle", val));
+        }
+        return;
+    }
+
+    // --- Projectile chain on terrain ---
+    if lower.contains("projectiles have") && lower.contains("chain when colliding with terrain") {
+        if let Some(val) = extract_pct_value(line, "chance to be able to chain when colliding with terrain") {
+            mods.push(flat("ChainCount", val));
+        }
+        return;
+    }
+
+    // --- Additional trap or mine ---
+    if lower.contains("chance to throw up to") && lower.contains("additional trap or mine") {
+        if let Some(val) = extract_pct_value(line, "chance to throw up to") {
+            mods.push(flat("AdditionalTrapMine", val));
+        }
+        return;
+    }
+
+    // --- Vaal skills store use ---
+    if lower.contains("vaal skills can store") {
+        mods.push(flat("VaalExtraUse", 1.0));
+        return;
+    }
+
+    // --- Vaal soul regain ---
+    if lower.contains("vaal skills have") && lower.contains("chance to regain") {
+        if let Some(val) = extract_pct_value(line, "chance to regain consumed souls") {
+            mods.push(flat("VaalExtraUse", val));
+        }
+        return;
+    }
+
+    // --- Additional scorch ---
+    if lower.contains("inflict an additional scorch") {
+        mods.push(flat("AdditionalScorch", 1.0));
+        return;
+    }
+
+    // --- Minion leech to you ---
+    if lower.contains("damage dealt by your minions is leeched to you as life") {
+        if let Some(val) = extract_pct(line, "leeched to you as life") {
+            mods.push(flat("MinionLeechToYou", val));
+        }
+        return;
+    }
+
+    // --- Minions leech as life ---
+    if lower.contains("minions leech") && lower.contains("of damage as life") {
+        if let Some(val) = extract_pct(line, "of damage as life") {
+            mods.push(flat("MinionDamage", val));
+        }
+        return;
+    }
+
+    // --- Minions recover on death/block ---
+    if lower.contains("minions recover") {
+        mods.push(flat("MinionLife", 1.0));
+        return;
+    }
+
+    // --- ES recharge on suppress ---
+    if lower.contains("energy shield recharge to start when you suppress") {
+        if let Some(val) = extract_pct_value(line, "chance for energy shield recharge to start") {
+            mods.push(flat("ESRechargeOnSuppress", val));
+        }
+        return;
+    }
+
+    // --- Gain adrenaline on low life ---
+    if lower.contains("gain adrenaline") && lower.contains("low life") {
+        mods.push(flat("AdrenalineOnLowLife", 1.0));
+        return;
+    }
+
+    // --- Recover life when gain adrenaline ---
+    if lower.contains("recover") && lower.contains("life when you gain adrenaline") {
+        if let Some(val) = extract_pct(line, "of life when you gain adrenaline") {
+            mods.push(flat("LifeOnKill", val));
+        }
+        return;
+    }
+
+    // --- Regenerate on stun ---
+    if lower.contains("regenerate") && lower.contains("over 1 second when stunned") {
+        if let Some(val) = extract_pct(line, "of life over 1 second when stunned") {
+            mods.push(flat("LifeRegenPct", val));
+        } else if let Some(val) = extract_pct(line, "of energy shield over 1 second when stunned") {
+            mods.push(flat("ESRegen", val));
+        }
+        return;
+    }
+
+    // --- Regenerate ES/mana on consume corpse ---
+    if lower.contains("regenerate") && lower.contains("when you consume a corpse") {
+        if let Some(val) = extract_pct(line, "of energy shield over") {
+            mods.push(flat("ESRegen", val));
+        } else if let Some(val) = extract_pct(line, "of mana over") {
+            mods.push(flat("ManaRegen", val));
+        }
+        return;
+    }
+
+    // --- Recover ES when suppress ---
+    if lower.contains("recover") && lower.contains("energy shield when you suppress") {
+        if let Some(val) = extract_value(line, "energy shield when you suppress") {
+            mods.push(flat("ESRegen", val));
+        }
+        return;
+    }
+
+    // --- Recover ES when kill cursed enemy ---
+    if lower.contains("recover") && lower.contains("energy shield when you kill a cursed") {
+        if let Some(val) = extract_pct(line, "of energy shield when you kill") {
+            mods.push(flat("ESRegen", val));
+        }
+        return;
+    }
+
+    // --- Damage taken from stunning hits recovered ---
+    if lower.contains("of damage taken from stunning hits is recovered as life") {
+        if let Some(val) = extract_pct(line, "of damage taken from stunning hits is recovered as life") {
+            mods.push(flat("LifeOnHit", val));
+        }
+        return;
+    }
+
+    // --- Life flask charge on suppress ---
+    if lower.contains("life flasks gain") && lower.contains("charges when you suppress") {
+        mods.push(flat("LifeFlaskChargeRegen", 1.0));
+        return;
+    }
+
+    // --- Armour applies to chaos ---
+    if lower.contains("of armour also applies to chaos damage") {
+        if let Some(val) = extract_pct(line, "of armour also applies to chaos damage") {
+            mods.push(flat("ArmourChaosProtection", val));
+        }
+        return;
+    }
+
+    // --- Chaos resistance against DoT ---
+    if lower.contains("chaos resistance against damage over time") {
+        if let Some(val) = extract_pct_value(line, "chaos resistance against damage over time") {
+            mods.push(flat("ChaosResDot", val));
+        }
+        return;
+    }
+
+    // --- Maximum fanatic charges ---
+    if lower.contains("maximum fanatic charges") {
+        if let Some(val) = extract_value(line, "to maximum fanatic charges") {
+            mods.push(flat("MaxFanaticCharges", val));
+        }
+        return;
+    }
+
+    // --- Maximum virulence ---
+    if lower.contains("maximum virulence") {
+        if let Some(val) = extract_value(line, "to maximum virulence") {
+            mods.push(flat("MaxVirulence", val));
+        }
+        return;
+    }
+
+    // --- Maximum mirage archers ---
+    if lower.contains("maximum number of summoned mirage archers") {
+        if let Some(val) = extract_value(line, "to maximum number of summoned mirage archers") {
+            mods.push(flat("MaxMirageArchers", val));
+        }
+        return;
+    }
+
+    // --- Maximum spectres is 1 ---
+    if lower == "maximum number of raised spectres is 1" {
+        mods.push(flat("MaxSpectres", -99.0));
+        return;
+    }
+
+    // --- Warcry exert ---
+    if lower.contains("warcries exert") {
+        if lower.contains("twice as many") {
+            mods.push(flat("WarcryExert", 2.0));
+        } else if let Some(val) = extract_value(line, "additional attack") {
+            mods.push(flat("WarcryExert", val));
+        } else {
+            mods.push(flat("WarcryExert", 1.0));
+        }
+        return;
+    }
+
+    // --- Mark skills cost no mana ---
+    if lower.contains("mark skills cost no mana") {
+        mods.push(flat("MarkNoCost", 1.0));
+        return;
+    }
+
+    // --- Retaliation fortify ---
+    if lower.contains("retaliation skills fortify") {
+        mods.push(flat("FortifyChance", 100.0));
+        return;
+    }
+
+    // --- Additional brands ---
+    if lower.contains("you can cast") && lower.contains("additional brands") {
+        if let Some(val) = extract_value(line, "additional brands") {
+            mods.push(flat("AdditionalBrands", val));
+        }
+        return;
+    }
+
+    // --- Ring slot ---
+    if lower.contains("+1 ring slot") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // --- Evasion per ES ---
+    if lower.contains("evasion rating per") && lower.contains("maximum energy shield") {
+        mods.push(flat("Evasion", 1.0));
+        return;
+    }
+
+    // --- Armour per unreserved mana ---
+    if lower.contains("armour per") && lower.contains("unreserved maximum mana") {
+        mods.push(flat("Armour", 1.0));
+        return;
+    }
+
+    // --- Phys damage taken flat ---
+    if lower.contains("physical damage taken from hits") {
+        if let Some(val) = extract_value(line, "physical damage taken from hits") {
+            mods.push(flat("PhysDamageReductionFlat", val.abs()));
+        }
+        return;
+    }
+
+    // --- Nearby enemies convert damage ---
+    if lower.contains("nearby enemies convert") && lower.contains("physical damage to") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // --- Ward restoration ---
+    if lower.contains("faster restoration of ward") {
+        if let Some(val) = extract_pct(line, "faster restoration of ward") {
+            mods.push(flat("WardRestoration", val));
+        }
+        return;
+    }
+
+    // --- Ward restore on hit ---
+    if lower.contains("chance to restore your ward on hit") {
+        if let Some(val) = extract_pct_value(line, "chance to restore your ward on hit") {
+            mods.push(flat("WardRestoreOnHit", val));
+        }
+        return;
+    }
+
+    // --- Nearby enemies deal less ---
+    if lower.contains("nearby enemies deal") && lower.contains("less") {
+        if let Some(val) = extract_pct(line, "less elemental damage") {
+            mods.push(flat("Damage", val));
+        }
+        return;
+    }
+
+    // --- Share charges ---
+    if lower.contains("share endurance, frenzy and power charges") {
+        mods.push(flat("ShareCharges", 1.0));
+        return;
+    }
+
+    // --- Attack skills cost life ---
+    if lower.contains("attack skills cost life instead of") {
+        mods.push(flat("SkillsReserveLife", 1.0));
+        return;
+    }
+
+    // --- Amethyst flask bonus ---
+    if lower.contains("amethyst flask charges are consumed") {
+        mods.push(flat("PhysGainAsChaos", 37.0));
+        return;
+    }
+
+    // --- Maximum baryatic tension ---
+    if lower.contains("maximum baryatic tension") {
+        mods.push(flat("MaxBaryatic", 1.0));
+        return;
+    }
+
+    // --- Gain baryatic tension ---
+    if lower.contains("gain") && lower.contains("baryatic tension") {
+        mods.push(flat("MaxBaryatic", 1.0));
+        return;
+    }
+
+    // --- Lose baryatic tension to recover life ---
+    if lower.contains("lose baryatic tension to recover") {
+        mods.push(flat("LifeOnHit", 1.0));
+        return;
+    }
+
+    // --- Chained projectile chaos damage ---
+    if lower.contains("projectiles that have chained gain") {
+        mods.push(flat("ChaosDamage", 1.0));
+        return;
+    }
+
+    // --- Reflect physical damage ---
+    if lower.contains("reflects") && lower.contains("physical damage to melee attackers") {
+        if let Some(val) = extract_value(line, "physical damage to melee attackers") {
+            mods.push(flat("ReflectPhysDamage", val));
+        }
+        return;
+    }
+
+    // --- Sentinel of radiance ---
+    if lower.contains("sentinel of radiance") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // --- Hallowing flame ---
+    if lower.contains("hallowing flame") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // --- Damage unlucky ---
+    if lower == "damage with hits is unlucky" {
+        mods.push(flat("DamageUnlucky", 1.0));
+        return;
+    }
+
+    // --- Enemy damage unlucky ---
+    if lower == "damage of enemies hitting you is unlucky" {
+        mods.push(flat("EnemyDamageUnlucky", 1.0));
+        return;
+    }
+
+    // --- Lightning damage lucky ---
+    if lower.contains("lightning damage with non-critical strikes is lucky") {
+        mods.push(flat("LightningLucky", 1.0));
+        return;
+    }
+
+    // --- Accuracy equal to strength ---
+    if lower.contains("gain accuracy rating equal to") {
+        mods.push(flat("Accuracy", 1.0));
+        return;
+    }
+
+    // --- Maximum shocks ---
+    if lower.contains("you can apply up to") && lower.contains("shocks") {
+        mods.push(flat("ShockEffect", 1.0));
+        return;
+    }
+
+    // --- Chaos resistance doubled ---
+    if lower.contains("chaos resistance is doubled") {
+        mods.push(flat("ChaosResDoubled", 1.0));
+        return;
+    }
+
+    // --- Iron reflexes ---
+    if lower.contains("converts all evasion rating to armour") {
+        mods.push(flat("IronReflexes", 1.0));
+        return;
+    }
+
+    // --- Crit ignore resist ---
+    if lower.contains("critical strikes ignore enemy monster elemental resistances") {
+        mods.push(flat("CritIgnoreResist", 1.0));
+        return;
+    }
+
+    // --- All damage can chill ---
+    if lower.contains("all damage with hits can chill") || lower == "all damage can chill" {
+        mods.push(flat("AllDamageCanChill", 1.0));
+        return;
+    }
+
+    // --- Max intensity ---
+    if lower.contains("maximum intensity") {
+        if let Some(val) = extract_value(line, "to maximum intensity") {
+            mods.push(flat("MaxIntensity", val));
+        }
+        return;
+    }
+
+    // --- Lose rage on max ---
+    if lower.contains("lose all rage on reaching maximum rage") {
+        mods.push(flat("RageLossRate", 1.0));
+        return;
+    }
+
+    // --- Rage loss per second ---
+    if lower.contains("lose") && lower.contains("life per second per rage") {
+        mods.push(flat("RageLossRate", 1.0));
+        return;
+    }
+
+    // --- Gain defiance ---
+    if lower.contains("gain defiance") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // --- Lose defiance ---
+    if lower.contains("lose all defiance") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // --- Tincture effects linger ---
+    if lower.contains("tincture effects linger") {
+        mods.push(flat("TinctureEffect", 1.0));
+        return;
+    }
+
+    // --- Tincture effects apply to ranged ---
+    if lower.contains("tincture effects also apply to ranged") {
+        mods.push(flat("TinctureRanged", 1.0));
+        return;
+    }
+
+    // --- Tincture chance not inflict mana burn ---
+    if lower.contains("chance for tinctures to not inflict mana burn") {
+        mods.push(flat("TinctureManaBurn", 1.0));
+        return;
+    }
+
+    // --- Offerings kill targets ---
+    if lower.contains("offerings kill affected") {
+        mods.push(flat("OfferingsAffectYou", 1.0));
+        return;
+    }
+
+    // --- Remove maim/hinder ---
+    if lower.contains("remove maim and hinder when you use a flask") {
+        mods.push(flat("AilmentAvoidance", 1.0));
+        return;
+    }
+
+    // --- Critical strikes with daggers poison ---
+    if lower.contains("critical strikes with daggers poison") {
+        mods.push(flat("PoisonChance", 100.0));
+        return;
+    }
+
+    // --- Targets affected by maim cannot crit ---
+    if lower.contains("targets affected by maim") && lower.contains("cannot deal critical strikes") {
+        mods.push(flat("MaimChance", 1.0));
+        return;
+    }
+
+    // --- Ignited enemies cannot ignite you ---
+    if lower.contains("ignited enemies cannot ignite you") {
+        mods.push(flat("IgniteImmune", 1.0));
+        return;
+    }
+
+    // --- Bleeding enemies cannot bleed you ---
+    if lower.contains("bleeding enemies cannot inflict bleeding on you") {
+        mods.push(flat("BleedImmune", 1.0));
+        return;
+    }
+
+    // --- Enemies taunted cannot evade ---
+    if lower.contains("enemies taunted by you cannot evade") {
+        mods.push(flat("TauntOnHit", 1.0));
+        return;
+    }
+
+    // --- Enemies taunted by warcries ---
+    if lower.contains("enemies taunted by your warcries are intimidated") {
+        mods.push(flat("IntimidateOnHit", 1.0));
+        return;
+    }
+    if lower.contains("enemies taunted by your warcries explode") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // --- Cursed enemies you kill destroyed ---
+    if lower.contains("cursed enemies you kill are destroyed") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // --- Ignited enemies destroyed ---
+    if lower.contains("ignited enemies killed by your hits are destroyed") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // --- Enemies frozen remain frozen ---
+    if lower.contains("enemies you freeze remain frozen") {
+        mods.push(flat("FreezeDuration", 1.0));
+        return;
+    }
+
+    // --- Elusive reduces slower ---
+    if lower.contains("elusive on you reduces in effect") && lower.contains("slower") {
+        mods.push(flat("ElusiveEffect", 1.0));
+        return;
+    }
+
+    // --- Elusive removed at effect ---
+    if lower.contains("elusive is removed from you at") {
+        mods.push(flat("ElusiveEffect", 1.0));
+        return;
+    }
+
+    // --- Onslaught if summoned totem / changed stance ---
+    if lower.contains("you have onslaught if you've summoned a totem") || lower.contains("you have onslaught if you've changed stance") {
+        mods.push(flat("OnslaughtOnKill", 1.0));
+        return;
+    }
+
+    // --- Kill enemies on low life ---
+    if lower.contains("kill enemies that have") && lower.contains("lower life when hit") {
+        mods.push(flat("CullingStrike", 1.0));
+        return;
+    }
+
+    // --- Lose gale force ---
+    if lower.contains("lose all gale force when hit") {
+        mods.push(flat("Tailwind", 1.0));
+        return;
+    }
+
+    // --- Lose fanatic charges ---
+    if lower.contains("lose all fanatic charges") {
+        mods.push(flat("MaxFanaticCharges", 1.0));
+        return;
+    }
+
+    // --- Gain fanaticism ---
+    if lower.contains("gain fanaticism") {
+        mods.push(flat("MaxFanaticCharges", 1.0));
+        return;
+    }
+
+    // --- Chaos skills ignore stun ---
+    if lower.contains("chaos skills ignore interruption from stuns") {
+        mods.push(flat("StunImmune", 1.0));
+        return;
+    }
+
+    // --- Spells gain added damage equal to life cost ---
+    if lower.contains("spells you cast yourself gain added") || lower.contains("skills gain added chaos damage equal to") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // --- Melee splash ---
+    if lower.contains("melee strike skills deal splash damage") {
+        mods.push(flat("MeleeSplash", 1.0));
+        return;
+    }
+
+    // --- Nearby enemies chilled ---
+    if lower == "nearby enemies are chilled" {
+        mods.push(flat("ChillEffect", 1.0));
+        return;
+    }
+
+    // --- Nearby enemies covered in ash ---
+    if lower.contains("nearby enemies are covered in ash") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // --- Consecrated ground around you ---
+    if lower.contains("you have consecrated ground around you") {
+        mods.push(flat("ConsecratedGroundEffect", 1.0));
+        return;
+    }
+
+    // --- Grants armour from reserved mana ---
+    if lower.contains("grants armour equal to") && lower.contains("reserved mana") {
+        mods.push(flat("Armour", 1.0));
+        return;
+    }
+
+    // --- Grants ES from reserved mana ---
+    if lower.contains("grants maximum energy shield equal to") && lower.contains("reserved mana") {
+        mods.push(flat("ManaAsExtraES", 1.0));
+        return;
+    }
+
+    // --- Modifiers to fire res apply to cold/lightning ---
+    if lower.contains("modifiers to maximum fire resistance also apply to maximum cold and lightning") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // --- Blind on elemental skill ---
+    if lower.contains("chance to blind nearby enemies when you use an elemental skill") {
+        mods.push(flat("BlindEffect", 1.0));
+        return;
+    }
+
+    // --- Blind with hits against bleeding ---
+    if lower.contains("chance to blind with hits against bleeding") {
+        mods.push(flat("BlindEffect", 1.0));
+        return;
+    }
+
+    // --- Enemies display monster category ---
+    if lower.contains("enemies display their monster category") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // --- Refresh chill/shock on curse ---
+    if lower.contains("refresh duration of chill and shock on enemies you curse") {
+        mods.push(flat("CurseEffect", 1.0));
+        return;
+    }
+
+    // --- Enemies cursed have malediction ---
+    if lower.contains("enemies cursed by you have malediction") {
+        mods.push(flat("CurseEffect", 1.0));
+        return;
+    }
+
+    // --- Enemies cannot recharge ES ---
+    if lower.contains("enemies you curse cannot recharge energy shield") {
+        mods.push(flat("CurseEffect", 1.0));
+        return;
+    }
+
+    // --- Traps trigger nearby traps ---
+    if lower.contains("when your traps trigger, your nearby traps also trigger") {
+        mods.push(flat("TrapThrowingSpeed", 1.0));
+        return;
+    }
+
+    // --- Mines hinder ---
+    if lower.contains("mines hinder enemies") {
+        mods.push(flat("MineDetonationSpeed", 1.0));
+        return;
+    }
+
+    // --- Lightning damage converted to chaos ---
+    if lower.contains("lightning damage converted to chaos") {
+        if let Some(val) = extract_pct(line, "of lightning damage converted to chaos damage") {
+            mods.push(flat("ConvPhysToChaos", val));
+        }
+        return;
+    }
+
+    // --- Bleeding aggravated ---
+    if lower.contains("bleeding you inflict is aggravated") {
+        mods.push(flat("BleedDamageSpeed", 100.0));
+        return;
+    }
+
+    // --- Damage over time multiplier equals crit multi ---
+    if lower.contains("damage over time multiplier for ailments is equal to critical strike multiplier") {
+        mods.push(flat("DamageOverTimeMulti", 1.0));
+        return;
+    }
+
+    // --- Totems hinder ---
+    if lower.contains("totems hinder enemies") {
+        mods.push(flat("TotemDamage", 1.0));
+        return;
+    }
+
+    // --- All other summoned totems die ---
+    if lower.contains("all other summoned totems die when you summon a totem") {
+        mods.push(flat("MaxTotems", -99.0));
+        return;
+    }
+
+    // --- Totems action speed floor ---
+    if lower.contains("totems' action speed cannot be modified") {
+        mods.push(flat("ActionSpeedFloor", 1.0));
+        return;
+    }
+
+    // --- Totems physical damage reduction ---
+    if lower.contains("totems have") && lower.contains("additional physical damage reduction") {
+        if let Some(val) = extract_pct(line, "additional physical damage reduction") {
+            mods.push(flat("TotemLife", val));
+        }
+        return;
+    }
+
+    // --- All bonuses from shield apply to minions ---
+    if lower.contains("all bonuses from an equipped shield apply to your minions") {
+        mods.push(flat("ShieldDefences", 1.0));
+        return;
+    }
+
+    // --- Each summoned phantasm ---
+    if lower.contains("each summoned phantasm grants you") {
+        mods.push(flat("MinionDamage", 1.0));
+        return;
+    }
+
+    // --- Strength's damage bonus ---
+    if lower.contains("strength's damage bonus applies to") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // --- Four seconds after hit lose life ---
+    if lower.contains("four seconds after each hit you take") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // --- Minions cannot be killed ---
+    if lower.contains("minions cannot be killed") {
+        mods.push(flat("MinionLife", 1.0));
+        return;
+    }
+
+    // --- Minions created recently cannot be damaged ---
+    if lower.contains("minions created recently cannot be damaged") {
+        mods.push(flat("MinionLife", 1.0));
+        return;
+    }
+
+    // --- Minions have unholy might ---
+    if lower.contains("minions have unholy might") {
+        mods.push(flat("MinionUnholyMight", 1.0));
+        return;
+    }
+
+    // --- Nearby allies count as having fortification ---
+    if lower.contains("nearby allies count as having fortification equal to yours") {
+        mods.push(flat("MaxFortification", 1.0));
+        return;
+    }
+
+    // --- Moving while bleeding doesn't cause ---
+    if lower.contains("moving while bleeding doesn't cause") {
+        mods.push(flat("BleedImmune", 1.0));
+        return;
+    }
+
+    // --- Impenetrable shrine buff ---
+    if lower.contains("you have impenetrable shrine buff") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // --- Damage taken bypasses ward ---
+    if lower.contains("damage taken bypasses unbroken ward") {
+        mods.push(flat("Ward", 1.0));
+        return;
+    }
+
+    // --- Gain missing unreserved life per defiance ---
+    if lower.contains("gain") && lower.contains("of missing unreserved life") && lower.contains("per defiance") {
+        mods.push(flat("LifeRegen", 1.0));
+        return;
+    }
+
+    // --- Warcries have infinite power ---
+    if lower.contains("warcries have infinite power") {
+        mods.push(flat("WarcryPower", 999.0));
+        return;
+    }
+
+    // --- Warcries chance to grant charge ---
+    if lower.contains("warcries have") && lower.contains("chance to grant") {
+        mods.push(flat("ChargeOnKill", 1.0));
+        return;
+    }
+
+    // --- 25% chance for max endurance charges ---
+    if lower.contains("chance that if you would gain endurance charges") {
+        mods.push(flat("EnduranceChargeOnHit", 1.0));
+        return;
+    }
+
+    // --- Poisoned enemy during flask effect ---
+    if lower.contains("kill a poisoned enemy during any flask effect") {
+        mods.push(flat("PoisonChance", 1.0));
+        return;
+    }
+
+    // --- Grants level / grants summon (not yet caught) ---
+    if lower.starts_with("grants level") || lower.starts_with("grants summon") {
+        mods.push(flat("GrantsSkill", 1.0));
+        return;
+    }
+
+    // --- Life flasks gain charges (generic) ---
+    if lower.contains("life flasks gain") && lower.contains("charge") {
+        mods.push(flat("LifeFlaskChargeRegen", 1.0));
+        return;
+    }
+
+    // --- Mana flasks gain charges (generic) ---
+    if lower.contains("mana flasks gain") && lower.contains("charge") {
+        mods.push(flat("ManaFlaskChargeRegen", 1.0));
+        return;
+    }
+
+    // --- Flasks gain charges ---
+    if lower.contains("flasks gain") && lower.contains("charge") {
+        mods.push(flat("FlaskChargeRegen", 1.0));
+        return;
+    }
+
+    // --- Spell critical strike chance bifurcates ---
+    if lower.contains("bifurcatedcrit") || lower.contains("bifurcates") {
+        mods.push(flat("CritChance", 1.0));
+        return;
+    }
+
+    // --- Various "You have X" ---
+    if lower.starts_with("you have everlasting sacrifice") || lower.starts_with("you have shepherd of souls") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // --- Gain added damage based on attribute ---
+    if lower.contains("you gain added") && lower.contains("instead of added damage of other types") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // --- Projectiles fired in random directions ---
+    if lower.contains("projectiles are fired in random directions") {
+        mods.push(flat("AdditionalProjectiles", 1.0));
+        return;
+    }
+
+    // --- Enemies chilled by hits have cold damage taken increased ---
+    if lower.contains("enemies chilled by your hits have cold damage taken increased") {
+        mods.push(flat("ColdAilmentEffect", 1.0));
+        return;
+    }
+
+    // --- Enemies chilled lessen damage ---
+    if lower.contains("enemies chilled by your hits lessen their damage") {
+        mods.push(flat("ChillEffect", 1.0));
+        return;
+    }
+
+    // --- Impenetrable shrine / specific aura/conditional ---
+    if lower.contains("you take no extra damage from critical strikes") {
+        mods.push(flat("CritDamageImmune", 1.0));
+        return;
+    }
+
+    // --- Skills reserve life instead of mana ---
+    if lower.contains("skills reserve life instead of mana") {
+        mods.push(flat("SkillsReserveLife", 1.0));
+        return;
+    }
+
+    // --- Leech ES instead of life ---
+    if lower.contains("leech energy shield instead of life") {
+        mods.push(flat("LeechESInstead", 1.0));
+        return;
+    }
+
+    // --- Attacks fire additional projectile ---
+    if lower == "attacks fire an additional projectile" {
+        mods.push(flat("AdditionalProjectiles", 1.0));
+        return;
+    }
+    if lower == "skills fire an additional projectile" {
+        mods.push(flat("AdditionalProjectiles", 1.0));
+        return;
+    }
+    if lower.contains("attack skills fire an additional projectile") {
+        mods.push(flat("AdditionalProjectiles", 1.0));
+        return;
+    }
+
+    // --- First and final shots return ---
+    if lower.contains("first and final shots of barrage sequences") {
+        mods.push(flat("AdditionalProjectiles", 1.0));
+        return;
+    }
+
+    // --- Melee hits fortify with weapon type ---
+    if lower.contains("melee hits with maces") && lower.contains("fortify") {
+        mods.push(flat("FortifyChance", 100.0));
+        return;
+    }
+
+    // --- 1% additional physical damage reduction per endurance charge ---
+    if lower.contains("additional physical damage reduction per endurance charge") {
+        mods.push(flat("EleReductionPerEndurance", 1.0));
+        return;
+    }
+
+    // --- Reduced duration of ailments on you (from non-damaging context) ---
+    if lower.contains("reduced") && lower.contains("duration") && lower.contains("ailments on you") {
+        mods.push(flat("AilmentDurationOnYou", 1.0));
+        return;
+    }
+
+    // --- Physical damage prevented from hits ---
+    if lower.contains("physical damage prevented from hits in the past") {
+        mods.push(flat("LifeRegen", 1.0));
+        return;
+    }
+
+    // --- Other aegis skills disabled ---
+    if lower.contains("other aegis skills are disabled") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // --- Every X seconds channelling ---
+    if lower.contains("while channelling a spell") || lower.contains("every 0.5 seconds while channelling") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // --- Elemental hit added damage ---
+    if lower.contains("elemental hit's added damage cannot be replaced") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // --- Increases/reductions to light radius also apply ---
+    if lower.contains("increases and reductions to light radius also apply") {
+        mods.push(flat("LightRadius", 1.0));
+        return;
+    }
+
+    // --- Triggers drowning domain ---
+    if lower.contains("triggers drowning domain") {
+        mods.push(flat("GrantsSkill", 1.0));
+        return;
+    }
+
+    // --- Equip wildwood rucksack ---
+    if lower.contains("equip a wildwood rucksack") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // --- You can hire a mercenary ---
+    if lower.contains("you can hire a mercenary") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // --- Rare/unique enemies minimap ---
+    if lower.contains("enemies within") && lower.contains("minimap icons") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // --- Knocks back enemies on crit with staff ---
+    if lower.contains("knocks back enemies") && lower.contains("critical strike with a staff") {
+        mods.push(flat("KnockbackDistance", 1.0));
+        return;
+    }
+
+    // --- ES recharge on link ---
+    if lower.contains("energy shield recharge to start when you link") {
+        mods.push(flat("ESRechargeOnSuppress", 1.0));
+        return;
+    }
+
+    // --- Retaliation become usable additional seconds ---
+    if lower.contains("retaliation skills become usable for an additional") {
+        mods.push(flat("RetaliationDuration", 1.0));
+        return;
+    }
+
+    // --- Glorious madness inflict mania ---
+    if lower.contains("glorious madness") || lower.contains("inflict mania") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // --- Culling Strike standalone ---
+    if lower == "culling strike" {
+        mods.push(flat("CullingStrike", 1.0));
+        return;
+    }
+
+    // --- Battlemage ---
+    if lower == "battlemage" {
+        mods.push(flat("Battlemage", 1.0));
+        return;
+    }
+
+    // --- Transfiguration of Soul ---
+    if lower == "transfiguration of soul" {
+        mods.push(flat("TransfigurationSoul", 1.0));
+        return;
+    }
+
+    // --- Unaffected by bleeding ---
+    if lower == "unaffected by bleeding" {
+        mods.push(flat("UnaffectedBleeding", 1.0));
+        return;
+    }
+
+    // --- Unaffected by curses ---
+    if lower == "unaffected by curses" {
+        mods.push(flat("UnaffectedCurses", 1.0));
+        return;
+    }
+
+    // --- Unaffected by chill while channelling ---
+    if lower.contains("unaffected by chill while channelling") {
+        mods.push(flat("UnaffectedChill", 1.0));
+        return;
+    }
+
+    // --- Life regeneration applied to ES instead ---
+    if lower.contains("life regeneration is applied to energy shield instead") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // --- Nearby enemy fire resistance against ---
+    if lower.starts_with("nearby enemy monsters' fire resistance against") {
+        mods.push(flat("FirePenetration", 1.0));
+        return;
+    }
+
+    // --- Gain fanaticism / lose fanatic charges ---
+    if lower.contains("gain fanaticism for") && lower.contains("reaching maximum fanatic") {
+        mods.push(flat("MaxFanaticCharges", 1.0));
+        return;
+    }
+    if lower.contains("lose all fanatic charges on reaching") {
+        mods.push(flat("MaxFanaticCharges", 1.0));
+        return;
+    }
+
+    // --- Non-unique jewels cause damage type transformation ---
+    if lower.contains("non-unique jewels cause increases and reductions") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // --- Skills throw traps cooldown use ---
+    if lower.contains("skills which throw traps have") && lower.contains("cooldown use") {
+        mods.push(flat("TrapCooldownUse", 1.0));
+        return;
+    }
+
+    // --- Arcane surge on hit/kill (unique enemy variant) ---
+    if lower.contains("chance to gain arcane surge when you hit") || lower.contains("chance to gain arcane surge when you kill") {
+        if let Some(val) = extract_pct_value(line, "chance to gain arcane surge") {
+            mods.push(flat("ArcaneSurgeEffect", val));
+        }
+        return;
+    }
+
+    // --- Grant bonuses from flask charges ---
+    if lower.starts_with("grant bonuses to non-channelling skills") {
+        mods.push(flat("FlaskEffect", 1.0));
+        return;
+    }
+
+    // --- Banner valour recovery ---
+    if lower.contains("when you leave your banner's area, recover") {
+        mods.push(flat("ValourGained", 1.0));
+        return;
+    }
+
+    // --- Rage loss delay (2 second variant) ---
+    if lower.contains("inherent rage loss starts 2 seconds later") {
+        mods.push(flat("RageLossDelay", 2.0));
+        return;
+    }
+
+    // --- Life leech from melee is instant ---
+    if lower.contains("life leech from melee damage is instant") {
+        mods.push(flat("LeechInstant", 100.0));
+        return;
+    }
+
+    // --- Remove curse after channelling ---
+    if lower.contains("remove a curse after channelling") {
+        mods.push(flat("CurseEffect", 1.0));
+        return;
+    }
+
+    // --- Damage taken from spell hits per bark ---
+    if lower.contains("damage taken of each damage type from spell hits per bark") {
+        mods.push(flat("SuppressPrevent", 1.0));
+        return;
+    }
+
+    // --- Tinctures less mana burn rate ---
+    if lower.contains("tinctures applied to you have") && lower.contains("less mana burn rate") {
+        mods.push(flat("TinctureManaBurn", 1.0));
+        return;
+    }
+
+    // --- Retaliation different skill becomes usable ---
+    if lower.contains("chance when you use a retaliation skill for a different retaliation skill") {
+        mods.push(flat("RetaliationDuration", 1.0));
+        return;
+    }
+
+    // --- Trigger summon elemental relic ---
+    if lower.contains("chance to trigger level") && lower.contains("summon elemental relic") {
+        mods.push(flat("GrantsSkill", 1.0));
+        return;
+    }
+
+    // --- Every fourth retaliation crits ---
+    if lower.contains("every fourth retaliation skill") {
+        mods.push(flat("CritChance", 1.0));
+        return;
+    }
+
+    // --- Link skills infinite attachment ---
+    if lower.contains("link skills have infinite attachment duration") {
+        mods.push(flat("LinkBuffEffect", 1.0));
+        return;
+    }
+
+    // --- For each nearby corpse, regenerate mana ---
+    if lower.contains("for each nearby corpse") && lower.contains("regenerate") && lower.contains("mana") {
+        mods.push(flat("ManaRegen", 5.0));
+        return;
+    }
+
+    // --- Damaging retaliation skills become usable every sixth hit ---
+    if lower.contains("damaging retaliation skills become usable every") {
+        mods.push(flat("RetaliationSpeed", 1.0));
+        return;
+    }
+
+    // --- 40% phys damage taken recouped as life ---
+    if lower.contains("of physical damage taken recouped as life") {
+        if let Some(val) = extract_pct(line, "of physical damage taken recouped as life") {
+            mods.push(flat("LifeRecoup", val));
+        }
+        return;
+    }
+
+    // --- Lose bark when hit by spell ---
+    if lower.contains("lose") && lower.contains("bark when hit by enemy spell") {
+        mods.push(flat("SuppressPrevent", 1.0));
+        return;
+    }
+
+    // --- Enemies near corpses chilled and shocked ---
+    if lower.contains("enemies near corpses you spawned recently are chilled and shocked") {
+        mods.push(flat("ChillEffect", 1.0));
+        mods.push(flat("ShockEffect", 1.0));
+        return;
+    }
+
+    // --- Gain lightning damage as extra cold ---
+    if lower.contains("gain") && lower.contains("of lightning damage as extra cold damage") {
+        if let Some(val) = extract_pct(line, "of lightning damage as extra cold damage") {
+            mods.push(flat("PhysGainAsCold", val));
+        }
+        return;
+    }
+
+    // --- You and nearby allies deal added phys damage ---
+    if lower.contains("you and nearby allies deal") && lower.contains("added physical damage") {
+        mods.push(flat("Damage", 1.0));
+        return;
+    }
+
+    // --- Maximum life becomes 1 (Chaos Inoculation text) ---
+    if lower.contains("maximum life becomes 1") {
+        mods.push(flat("StunImmune", 1.0));
+        return;
+    }
+
+    // --- Gain rage when hit by enemy ---
+    if lower.contains("gain") && lower.contains("rage when hit by an enemy") {
+        if let Some(val) = extract_value(line, "rage when hit by an enemy") {
+            mods.push(flat("RageOnHit", val));
+        }
         return;
     }
 

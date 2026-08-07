@@ -422,6 +422,123 @@ define_stats! {
     // Physical damage reduction per stat
     (PHYS_REDUCTION_PER_MINION, "PhysReductionPerMinion") = 287,
     (ELE_REDUCTION_PER_ENDURANCE, "EleReductionPerEndurance") = 288,
+    // Leech instant
+    (LEECH_INSTANT, "LeechInstant") = 289,
+    // Exposure effect
+    (EXPOSURE_EXTRA, "ExposureExtra") = 290,
+    // Exposure on hit (fire/cold/lightning)
+    (FIRE_EXPOSURE_ON_HIT, "FireExposureOnHit") = 291,
+    (COLD_EXPOSURE_ON_HIT, "ColdExposureOnHit") = 292,
+    (LIGHTNING_EXPOSURE_ON_HIT, "LightningExposureOnHit") = 293,
+    // Mana recoup
+    (MANA_RECOUP, "ManaRecoup") = 294,
+    // Avoid ignite/shock/chill
+    (IGNITE_AVOIDANCE, "IgniteAvoidance") = 295,
+    (SHOCK_AVOIDANCE, "ShockAvoidance") = 296,
+    (CHILL_AVOIDANCE, "ChillAvoidance") = 297,
+    (PHYS_HIT_AVOIDANCE, "PhysHitAvoidance") = 298,
+    // Prevent suppressed spell damage
+    (SUPPRESS_PREVENT, "SuppressPrevent") = 299,
+    // Max fanatic charges / virulence
+    (MAX_FANATIC_CHARGES, "MaxFanaticCharges") = 300,
+    (MAX_VIRULENCE, "MaxVirulence") = 301,
+    // Damage taken as (cold/lightning as fire)
+    (COLD_TAKEN_AS_FIRE, "ColdTakenAsFire") = 302,
+    (LIGHTNING_TAKEN_AS_FIRE, "LightningTakenAsFire") = 303,
+    // Consecrated ground on kill/hit
+    (CONSECRATED_GROUND_ON_KILL, "ConsecratedGroundOnKill") = 304,
+    // Smoke cloud
+    (SMOKE_CLOUD_ON_KILL, "SmokeCloudOnKill") = 305,
+    // Unholy might
+    (UNHOLY_MIGHT_ON_CRIT, "UnholyMightOnCrit") = 306,
+    // Maim on crit
+    (MAIM_ON_CRIT, "MaimOnCrit") = 307,
+    // Fortify chance
+    (FORTIFY_CHANCE, "FortifyChance") = 308,
+    // Defend with armour
+    (DEFEND_WITH_ARMOUR, "DefendWithArmour") = 309,
+    // Area damage avoidance
+    (AREA_DAMAGE_AVOIDANCE, "AreaDamageAvoidance") = 310,
+    // Crit damage immunity
+    (CRIT_DAMAGE_IMMUNE, "CritDamageImmune") = 311,
+    // Leech ES instead of life
+    (LEECH_ES_INSTEAD, "LeechESInstead") = 312,
+    // Unaffected by bleeding/curses/chill
+    (UNAFFECTED_BLEEDING, "UnaffectedBleeding") = 313,
+    (UNAFFECTED_CURSES, "UnaffectedCurses") = 314,
+    (UNAFFECTED_CHILL, "UnaffectedChill") = 315,
+    // Battlemage
+    (BATTLEMAGE, "Battlemage") = 316,
+    // Transfiguration of Soul
+    (TRANSFIGURATION_SOUL, "TransfigurationSoul") = 317,
+    // Skills reserve life
+    (SKILLS_RESERVE_LIFE, "SkillsReserveLife") = 318,
+    // Splash
+    (MELEE_SPLASH, "MeleeSplash") = 319,
+    // Additional brands
+    (ADDITIONAL_BRANDS, "AdditionalBrands") = 320,
+    // Phys damage taken flat reduction
+    (PHYS_DAMAGE_REDUCTION_FLAT, "PhysDamageReductionFlat") = 321,
+    // Armour applies to chaos
+    (ARMOUR_CHAOS_PROTECTION, "ArmourChaosProtection") = 322,
+    // Chaos res against DoT
+    (CHAOS_RES_DOT, "ChaosResDot") = 323,
+    // Max mirage archers
+    (MAX_MIRAGE_ARCHERS, "MaxMirageArchers") = 324,
+    // Warcry exert
+    (WARCRY_EXERT, "WarcryExert") = 325,
+    // Mark cost
+    (MARK_NO_COST, "MarkNoCost") = 326,
+    // Iron reflexes (convert evasion to armour)
+    (IRON_REFLEXES, "IronReflexes") = 327,
+    // Crit ignore resist
+    (CRIT_IGNORE_RESIST, "CritIgnoreResist") = 328,
+    // Max intensity
+    (MAX_INTENSITY, "MaxIntensity") = 329,
+    // Minion leech to you
+    (MINION_LEECH_TO_YOU, "MinionLeechToYou") = 330,
+    // ES recharge on suppress
+    (ES_RECHARGE_ON_SUPPRESS, "ESRechargeOnSuppress") = 331,
+    // Adrenaline on low life
+    (ADRENALINE_ON_LOW_LIFE, "AdrenalineOnLowLife") = 332,
+    // Endurance charge on stun
+    (ENDURANCE_CHARGE_ON_STUN, "EnduranceChargeOnStun") = 333,
+    // Tincture applies to ranged
+    (TINCTURE_RANGED, "TinctureRanged") = 334,
+    // Ward restore on hit
+    (WARD_RESTORE_ON_HIT, "WardRestoreOnHit") = 335,
+    // Minion unholy might
+    (MINION_UNHOLY_MIGHT, "MinionUnholyMight") = 336,
+    // Chaos res doubled
+    (CHAOS_RES_DOUBLED, "ChaosResDoubled") = 337,
+    // Share charges
+    (SHARE_CHARGES, "ShareCharges") = 338,
+    // Damage unlucky
+    (DAMAGE_UNLUCKY, "DamageUnlucky") = 339,
+    // Lightning damage lucky
+    (LIGHTNING_LUCKY, "LightningLucky") = 340,
+    // Enemy damage unlucky
+    (ENEMY_DAMAGE_UNLUCKY, "EnemyDamageUnlucky") = 341,
+    // All damage chill
+    (ALL_DAMAGE_CAN_CHILL, "AllDamageCanChill") = 342,
+    // Taunt on projectile
+    (TAUNT_ON_PROJECTILE, "TauntOnProjectile") = 343,
+    // Scorch
+    (ADDITIONAL_SCORCH, "AdditionalScorch") = 344,
+    // Additional traps/mines throw
+    (ADDITIONAL_TRAP_MINE, "AdditionalTrapMine") = 345,
+    // Trap cooldown use
+    (TRAP_COOLDOWN_USE, "TrapCooldownUse") = 346,
+    // Endurance charge on channel
+    (ENDURANCE_ON_CHANNEL, "EnduranceOnChannel") = 347,
+    // Reflect physical
+    (REFLECT_PHYS_DAMAGE, "ReflectPhysDamage") = 348,
+    // Baryatic tension
+    (MAX_BARYATIC, "MaxBaryatic") = 349,
+    // Ward faster restoration
+    (WARD_RESTORATION, "WardRestoration") = 350,
+    // Spell less crit chance
+    (SPELL_LESS_CRIT, "SpellLessCrit") = 351,
 }
 
 // ---------------------------------------------------------------------------
