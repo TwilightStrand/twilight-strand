@@ -140,6 +140,17 @@ define_stats! {
     (MINION_SPEED, "MinionSpeed") = 98,
     (MINION_MOVE_SPEED, "MinionMoveSpeed") = 99,
     (IMPALE_DPS, "ImpaleDPS") = 100,
+    // Charges
+    (MAX_POWER_CHARGES, "MaxPowerCharges") = 101,
+    (MAX_FRENZY_CHARGES, "MaxFrenzyCharges") = 102,
+    (MAX_ENDURANCE_CHARGES, "MaxEnduranceCharges") = 103,
+    // Self aura effect
+    (AURA_EFFECT_ON_SELF, "AuraEffectOnSelf") = 104,
+    // DoT multi (element-specific, but tracked generically for now)
+    (COLD_DOT_MULTI, "ColdDotMulti") = 105,
+    (FIRE_DOT_MULTI, "FireDotMulti") = 106,
+    (CHAOS_DOT_MULTI, "ChaosDotMulti") = 107,
+    (PHYS_DOT_MULTI, "PhysDotMulti") = 108,
 }
 
 // ---------------------------------------------------------------------------
