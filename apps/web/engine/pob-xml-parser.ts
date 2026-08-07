@@ -184,13 +184,27 @@ function extractItems(root: Element): ItemData[] {
     const base = lines.find((l) => !l.startsWith("Rarity:") && !l.startsWith("{") && l !== name) ?? "";
 
     const mods: string[] = [];
+    let baseArmour = 0;
+    let baseEvasion = 0;
+    let baseES = 0;
+    let baseBlock = 0;
     let pastSeparator = false;
     for (const line of lines) {
       if (line === "--------") {
         pastSeparator = true;
         continue;
       }
-      if (pastSeparator && !line.startsWith("Rarity:") && !line.startsWith("{")) {
+      if (!pastSeparator) continue;
+      const defMatch = line.match(/^(Armour|Evasion Rating|Energy Shield|Chance to Block):\s*(\d+)/);
+      if (defMatch) {
+        const val = parseInt(defMatch[2], 10);
+        if (defMatch[1] === "Armour") baseArmour = val;
+        else if (defMatch[1] === "Evasion Rating") baseEvasion = val;
+        else if (defMatch[1] === "Energy Shield") baseES = val;
+        else if (defMatch[1] === "Chance to Block") baseBlock = val;
+        continue;
+      }
+      if (!line.startsWith("Rarity:") && !line.startsWith("{")) {
         mods.push(line);
       }
     }
@@ -206,6 +220,10 @@ function extractItems(root: Element): ItemData[] {
       mods,
       quality: 0,
       sockets: "",
+      baseArmour: baseArmour || undefined,
+      baseEvasion: baseEvasion || undefined,
+      baseES: baseES || undefined,
+      baseBlock: baseBlock || undefined,
     });
   }
 

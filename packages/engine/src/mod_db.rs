@@ -151,6 +151,15 @@ define_stats! {
     (FIRE_DOT_MULTI, "FireDotMulti") = 106,
     (CHAOS_DOT_MULTI, "ChaosDotMulti") = 107,
     (PHYS_DOT_MULTI, "PhysDotMulti") = 108,
+    // Physical damage taken as element
+    (PHYS_TAKEN_AS_FIRE, "PhysTakenAsFire") = 109,
+    (PHYS_TAKEN_AS_COLD, "PhysTakenAsCold") = 110,
+    (PHYS_TAKEN_AS_LIGHTNING, "PhysTakenAsLightning") = 111,
+    (PHYS_TAKEN_AS_CHAOS, "PhysTakenAsChaos") = 112,
+    // Action speed
+    (ACTION_SPEED, "ActionSpeed") = 113,
+    // Stun / block recovery
+    (STUN_BLOCK_RECOVERY, "StunBlockRecovery") = 114,
 }
 
 // ---------------------------------------------------------------------------

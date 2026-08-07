@@ -19,29 +19,8 @@ function mockTreeNodes(entries: Array<{ id: string; stats?: string[]; isKeystone
   return map;
 }
 
-function mockParseStatLine(line: string): Array<{ stat: string; value: number; mod_type: string }> {
-  const lower = line.toLowerCase();
-  if (lower.includes("to maximum life")) {
-    const m = line.match(/\+?(\d+)/);
-    return m ? [{ stat: "Life", value: parseFloat(m[1]), mod_type: "flat" }] : [];
-  }
-  if (lower.includes("increased maximum life")) {
-    const m = line.match(/(\d+)%/);
-    return m ? [{ stat: "Life", value: parseFloat(m[1]), mod_type: "increased" }] : [];
-  }
-  if (lower.includes("to fire resistance")) {
-    const m = line.match(/\+?(\d+)%/);
-    return m ? [{ stat: "FireRes", value: parseFloat(m[1]), mod_type: "flat" }] : [];
-  }
-  if (lower.includes("to strength")) {
-    const m = line.match(/\+?(\d+)/);
-    return m ? [{ stat: "Str", value: parseFloat(m[1]), mod_type: "flat" }] : [];
-  }
-  return [];
-}
-
 const baseStats: BuildStats = {
-  total_dps: 0, combined_dps: 0, total_ehp: 0,
+  total_dps: 0, combined_dps: 0, full_dps: 0, total_ehp: 0,
   life: 1000, energy_shield: 0, mana: 500,
   strength: 50, dexterity: 30, intelligence: 30,
   armour: 0, evasion: 0, evade_chance: 0,
@@ -65,21 +44,22 @@ const baseStats: BuildStats = {
 describe("rust-converter", () => {
   describe("convertToRustInput", () => {
     it("should extract basic build info", () => {
-      const result = convertToRustInput(baseStats, [], [], mockTreeNodes([]), mockParseStatLine);
+      const result = convertToRustInput(baseStats, [], [], mockTreeNodes([]));
       expect(result.level).toBe(90);
       expect(result.class_id).toBe(1); // Marauder
       expect(result.ascendancy_name).toBe("Juggernaut");
     });
 
-    it("should parse item mods into modifiers", () => {
+    it("should collect item mods as stat_lines", () => {
       const items: ItemData[] = [
         { slot: "Body Armour", name: "Kaom's Heart", base: "Glorious Plate", rarity: "Unique", mods: ["+500 to maximum Life"], quality: 0, sockets: "" },
         { slot: "Ring 1", name: "Coral Ring", base: "Coral Ring", rarity: "Rare", mods: ["+40 to maximum Life", "+30% to Fire Resistance"], quality: 0, sockets: "" },
       ];
-      const result = convertToRustInput(baseStats, items, [], mockTreeNodes([]), mockParseStatLine);
-      const lifeMods = result.modifiers.filter(m => m.stat === "Life" && m.mod_type === "flat");
-      expect(lifeMods.length).toBe(2);
-      expect(lifeMods.reduce((s, m) => s + m.value, 0)).toBe(540);
+      const result = convertToRustInput(baseStats, items, [], mockTreeNodes([]));
+      expect(result.stat_lines).toContain("+500 to maximum Life");
+      expect(result.stat_lines).toContain("+40 to maximum Life");
+      expect(result.stat_lines).toContain("+30% to Fire Resistance");
+      expect(result.modifiers).toHaveLength(0);
     });
 
     it("should detect unique items", () => {
@@ -87,7 +67,7 @@ describe("rust-converter", () => {
         { slot: "Body Armour", name: "Kaom's Heart", base: "Glorious Plate", rarity: "Unique", mods: [], quality: 0, sockets: "" },
         { slot: "Helmet", name: "Rare Helm", base: "Lion Pelt", rarity: "Rare", mods: [], quality: 0, sockets: "" },
       ];
-      const result = convertToRustInput(baseStats, items, [], mockTreeNodes([]), mockParseStatLine);
+      const result = convertToRustInput(baseStats, items, [], mockTreeNodes([]));
       expect(result.equipped_uniques).toEqual(["Kaom's Heart"]);
     });
 
@@ -102,24 +82,24 @@ describe("rust-converter", () => {
           ],
         },
       ];
-      const result = convertToRustInput(baseStats, [], skills, mockTreeNodes([]), mockParseStatLine);
+      const result = convertToRustInput(baseStats, [], skills, mockTreeNodes([]));
       expect(result.main_skill_id).toBe("GroundSlam");
       expect(result.support_gems).toContain("Melee Physical Damage Support");
       expect(result.support_gems).toContain("Faster Attacks Support");
       expect(result.support_gems).toHaveLength(2);
     });
 
-    it("should extract tree node stats and keystones", () => {
+    it("should collect tree node stats as stat_lines and detect keystones", () => {
       const treeNodes = mockTreeNodes([
         { id: "1001", stats: ["+10 to Strength", "8% increased maximum Life"], name: "Life Node" },
         { id: "1002", stats: ["+30% to Fire Resistance"], name: "Res Node" },
         { id: "1003", stats: [], isKeystone: true, name: "Chaos Inoculation" },
       ]);
-      const result = convertToRustInput(baseStats, [], [], treeNodes, mockParseStatLine);
+      const result = convertToRustInput(baseStats, [], [], treeNodes);
       expect(result.allocated_keystones).toContain("Chaos Inoculation");
-      const strMods = result.modifiers.filter(m => m.stat === "Str");
-      expect(strMods.length).toBe(1);
-      expect(strMods[0].value).toBe(10);
+      expect(result.stat_lines).toContain("+10 to Strength");
+      expect(result.stat_lines).toContain("8% increased maximum Life");
+      expect(result.stat_lines).toContain("+30% to Fire Resistance");
     });
 
     it("should detect flasks from flask slots", () => {
@@ -127,7 +107,7 @@ describe("rust-converter", () => {
         { slot: "Flask 1", name: "Diamond Flask", base: "Diamond Flask", rarity: "Normal", mods: [], quality: 0, sockets: "" },
         { slot: "Flask 3", name: "Bottled Faith", base: "Sulphur Flask", rarity: "Unique", mods: [], quality: 0, sockets: "" },
       ];
-      const result = convertToRustInput(baseStats, items, [], mockTreeNodes([]), mockParseStatLine);
+      const result = convertToRustInput(baseStats, items, [], mockTreeNodes([]));
       expect(result.active_flasks).toContain("Diamond Flask");
       expect(result.active_flasks).toContain("Bottled Faith");
     });
@@ -142,7 +122,7 @@ describe("rust-converter", () => {
           ],
         },
       ];
-      const result = convertToRustInput(baseStats, [], skills, mockTreeNodes([]), mockParseStatLine);
+      const result = convertToRustInput(baseStats, [], skills, mockTreeNodes([]));
       expect(result.support_gems).toHaveLength(0);
     });
   });

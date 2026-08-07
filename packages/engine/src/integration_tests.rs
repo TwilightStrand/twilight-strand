@@ -607,4 +607,102 @@ mod tests {
         assert!(with_surge > base_dps,
             "Arcane Surge should increase spell DPS: {} vs {}", with_surge, base_dps);
     }
+
+    // ---- stat_lines v2 pipeline tests ----------------------------------------
+
+    #[test]
+    fn stat_lines_v2_basic_life_and_res() {
+        let mut input = marauder(90);
+        input.stat_lines = vec![
+            "+50 to maximum Life".into(),
+            "120% increased maximum Life".into(),
+            "+80 to Strength".into(),
+            "+40% to Fire Resistance".into(),
+        ];
+        let out = evaluate_build(input);
+        assert!(out.life > 500.0, "stat_lines should produce life: {}", out.life);
+        assert!(out.fire_res > -60.0, "stat_lines should add fire res: {}", out.fire_res);
+        assert!(out.strength > 32.0, "stat_lines should add str: {}", out.strength);
+    }
+
+    #[test]
+    fn stat_lines_v2_matches_legacy_modifiers() {
+        let mut legacy = marauder(90);
+        legacy.modifiers = vec![
+            m("Life", 50.0, "flat"),
+            m("Life", 120.0, "increased"),
+            m("Str", 80.0, "flat"),
+            m("FireRes", 40.0, "flat"),
+        ];
+        let legacy_out = evaluate_build(legacy);
+
+        let mut v2 = marauder(90);
+        v2.stat_lines = vec![
+            "+50 to maximum Life".into(),
+            "120% increased maximum Life".into(),
+            "+80 to Strength".into(),
+            "+40% to Fire Resistance".into(),
+        ];
+        let v2_out = evaluate_build(v2);
+
+        assert!((legacy_out.life - v2_out.life).abs() < 1.0,
+            "Life should match: legacy={} v2={}", legacy_out.life, v2_out.life);
+        assert!((legacy_out.fire_res - v2_out.fire_res).abs() < 0.1,
+            "Fire res should match: legacy={} v2={}", legacy_out.fire_res, v2_out.fire_res);
+        assert!((legacy_out.strength - v2_out.strength).abs() < 1.0,
+            "Str should match: legacy={} v2={}", legacy_out.strength, v2_out.strength);
+    }
+
+    #[test]
+    fn stat_lines_v2_conditional_mod_respected() {
+        let mut input = marauder(90);
+        input.stat_lines = vec![
+            "20% increased Attack Speed while Dual Wielding".into(),
+        ];
+        input.is_dual_wield = false;
+        let without = evaluate_build(input.clone());
+
+        input.is_dual_wield = true;
+        let with_dw = evaluate_build(input);
+
+        assert!(with_dw.attack_speed > without.attack_speed,
+            "Conditional mod should only apply when condition met: dw={} no_dw={}",
+            with_dw.attack_speed, without.attack_speed);
+    }
+
+    #[test]
+    fn stat_lines_v2_per_charge_multiplier() {
+        let mut input = marauder(90);
+        input.stat_lines = vec![
+            "5% increased Attack Speed per Frenzy Charge".into(),
+        ];
+        input.main_skill_id = "GroundSlam".into();
+        input.weapon_phys_min = 100.0;
+        input.weapon_phys_max = 200.0;
+        input.weapon_aps = 1.5;
+        input.weapon_crit = 5.0;
+        input.frenzy_charges = 0;
+        let zero_charges = evaluate_build(input.clone());
+
+        input.frenzy_charges = 5;
+        let five_charges = evaluate_build(input);
+
+        assert!(five_charges.attack_speed > zero_charges.attack_speed,
+            "Per-charge mod should scale with charges: 5c={} 0c={}",
+            five_charges.attack_speed, zero_charges.attack_speed);
+    }
+
+    #[test]
+    fn gear_stats_affect_output() {
+        let mut input = witch(90);
+        input.gear_armour = 1000.0;
+        input.gear_evasion = 500.0;
+        input.gear_es = 300.0;
+        input.gear_block = 20.0;
+        let out = evaluate_build(input);
+        assert!(out.armour > 900.0, "gear_armour should contribute: {}", out.armour);
+        assert!(out.evasion > 400.0, "gear_evasion should contribute: {}", out.evasion);
+        assert!(out.energy_shield > 200.0, "gear_es should contribute: {}", out.energy_shield);
+        assert!(out.block_chance >= 20.0, "gear_block should contribute: {}", out.block_chance);
+    }
 }

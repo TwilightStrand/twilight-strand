@@ -62,6 +62,10 @@ export interface ItemData {
   mods: string[];
   quality: number;
   sockets: string;
+  baseArmour?: number;
+  baseEvasion?: number;
+  baseES?: number;
+  baseBlock?: number;
 }
 
 export interface SkillGroup {

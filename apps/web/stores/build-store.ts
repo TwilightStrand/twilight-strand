@@ -527,7 +527,7 @@ async function runRustEval(xmlStats: BuildStats, items: ItemData[], skills: Skil
   const { setState } = useBuildStore;
   try {
     const [
-      { isRustEngineReady, initRustEngine, evaluateBuildRust, parseStatLine },
+      { isRustEngineReady, initRustEngine, evaluateBuildRust },
       { ensureTreeData, convertToRustInput, rustOutputToBuildStats },
     ] = await Promise.all([import("@/engine/rust-bridge"), import("@/engine/rust-converter")]);
 
@@ -535,7 +535,7 @@ async function runRustEval(xmlStats: BuildStats, items: ItemData[], skills: Skil
     if (!isRustEngineReady()) return;
 
     const treeNodes = await ensureTreeData();
-    const rustInput = convertToRustInput(xmlStats, items, skills, treeNodes, parseStatLine);
+    const rustInput = convertToRustInput(xmlStats, items, skills, treeNodes);
     const rustStart = performance.now();
     const rustOutput = evaluateBuildRust(rustInput);
     const rustTime = Math.round(performance.now() - rustStart);
@@ -612,14 +612,14 @@ async function runDivergenceCheck(luaStats: BuildStats, items: ItemData[], skill
   const { setState } = useBuildStore;
   try {
     const [
-      { isRustEngineReady, evaluateBuildRust, parseStatLine },
+      { isRustEngineReady, evaluateBuildRust },
       { ensureTreeData, convertToRustInput, compareLuaVsRust },
     ] = await Promise.all([import("@/engine/rust-bridge"), import("@/engine/rust-converter")]);
 
     if (!isRustEngineReady()) return;
 
     const treeNodes = await ensureTreeData();
-    const rustInput = convertToRustInput(luaStats, items, skills, treeNodes, parseStatLine);
+    const rustInput = convertToRustInput(luaStats, items, skills, treeNodes);
     const rustOutput = evaluateBuildRust(rustInput);
 
     if (!rustOutput) {

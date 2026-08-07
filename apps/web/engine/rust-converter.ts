@@ -1,5 +1,5 @@
 import type { BuildStats, ItemData, SkillGroup } from "./types";
-import type { RustBuildInput, RustModifier, RustCalcOutput } from "./rust-bridge";
+import type { RustBuildInput, RustCalcOutput } from "./rust-bridge";
 import type { TreeNode } from "@/components/tree/tree-data";
 import { parseClusterJewel } from "./cluster-jewel";
 import { CLUSTER_NOTABLES } from "@/data/cluster-data.generated";
@@ -103,9 +103,8 @@ export function convertToRustInput(
   items: ItemData[],
   skills: SkillGroup[],
   treeNodes: Map<string, TreeNode>,
-  parseStatLine: (line: string) => RustModifier[],
 ): RustBuildInput {
-  const modifiers: RustModifier[] = [];
+  const statLines: string[] = [];
   const keystones: string[] = [];
   const equippedUniques: string[] = [];
 
@@ -120,7 +119,7 @@ export function convertToRustInput(
     }
   }
 
-  // Item mods → modifiers + unique detection + cluster jewel resolution
+  // Item mods → stat lines + unique detection + cluster jewel resolution
   for (const item of items) {
     if (item.rarity === "UNIQUE" || item.rarity === "Unique") {
       equippedUniques.push(item.name);
@@ -134,14 +133,12 @@ export function convertToRustInput(
           const notable = CLUSTER_NOTABLES[node.name];
           if (notable) {
             for (const stat of notable.stats) {
-              const parsed = parseStatLine(stat);
-              modifiers.push(...parsed);
+              statLines.push(stat);
             }
           }
         } else if (node.type === "small") {
           for (const stat of node.stats) {
-            const parsed = parseStatLine(stat);
-            modifiers.push(...parsed);
+            statLines.push(stat);
           }
         }
       }
@@ -156,12 +153,11 @@ export function convertToRustInput(
         if (!activeAuras.has(aura)) continue;
         line = mod.replace(WHILE_AFFECTED_RE, "");
       }
-      const parsed = parseStatLine(line);
-      modifiers.push(...parsed);
+      statLines.push(line);
     }
   }
 
-  // Tree node stats → modifiers + keystone detection
+  // Tree node stats → stat lines + keystone detection
   for (const nodeId of stats.allocated_nodes) {
     const node = treeNodes.get(String(nodeId));
     if (!node) continue;
@@ -172,8 +168,7 @@ export function convertToRustInput(
 
     if (node.stats) {
       for (const statLine of node.stats) {
-        const parsed = parseStatLine(statLine);
-        modifiers.push(...parsed);
+        statLines.push(statLine);
       }
     }
   }
@@ -203,6 +198,19 @@ export function convertToRustInput(
     }
   }
 
+  // Gear defence stats (pre-computed values from XML, local mods already applied)
+  let gearArmour = 0;
+  let gearEvasion = 0;
+  let gearES = 0;
+  let gearBlock = 0;
+  for (const item of items) {
+    if (FLASK_SLOTS.includes(item.slot)) continue;
+    gearArmour += item.baseArmour ?? 0;
+    gearEvasion += item.baseEvasion ?? 0;
+    gearES += item.baseES ?? 0;
+    gearBlock += item.baseBlock ?? 0;
+  }
+
   // Weapon stats
   const weapon = extractWeaponStats(items, WEAPON1_SLOTS);
   const weapon2 = extractWeaponStats(items, WEAPON2_SLOTS);
@@ -214,7 +222,7 @@ export function convertToRustInput(
     base_str: 0,
     base_dex: 0,
     base_int: 0,
-    modifiers,
+    modifiers: [],
     allocated_keystones: keystones,
     main_skill_id: mainSkillId,
     ascendancy_name: stats.ascendancy,
@@ -256,6 +264,11 @@ export function convertToRustInput(
     weapon2_aps: weapon2.aps,
     weapon2_crit: weapon2.crit,
     is_dual_wield: isDualWield,
+    stat_lines: statLines,
+    gear_armour: gearArmour,
+    gear_evasion: gearEvasion,
+    gear_es: gearES,
+    gear_block: gearBlock,
   };
 }
 
