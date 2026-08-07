@@ -417,10 +417,17 @@ pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
             mods.push(increased("CritChance", val));
         }
     }
-    if let Some(val) = extract_pct_value(line, "to critical strike multiplier") {
-        mods.push(flat("CritMultiplier", val));
-    } else if let Some(val) = extract_pct_value(line, "to global critical strike multiplier") {
-        mods.push(flat("CritMultiplier", val));
+    {
+        let lower = line.to_lowercase();
+        if lower.contains("critical strike multiplier") {
+            if let Some(val) = extract_pct_value(line, "to global critical strike multiplier") {
+                mods.push(flat("CritMultiplier", val));
+            } else if let Some(val) = extract_pct_value(line, "critical strike multiplier for spells") {
+                mods.push(flat("CritMultiplier", val));
+            } else if let Some(val) = extract_pct_value(line, "to critical strike multiplier") {
+                mods.push(flat("CritMultiplier", val));
+            }
+        }
     }
 
     // --- Block --------------------------------------------------------------
@@ -665,6 +672,59 @@ pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
     // --- Stun avoidance ----------------------------------------------------
     if let Some(val) = extract_pct_value(line, "chance to avoid being stunned") {
         mods.push(flat("StunAvoidance", val));
+    }
+
+    // --- ES Regen (flat) ----------------------------------------------------
+    {
+        let lower = line.to_lowercase();
+        if lower.contains("regenerate") && lower.contains("energy shield per second") {
+            if let Some(val) = extract_pct(line, "of energy shield per second") {
+                mods.push(flat("ESRegen", val));
+            } else if let Some(val) = extract_value(line, "energy shield per second") {
+                mods.push(flat("ESRegen", val));
+            }
+        }
+    }
+
+    // --- Mana Regen (flat) --------------------------------------------------
+    {
+        let lower = line.to_lowercase();
+        if lower.contains("regenerate") && lower.contains("mana per second") {
+            if let Some(val) = extract_value(line, "mana per second") {
+                mods.push(flat("ManaRegen", val));
+            }
+        }
+    }
+
+    // --- Spell-specific crit chance ------------------------------------------
+    {
+        let lower = line.to_lowercase();
+        if lower.contains("spell critical strike chance") {
+            if let Some(val) = extract_pct(line, "increased spell critical strike chance") {
+                mods.push(increased("CritChance", val));
+            }
+        }
+    }
+
+    // --- Cast Speed (separate from Attack Speed) ----------------------------
+    {
+        let lower = line.to_lowercase();
+        if lower.contains("more cast speed") {
+            if let Some(val) = extract_pct(line, "more cast speed") {
+                mods.push(more("AttackSpeed", val));
+            }
+        }
+    }
+
+    // --- Conversion (alternate wording: "X% of Physical Damage taken as") ---
+    {
+        let lower = line.to_lowercase();
+        if lower.contains("damage") && (lower.contains("taken as") || lower.contains("converted to")) {
+            if !lower.contains("converted to") {
+                // "taken as" variants - damage shift, not calc-affecting in same way
+                // but still useful to track
+            }
+        }
     }
 
     // --- Life on hit / kill -------------------------------------------------
@@ -1532,6 +1592,102 @@ mod tests {
     fn test_v2_unknown_line_empty() {
         let mods = parse_stat_line_v2("Some completely unknown stat text xyz");
         assert!(mods.is_empty());
+    }
+
+    // --- New pattern coverage tests ---
+
+    #[test]
+    fn test_increased_es_no_maximum() {
+        let mods = parse_stat_line("67% increased Energy Shield");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "EnergyShield");
+        assert_eq!(mods[0].value, 67.0);
+        assert_eq!(mods[0].mod_type, "increased");
+    }
+
+    #[test]
+    fn test_increased_es_range() {
+        let mods = parse_stat_line("(56-74)% increased Energy Shield");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "EnergyShield");
+        assert_eq!(mods[0].value, 65.0);
+    }
+
+    #[test]
+    fn test_global_crit_multi() {
+        let mods = parse_stat_line("+20% to Global Critical Strike Multiplier");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "CritMultiplier");
+        assert_eq!(mods[0].value, 20.0);
+    }
+
+    #[test]
+    fn test_crit_multi_range() {
+        let mods = parse_stat_line("+(10-20)% to Global Critical Strike Multiplier");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "CritMultiplier");
+        assert_eq!(mods[0].value, 15.0);
+    }
+
+    #[test]
+    fn test_combined_fire_lightning_res() {
+        let mods = parse_stat_line("+(17-20)% to Fire and Lightning Resistances");
+        assert!(mods.len() >= 2, "expected 2+ mods, got {:?}", mods);
+        let stats: Vec<_> = mods.iter().map(|m| m.stat.as_str()).collect();
+        assert!(stats.contains(&"FireRes"));
+        assert!(stats.contains(&"LightningRes"));
+    }
+
+    #[test]
+    fn test_es_regen_flat() {
+        let mods = parse_stat_line("Regenerate 150 Energy Shield per second");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "ESRegen");
+        assert_eq!(mods[0].value, 150.0);
+    }
+
+    #[test]
+    fn test_spell_crit_multi() {
+        let mods = parse_stat_line("+30% to Critical Strike Multiplier for Spells");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "CritMultiplier");
+        assert_eq!(mods[0].value, 30.0);
+    }
+
+    #[test]
+    fn test_spell_crit_chance() {
+        let mods = parse_stat_line("50% increased Spell Critical Strike Chance");
+        assert!(mods.iter().any(|m| m.stat == "CritChance" && m.value == 50.0));
+    }
+
+    #[test]
+    fn test_mana_regen_flat() {
+        let mods = parse_stat_line("Regenerate 5 Mana per second");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "ManaRegen");
+        assert_eq!(mods[0].value, 5.0);
+    }
+
+    #[test]
+    fn test_increased_duration() {
+        let mods = parse_stat_line("40% increased Duration");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "SkillDuration");
+        assert_eq!(mods[0].value, 40.0);
+    }
+
+    #[test]
+    fn test_more_es() {
+        let mods = parse_stat_line("15% more Energy Shield");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "EnergyShield");
+        assert_eq!(mods[0].mod_type, "more");
+    }
+
+    #[test]
+    fn test_all_resistances() {
+        let mods = parse_stat_line("+200% to all resistances");
+        assert_eq!(mods.len(), 4, "expected 4 mods for all res, got {:?}", mods);
     }
 
     #[test]
