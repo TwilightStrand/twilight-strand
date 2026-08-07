@@ -160,6 +160,113 @@ define_stats! {
     (ACTION_SPEED, "ActionSpeed") = 113,
     // Stun / block recovery
     (STUN_BLOCK_RECOVERY, "StunBlockRecovery") = 114,
+    // Mana cost
+    (MANA_COST, "ManaCost") = 115,
+    // Attribute requirements
+    (ATTRIBUTE_REQUIREMENTS, "AttributeRequirements") = 116,
+    // Stun threshold
+    (STUN_THRESHOLD, "StunThreshold") = 117,
+    // Ailment chance
+    (IGNITE_CHANCE, "IgniteChance") = 118,
+    (FREEZE_CHANCE, "FreezeChance") = 119,
+    (SHOCK_CHANCE, "ShockChance") = 120,
+    (BLEED_CHANCE, "BleedChance") = 121,
+    // Ailment effect
+    (SHOCK_EFFECT, "ShockEffect") = 122,
+    (CHILL_EFFECT, "ChillEffect") = 123,
+    // Leech rate
+    (LIFE_LEECH_RATE_INC, "LifeLeechRateInc") = 124,
+    (MAX_LIFE_LEECH_RATE, "MaxLifeLeechRate") = 125,
+    // Shield defences
+    (SHIELD_DEFENCES, "ShieldDefences") = 126,
+    // Flask recovery
+    (FLASK_LIFE_RECOVERY, "FlaskLifeRecovery") = 127,
+    // Totem
+    (TOTEM_DAMAGE, "TotemDamage") = 128,
+    (TOTEM_LIFE, "TotemLife") = 129,
+    (TOTEM_PLACEMENT_SPEED, "TotemPlacementSpeed") = 130,
+    (TOTEM_DURATION, "TotemDuration") = 131,
+    // Light radius
+    (LIGHT_RADIUS, "LightRadius") = 132,
+    // Duration modifiers
+    (POISON_DURATION, "PoisonDuration") = 133,
+    (BLEED_DURATION, "BleedDuration") = 134,
+    (IGNITE_DURATION, "IgniteDuration") = 135,
+    (FREEZE_DURATION, "FreezeDuration") = 136,
+    (CHARGE_DURATION, "ChargeDuration") = 137,
+    // Trap / Mine
+    (TRAP_THROWING_SPEED, "TrapThrowingSpeed") = 138,
+    (MINE_THROWING_SPEED, "MineThrowingSpeed") = 139,
+    (MINE_DETONATION_SPEED, "MineDetonationSpeed") = 140,
+    (MINE_DURATION, "MineDuration") = 141,
+    (TRAP_TRIGGER_AREA, "TrapTriggerArea") = 142,
+    // Warcry
+    (WARCRY_SPEED, "WarcrySpeed") = 143,
+    (WARCRY_BUFF_EFFECT, "WarcryBuffEffect") = 144,
+    (WARCRY_DURATION, "WarcryDuration") = 145,
+    (WARCRY_COOLDOWN, "WarcryCooldown") = 146,
+    // Effect modifiers
+    (HERALD_BUFF_EFFECT, "HeraldBuffEffect") = 147,
+    (MARK_EFFECT, "MarkEffect") = 148,
+    (ONSLAUGHT_EFFECT, "OnslaughtEffect") = 149,
+    (ARCANE_SURGE_EFFECT, "ArcaneSurgeEffect") = 150,
+    (GOLEM_BUFF_EFFECT, "GolemBuffEffect") = 151,
+    (NON_DAMAGING_AILMENT_EFFECT, "NonDamagingAilmentEffect") = 152,
+    (COLD_AILMENT_EFFECT, "ColdAilmentEffect") = 153,
+    (LIGHTNING_AILMENT_EFFECT, "LightningAilmentEffect") = 154,
+    // Cost efficiency
+    (COST_EFFICIENCY, "CostEfficiency") = 155,
+    // Flask
+    (FLASK_CHARGES_GAINED, "FlaskChargesGained") = 156,
+    (FLASK_EFFECT_APPLIED, "FlaskEffectApplied") = 157,
+    // Recoup
+    (LIFE_RECOUP, "LifeRecoup") = 158,
+    // Melee strike range
+    (MELEE_RANGE, "MeleeRange") = 159,
+    // Double damage
+    (DOUBLE_DAMAGE_CHANCE, "DoubleDamageChance") = 160,
+    // Block recovery
+    (BLOCK_RECOVERY, "BlockRecovery") = 161,
+    // Mana leech
+    (MANA_LEECH_PCT, "ManaLeechPct") = 162,
+    // Ailment-specific damage
+    (BURNING_DAMAGE, "BurningDamage") = 163,
+    (AILMENT_DAMAGE, "AilmentDamage") = 164,
+    // Stun duration on enemies
+    (STUN_DURATION, "StunDuration") = 165,
+    // Blind
+    (BLIND_EFFECT, "BlindEffect") = 166,
+    // Minion duration
+    (MINION_DURATION, "MinionDuration") = 167,
+    // Max fortification
+    (MAX_FORTIFICATION, "MaxFortification") = 168,
+    // Tincture effect
+    (TINCTURE_EFFECT, "TinctureEffect") = 169,
+    // Reservation efficiency (generic)
+    (RESERVATION_EFFICIENCY, "ReservationEfficiency") = 170,
+    // Mana on hit
+    (MANA_ON_HIT, "ManaOnHit") = 171,
+    // Rage
+    (MAX_RAGE, "MaxRage") = 172,
+    // Avoid ailments
+    (BLEED_AVOIDANCE, "BleedAvoidance") = 173,
+    (POISON_AVOIDANCE, "PoisonAvoidance") = 174,
+    (FREEZE_AVOIDANCE, "FreezeAvoidance") = 175,
+    // Damage taken from mana
+    (MIND_OVER_MATTER_PCT, "MindOverMatterPct") = 176,
+    // Elusive effect
+    (ELUSIVE_EFFECT, "ElusiveEffect") = 177,
+    // Taunt duration
+    (TAUNT_DURATION, "TauntDuration") = 178,
+    // Knockback
+    (KNOCKBACK_DISTANCE, "KnockbackDistance") = 179,
+    // Max mana/life as extra ES
+    (MANA_AS_EXTRA_ES, "ManaAsExtraES") = 180,
+    (LIFE_AS_EXTRA_ES, "LifeAsExtraES") = 181,
+    // Withered effect
+    (WITHERED_EFFECT, "WitheredEffect") = 182,
+    // Rage effect
+    (RAGE_EFFECT, "RageEffect") = 183,
 }
 
 // ---------------------------------------------------------------------------

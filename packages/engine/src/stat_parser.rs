@@ -35,917 +35,891 @@ fn strip_ranges(line: &str) -> String {
     result
 }
 
-/// Parse a PoE stat description line into zero or more Modifiers.
-pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
-    let line = line.trim();
-    if line.is_empty() {
-        return vec![];
-    }
+// ---------------------------------------------------------------------------
+// Table-driven parser types
+// ---------------------------------------------------------------------------
 
-    // Pre-pass: replace (X-Y) ranges with midpoint
-    let line = &strip_ranges(line);
+#[derive(Copy, Clone, Debug, PartialEq)]
+enum Extract { Value, Pct, PctValue, DamageRange }
 
-    let mut mods = Vec::new();
+#[derive(Copy, Clone, Debug, PartialEq)]
+enum ModOut { Flat, Increased, More }
 
-    // --- Nearby Enemies resistance reduction (treated as penetration) --------
-    // Must come before resistance patterns to avoid matching as player res
-    {
-        let lower = line.to_lowercase();
-        if lower.contains("nearby enemies have") && lower.contains("resistance") {
-            if let Some(val) = extract_pct_value(line, "to fire resistance") {
-                mods.push(flat("FirePenetration", val.abs()));
-            }
-            if let Some(val) = extract_pct_value(line, "to cold resistance") {
-                mods.push(flat("ColdPenetration", val.abs()));
-            }
-            if let Some(val) = extract_pct_value(line, "to lightning resistance") {
-                mods.push(flat("LightningPenetration", val.abs()));
-            }
-            if let Some(val) = extract_pct_value(line, "to chaos resistance") {
-                mods.push(flat("ChaosPenetration", val.abs()));
-            }
-            if !mods.is_empty() {
-                return mods;
-            }
+const S_NONE: &str = "";
+
+#[derive(Copy, Clone)]
+struct StatRule {
+    suffix: &'static str,
+    extract: Extract,
+    mod_out: ModOut,
+    stats: [&'static str; 4],
+    scale: f64,
+    requires: [&'static str; 2],
+    excludes: [&'static str; 4],
+    not_minion: bool,
+    not_minion_alt: bool,
+    no_type_kw: bool,
+    not_combined: bool,
+    not_global: bool,
+    priority: u8,
+    group: u16,
+}
+
+impl StatRule {
+    const fn new(extract: Extract, suffix: &'static str, mod_out: ModOut, stat: &'static str) -> Self {
+        StatRule {
+            suffix, extract, mod_out,
+            stats: [stat, S_NONE, S_NONE, S_NONE],
+            scale: 1.0,
+            requires: [S_NONE, S_NONE],
+            excludes: [S_NONE, S_NONE, S_NONE, S_NONE],
+            not_minion: false, not_minion_alt: false, no_type_kw: false,
+            not_combined: false, not_global: false,
+            priority: 0, group: 0,
         }
     }
 
-    // --- Life ---------------------------------------------------------------
-    if let Some(val) = extract_value(line, "to maximum life") {
-        mods.push(flat("Life", val));
-    }
-    if let Some(val) = extract_pct(line, "increased maximum life") {
-        mods.push(increased("Life", val));
-    }
-    if let Some(val) = extract_pct(line, "more maximum life") {
-        mods.push(more("Life", val));
-    }
-
-    // --- Energy Shield ------------------------------------------------------
-    if let Some(val) = extract_value(line, "to maximum energy shield") {
-        mods.push(flat("EnergyShield", val));
-    }
-    if let Some(val) = extract_pct(line, "increased maximum energy shield") {
-        mods.push(increased("EnergyShield", val));
-    } else if let Some(val) = extract_pct(line, "increased energy shield") {
-        mods.push(increased("EnergyShield", val));
-    }
-    if let Some(val) = extract_pct(line, "more energy shield") {
-        mods.push(more("EnergyShield", val));
-    }
-
-    // --- Mana ---------------------------------------------------------------
-    if let Some(val) = extract_value(line, "to maximum mana") {
-        mods.push(flat("Mana", val));
-    }
-    if let Some(val) = extract_pct(line, "increased maximum mana") {
-        mods.push(increased("Mana", val));
-    } else if let Some(val) = extract_pct(line, "increased mana") {
-        let l = line.to_lowercase();
-        if !l.contains("mana regen") && !l.contains("mana cost") && !l.contains("mana reservation") {
-            mods.push(increased("Mana", val));
+    const fn multi2(extract: Extract, suffix: &'static str, mod_out: ModOut, s1: &'static str, s2: &'static str) -> Self {
+        StatRule {
+            suffix, extract, mod_out,
+            stats: [s1, s2, S_NONE, S_NONE],
+            scale: 1.0,
+            requires: [S_NONE, S_NONE],
+            excludes: [S_NONE, S_NONE, S_NONE, S_NONE],
+            not_minion: false, not_minion_alt: false, no_type_kw: false,
+            not_combined: false, not_global: false,
+            priority: 0, group: 0,
         }
     }
 
-    // --- Attributes ---------------------------------------------------------
-    if let Some(val) = extract_value(line, "to all attributes") {
-        mods.push(flat("Str", val));
-        mods.push(flat("Dex", val));
-        mods.push(flat("Int", val));
-    } else if let Some(val) = extract_value(line, "to strength and dexterity") {
-        mods.push(flat("Str", val));
-        mods.push(flat("Dex", val));
-    } else if let Some(val) = extract_value(line, "to strength and intelligence") {
-        mods.push(flat("Str", val));
-        mods.push(flat("Int", val));
-    } else if let Some(val) = extract_value(line, "to dexterity and intelligence") {
-        mods.push(flat("Dex", val));
-        mods.push(flat("Int", val));
-    } else {
-        if let Some(val) = extract_value(line, "to strength") {
-            mods.push(flat("Str", val));
-        }
-        if let Some(val) = extract_value(line, "to dexterity") {
-            mods.push(flat("Dex", val));
-        }
-        if let Some(val) = extract_value(line, "to intelligence") {
-            mods.push(flat("Int", val));
+    const fn multi3(extract: Extract, suffix: &'static str, mod_out: ModOut, s1: &'static str, s2: &'static str, s3: &'static str) -> Self {
+        StatRule {
+            suffix, extract, mod_out,
+            stats: [s1, s2, s3, S_NONE],
+            scale: 1.0,
+            requires: [S_NONE, S_NONE],
+            excludes: [S_NONE, S_NONE, S_NONE, S_NONE],
+            not_minion: false, not_minion_alt: false, no_type_kw: false,
+            not_combined: false, not_global: false,
+            priority: 0, group: 0,
         }
     }
 
-    // --- Resistances --------------------------------------------------------
-    if let Some(val) = extract_pct_value(line, "to all elemental resistances") {
-        mods.push(flat("FireRes", val));
-        mods.push(flat("ColdRes", val));
-        mods.push(flat("LightningRes", val));
-    } else {
-        if let Some(val) = extract_pct_value(line, "to fire resistance") {
-            mods.push(flat("FireRes", val));
-        }
-        if let Some(val) = extract_pct_value(line, "to cold resistance") {
-            mods.push(flat("ColdRes", val));
-        }
-        if let Some(val) = extract_pct_value(line, "to lightning resistance") {
-            mods.push(flat("LightningRes", val));
-        }
-    }
-    if let Some(val) = extract_pct_value(line, "to chaos resistance") {
-        mods.push(flat("ChaosRes", val));
-    }
-    if let Some(val) = extract_pct_value(line, "to all resistances") {
-        mods.push(flat("FireRes", val));
-        mods.push(flat("ColdRes", val));
-        mods.push(flat("LightningRes", val));
-        mods.push(flat("ChaosRes", val));
-    }
-    // Combined dual-resistance patterns: "to Fire and Lightning Resistances"
-    {
-        let lower = line.to_lowercase();
-        if lower.contains("resistances") && !lower.contains("all") {
-            let fire = lower.contains("fire");
-            let cold = lower.contains("cold");
-            let light = lower.contains("lightning");
-            let chaos = lower.contains("chaos");
-            let count = [fire, cold, light, chaos].iter().filter(|&&x| x).count();
-            if count == 2 {
-                if let Some(val) = extract_pct_value(line, "resistances") {
-                    if fire { mods.push(flat("FireRes", val)); }
-                    if cold { mods.push(flat("ColdRes", val)); }
-                    if light { mods.push(flat("LightningRes", val)); }
-                    if chaos { mods.push(flat("ChaosRes", val)); }
-                }
-            }
+    const fn multi4(extract: Extract, suffix: &'static str, mod_out: ModOut, s1: &'static str, s2: &'static str, s3: &'static str, s4: &'static str) -> Self {
+        StatRule {
+            suffix, extract, mod_out,
+            stats: [s1, s2, s3, s4],
+            scale: 1.0,
+            requires: [S_NONE, S_NONE],
+            excludes: [S_NONE, S_NONE, S_NONE, S_NONE],
+            not_minion: false, not_minion_alt: false, no_type_kw: false,
+            not_combined: false, not_global: false,
+            priority: 0, group: 0,
         }
     }
 
-    // --- Armour / Evasion ---------------------------------------------------
-    {
-        let lower = line.to_lowercase();
-        let is_combined = (lower.contains("armour") && lower.contains("evasion"))
-            || (lower.contains("evasion") && lower.contains("energy shield"));
+    const fn scale(mut self, s: f64) -> Self { self.scale = s; self }
+    const fn group(mut self, g: u16) -> Self { self.group = g; self }
+    const fn fallback(mut self) -> Self { self.priority = 1; self }
+    const fn requires(mut self, r: [&'static str; 2]) -> Self { self.requires = r; self }
+    const fn excludes(mut self, e: [&'static str; 4]) -> Self { self.excludes = e; self }
+    const fn guard_not_minion(mut self) -> Self { self.not_minion = true; self }
+    const fn guard_not_minion_alt(mut self) -> Self { self.not_minion_alt = true; self }
+    const fn guard_no_type_kw(mut self) -> Self { self.no_type_kw = true; self }
+    const fn guard_not_combined(mut self) -> Self { self.not_combined = true; self }
+    const fn guard_not_global(mut self) -> Self { self.not_global = true; self }
+}
 
-        if !is_combined {
-            if let Some(val) = extract_value(line, "to armour") {
-                mods.push(flat("Armour", val));
-            }
-            if let Some(val) = extract_pct(line, "increased armour") {
-                mods.push(increased("Armour", val));
-            }
-            if let Some(val) = extract_value(line, "to evasion rating") {
-                mods.push(flat("Evasion", val));
-            }
-            if let Some(val) = extract_pct(line, "increased evasion rating") {
-                mods.push(increased("Evasion", val));
-            }
-        }
-    }
+struct LineCtx {
+    is_minion: bool,
+    is_minion_alt: bool,
+    has_type_kw: bool,
+    is_combined: bool,
+    has_global: bool,
+}
 
-    // --- Per-type damage ----------------------------------------------------
-    // Order matters: check specific types before generic "increased damage"
-    {
-        let lower = line.to_lowercase();
-        let is_minion = lower.contains("minions") || lower.contains("allies") || lower.contains("enemies");
-
-        // Elemental damage (fire + cold + lightning)
-        if !is_minion {
-            if let Some(val) = extract_pct(line, "increased elemental damage") {
-                mods.push(increased("FireDamage", val));
-                mods.push(increased("ColdDamage", val));
-                mods.push(increased("LightningDamage", val));
-            }
-            if let Some(val) = extract_pct(line, "more elemental damage") {
-                mods.push(more("FireDamage", val));
-                mods.push(more("ColdDamage", val));
-                mods.push(more("LightningDamage", val));
-            }
-        }
-
-        // Individual damage types
-        if !is_minion {
-            if let Some(val) = extract_pct(line, "increased physical damage") {
-                mods.push(increased("PhysicalDamage", val));
-            }
-            if let Some(val) = extract_pct(line, "more physical damage") {
-                mods.push(more("PhysicalDamage", val));
-            }
-            if let Some(val) = extract_pct(line, "increased fire damage") {
-                mods.push(increased("FireDamage", val));
-            }
-            if let Some(val) = extract_pct(line, "more fire damage") {
-                mods.push(more("FireDamage", val));
-            }
-            if let Some(val) = extract_pct(line, "increased cold damage") {
-                mods.push(increased("ColdDamage", val));
-            }
-            if let Some(val) = extract_pct(line, "more cold damage") {
-                mods.push(more("ColdDamage", val));
-            }
-            if let Some(val) = extract_pct(line, "increased lightning damage") {
-                mods.push(increased("LightningDamage", val));
-            }
-            if let Some(val) = extract_pct(line, "increased chaos damage") {
-                mods.push(increased("ChaosDamage", val));
-            }
-
-            // Spell / Attack damage
-            if let Some(val) = extract_pct(line, "increased spell damage") {
-                mods.push(increased("SpellDamage", val));
-            }
-            if let Some(val) = extract_pct(line, "more spell damage") {
-                mods.push(more("SpellDamage", val));
-            }
-            if let Some(val) = extract_pct(line, "increased attack damage") {
-                mods.push(increased("AttackDamage", val));
-            }
-
-            // Damage over time
-            if let Some(val) = extract_pct(line, "increased damage over time") {
-                mods.push(increased("DamageOverTime", val));
-            }
-            if let Some(val) = extract_pct(line, "more damage over time") {
-                mods.push(more("DamageOverTime", val));
-            }
-
-            // Attack Physical Damage / Melee Physical Damage
-            if lower.contains("attack") && lower.contains("physical") {
-                if let Some(val) = extract_pct(line, "increased attack physical damage") {
-                    mods.push(increased("PhysicalDamage", val));
-                }
-            }
-            if lower.contains("melee") && lower.contains("physical") {
-                if let Some(val) = extract_pct(line, "increased melee physical damage") {
-                    mods.push(increased("PhysicalDamage", val));
-                }
-            }
-
-            // Weapon-specific damage patterns
-            // "Axe/Sword/Mace/Dagger/Claw/Staff/Bow Attacks deal X% increased Damage"
-            if lower.contains("attacks deal") && lower.contains("increased damage") {
-                if let Some(val) = extract_pct(line, "increased damage") {
-                    mods.push(increased("Damage", val));
-                }
-            }
-        }
-
-        // DoT multiplier per element
-        if !is_minion {
-            if let Some(val) = extract_pct_value(line, "to fire damage over time multiplier") {
-                mods.push(flat("DamageOverTimeMulti", val));
-            }
-            if let Some(val) = extract_pct_value(line, "to cold damage over time multiplier") {
-                mods.push(flat("DamageOverTimeMulti", val));
-            }
-            if let Some(val) = extract_pct_value(line, "to chaos damage over time multiplier") {
-                mods.push(flat("DamageOverTimeMulti", val));
-            }
-            if let Some(val) = extract_pct_value(line, "to physical damage over time multiplier") {
-                mods.push(flat("DamageOverTimeMulti", val));
-            }
-        }
-
-        // Broad weapon/attack pattern: "X deal Y% increased Damage with/while..."
-        // Catches: "Attacks with Two Handed Melee Weapons deal X% increased Damage with Hits"
-        //          "Attack Skills deal X% increased Damage while Dual Wielding"
-        //          "Mace or Sceptre Attacks deal X% increased Damage with Ailments"
-        if !is_minion && mods.is_empty() && lower.contains("deal") && lower.contains("increased damage") {
-            if let Some(val) = extract_pct(line, "increased damage") {
-                mods.push(increased("Damage", val));
-            }
-        }
-
-        // Ailment chance patterns
-        if !is_minion {
-            if lower.contains("chance to cause bleeding") || lower.contains("chance to bleed") {
-                if let Some(val) = extract_pct_value(line, "chance to cause bleeding") {
-                    mods.push(flat("BleedDamage", 0.0)); // placeholder
-                }
-            }
-            if lower.contains("chance to ignite") {
-                if let Some(val) = extract_pct_value(line, "chance to ignite") {
-                    // Track ignite chance if we add a stat later
-                }
-            }
-        }
-
-        // Global damage (generic, after specific types)
-        if !is_minion {
-            let has_type_keyword = lower.contains("physical") || lower.contains("fire")
+impl LineCtx {
+    fn new(lower: &str) -> Self {
+        let minions = lower.contains("minions");
+        let allies = lower.contains("allies");
+        let enemies = lower.contains("enemies");
+        LineCtx {
+            is_minion: minions || allies || enemies,
+            is_minion_alt: minions || allies,
+            has_type_kw: lower.contains("physical") || lower.contains("fire")
                 || lower.contains("cold") || lower.contains("lightning")
                 || lower.contains("chaos") || lower.contains("elemental")
                 || lower.contains("spell") || lower.contains("attack")
                 || lower.contains("over time") || lower.contains("melee")
-                || lower.contains("projectile") || lower.contains("area");
-            if !has_type_keyword {
-                if let Some(val) = extract_pct(line, "increased damage") {
-                    mods.push(increased("Damage", val));
+                || lower.contains("projectile") || lower.contains("area"),
+            is_combined: (lower.contains("armour") && lower.contains("evasion"))
+                || (lower.contains("evasion") && lower.contains("energy shield")),
+            has_global: lower.contains("global"),
+        }
+    }
+}
+
+use Extract::*;
+use ModOut::*;
+
+static RULES: &[StatRule] = &[
+    // === Life ===
+    StatRule::new(Value, "to maximum life", Flat, "Life"),
+    StatRule::new(Pct, "increased maximum life", Increased, "Life"),
+    StatRule::new(Pct, "more maximum life", More, "Life"),
+
+    // === Energy Shield ===
+    StatRule::new(Value, "to maximum energy shield", Flat, "EnergyShield"),
+    StatRule::new(Pct, "increased maximum energy shield", Increased, "EnergyShield").group(1),
+    StatRule::new(Pct, "increased energy shield", Increased, "EnergyShield").group(1),
+    StatRule::new(Pct, "more energy shield", More, "EnergyShield"),
+
+    // === Mana ===
+    StatRule::new(Value, "to maximum mana", Flat, "Mana"),
+    StatRule::new(Pct, "increased maximum mana", Increased, "Mana").group(2),
+    StatRule::new(Pct, "increased mana", Increased, "Mana").group(2)
+        .excludes(["mana regen", "mana cost", "mana reservation", ""]),
+
+    // === Attributes ===
+    StatRule::multi3(Value, "to all attributes", Flat, "Str", "Dex", "Int").group(3),
+    StatRule::multi2(Value, "to strength and dexterity", Flat, "Str", "Dex").group(3),
+    StatRule::multi2(Value, "to strength and intelligence", Flat, "Str", "Int").group(3),
+    StatRule::multi2(Value, "to dexterity and intelligence", Flat, "Dex", "Int").group(3),
+    StatRule::new(Value, "to strength", Flat, "Str")
+        .excludes(["all attributes", "and dexterity", "and intelligence", ""]),
+    StatRule::new(Value, "to dexterity", Flat, "Dex")
+        .excludes(["all attributes", "strength and", "and intelligence", ""]),
+    StatRule::new(Value, "to intelligence", Flat, "Int")
+        .excludes(["all attributes", "strength and", "dexterity and", ""]),
+
+    // === Resistances ===
+    StatRule::multi3(PctValue, "to all elemental resistances", Flat, "FireRes", "ColdRes", "LightningRes").group(4),
+    StatRule::new(PctValue, "to fire resistance", Flat, "FireRes")
+        .excludes(["all elemental", "all resistances", "", ""]),
+    StatRule::new(PctValue, "to cold resistance", Flat, "ColdRes")
+        .excludes(["all elemental", "all resistances", "", ""]),
+    StatRule::new(PctValue, "to lightning resistance", Flat, "LightningRes")
+        .excludes(["all elemental", "all resistances", "", ""]),
+    StatRule::new(PctValue, "to chaos resistance", Flat, "ChaosRes")
+        .excludes(["all resistances", "", "", ""]),
+    StatRule::multi4(PctValue, "to all resistances", Flat, "FireRes", "ColdRes", "LightningRes", "ChaosRes"),
+
+    // === Armour / Evasion (individual, not combined) ===
+    StatRule::new(Value, "to armour", Flat, "Armour").guard_not_combined(),
+    StatRule::new(Pct, "increased armour", Increased, "Armour").guard_not_combined(),
+    StatRule::new(Value, "to evasion rating", Flat, "Evasion").guard_not_combined(),
+    StatRule::new(Pct, "increased evasion rating", Increased, "Evasion").guard_not_combined(),
+
+    // === Combined Evasion+Armour / Evasion+ES ===
+    StatRule::multi2(Pct, "increased evasion rating and armour", Increased, "Evasion", "Armour").group(5),
+    StatRule::multi2(Pct, "increased armour and evasion", Increased, "Armour", "Evasion").group(5),
+    StatRule::multi2(Pct, "increased evasion and energy shield", Increased, "Evasion", "EnergyShield"),
+
+    // === Per-type damage (guarded by NOT_MINION) ===
+    StatRule::multi3(Pct, "increased elemental damage", Increased, "FireDamage", "ColdDamage", "LightningDamage").guard_not_minion(),
+    StatRule::multi3(Pct, "more elemental damage", More, "FireDamage", "ColdDamage", "LightningDamage").guard_not_minion(),
+    StatRule::new(Pct, "increased physical damage", Increased, "PhysicalDamage").guard_not_minion()
+        .excludes(["attack physical damage", "melee physical damage", "physical attack damage", ""]),
+    StatRule::new(Pct, "more physical damage", More, "PhysicalDamage").guard_not_minion(),
+    StatRule::new(Pct, "increased fire damage", Increased, "FireDamage").guard_not_minion(),
+    StatRule::new(Pct, "more fire damage", More, "FireDamage").guard_not_minion(),
+    StatRule::new(Pct, "increased cold damage", Increased, "ColdDamage").guard_not_minion(),
+    StatRule::new(Pct, "more cold damage", More, "ColdDamage").guard_not_minion(),
+    StatRule::new(Pct, "increased lightning damage", Increased, "LightningDamage").guard_not_minion(),
+    StatRule::new(Pct, "increased chaos damage", Increased, "ChaosDamage").guard_not_minion(),
+    StatRule::new(Pct, "increased spell damage", Increased, "SpellDamage").guard_not_minion(),
+    StatRule::new(Pct, "more spell damage", More, "SpellDamage").guard_not_minion(),
+    StatRule::new(Pct, "increased attack damage", Increased, "AttackDamage").guard_not_minion(),
+    StatRule::new(Pct, "increased damage over time", Increased, "DamageOverTime").guard_not_minion(),
+    StatRule::new(Pct, "more damage over time", More, "DamageOverTime").guard_not_minion(),
+    StatRule::new(Pct, "increased attack physical damage", Increased, "PhysicalDamage").guard_not_minion()
+        .requires(["attack", ""]),
+    StatRule::new(Pct, "increased melee physical damage", Increased, "PhysicalDamage").guard_not_minion()
+        .requires(["melee", ""]),
+
+    // Weapon-specific: "X Attacks deal Y% increased Damage"
+    StatRule::new(Pct, "increased damage", Increased, "Damage").guard_not_minion()
+        .requires(["attacks deal", ""]),
+
+    // DoT multiplier per element
+    StatRule::new(PctValue, "to fire damage over time multiplier", Flat, "DamageOverTimeMulti").guard_not_minion(),
+    StatRule::new(PctValue, "to cold damage over time multiplier", Flat, "DamageOverTimeMulti").guard_not_minion(),
+    StatRule::new(PctValue, "to chaos damage over time multiplier", Flat, "DamageOverTimeMulti").guard_not_minion(),
+    StatRule::new(PctValue, "to physical damage over time multiplier", Flat, "DamageOverTimeMulti").guard_not_minion(),
+
+    // Ailment chance in damage block
+    StatRule::new(PctValue, "chance to cause bleeding on hit", Flat, "BleedChance").guard_not_minion().group(6),
+    StatRule::new(PctValue, "chance to cause bleeding", Flat, "BleedChance").guard_not_minion().group(6),
+    StatRule::new(PctValue, "chance to ignite", Flat, "IgniteChance").guard_not_minion(),
+
+    // Generic damage (only when no type keyword present)
+    StatRule::new(Pct, "increased damage", Increased, "Damage").guard_not_minion().guard_no_type_kw()
+        .excludes(["attacks deal", "", "", ""]),
+    StatRule::new(Pct, "more damage", More, "Damage").guard_not_minion().guard_no_type_kw(),
+
+    // === Added flat damage ranges ===
+    StatRule::multi2(DamageRange, "physical damage", Flat, "AddedPhysMin", "AddedPhysMax"),
+    StatRule::multi2(DamageRange, "fire damage", Flat, "AddedFireMin", "AddedFireMax"),
+    StatRule::multi2(DamageRange, "cold damage", Flat, "AddedColdMin", "AddedColdMax"),
+    StatRule::multi2(DamageRange, "lightning damage", Flat, "AddedLightningMin", "AddedLightningMax"),
+    StatRule::multi2(DamageRange, "chaos damage", Flat, "AddedChaosMin", "AddedChaosMax"),
+
+    // === Projectile / Area / Melee damage (NOT_MINION_ALT) ===
+    StatRule::new(Pct, "increased projectile damage", Increased, "ProjectileDamage").guard_not_minion_alt(),
+    StatRule::new(Pct, "increased area damage", Increased, "AreaDamage").guard_not_minion_alt(),
+    StatRule::new(Pct, "increased melee damage", Increased, "MeleeDamage").guard_not_minion_alt(),
+    StatRule::new(Pct, "increased elemental damage with attack skills", Increased, "Damage").guard_not_minion_alt(),
+    StatRule::new(Pct, "increased projectile speed", Increased, "ProjectileSpeed").guard_not_minion_alt(),
+
+    // === Max resistances ===
+    StatRule::multi3(PctValue, "to all maximum elemental resistances", Flat, "FireResMax", "ColdResMax", "LightningResMax").group(7),
+    StatRule::new(PctValue, "to maximum fire resistance", Flat, "FireResMax").group(7),
+    StatRule::new(PctValue, "to maximum cold resistance", Flat, "ColdResMax").group(7),
+    StatRule::new(PctValue, "to maximum lightning resistance", Flat, "LightningResMax").group(7),
+
+    // === DoT Multiplier (generic) ===
+    StatRule::new(PctValue, "to damage over time multiplier", Flat, "DamageOverTimeMulti"),
+
+    // === Mana Regen (% increased) ===
+    StatRule::new(Pct, "increased mana regeneration rate", Increased, "ManaRegen"),
+
+    // === Movement Speed ===
+    StatRule::new(Pct, "increased movement speed", Increased, "MovementSpeed"),
+
+    // === Leech ===
+    StatRule::new(Pct, "of attack damage leeched as life", Flat, "LifeLeechPct")
+        .requires(["leeched as life", ""]).group(8),
+    StatRule::new(Pct, "of physical attack damage leeched as life", Flat, "LifeLeechPct")
+        .requires(["leeched as life", ""]).group(8),
+    StatRule::new(Pct, "of damage leeched as life", Flat, "LifeLeechPct")
+        .requires(["leeched as life", ""]).group(8),
+    StatRule::new(Pct, "of damage leeched as energy shield", Flat, "ESLeechPct")
+        .requires(["leeched as energy shield", ""]),
+
+    // === Mana Reservation Efficiency ===
+    StatRule::new(Pct, "increased mana reservation efficiency", Increased, "ManaReservationEfficiency"),
+
+    // === Skill Duration ===
+    StatRule::new(Pct, "increased skill effect duration", Increased, "SkillDuration"),
+
+    // === Area of Effect ===
+    StatRule::new(Pct, "increased area of effect", Increased, "AreaOfEffect"),
+
+    // === Global Crit Chance ===
+    StatRule::new(Pct, "increased global critical strike chance", Increased, "CritChance"),
+
+    // === Speed ===
+    StatRule::new(Pct, "increased attack speed", Increased, "AttackSpeed"),
+    StatRule::new(Pct, "increased cast speed", Increased, "AttackSpeed"),
+    StatRule::new(Pct, "increased attack and cast speed", Increased, "AttackSpeed"),
+
+    // === Crit chance (non-global) ===
+    StatRule::new(Pct, "increased critical strike chance", Increased, "CritChance").guard_not_global().group(9),
+    // Catch variants: "Melee/Attack/Spell Critical Strike Chance"
+    StatRule::new(Pct, "critical strike chance", Increased, "CritChance").guard_not_global().group(9)
+        .requires(["increased", ""]),
+
+    // === Crit Multiplier ===
+    StatRule::new(PctValue, "to global critical strike multiplier", Flat, "CritMultiplier")
+        .requires(["critical strike multiplier", ""]).group(10),
+    StatRule::new(PctValue, "critical strike multiplier for spells", Flat, "CritMultiplier")
+        .requires(["critical strike multiplier", ""]).group(10),
+    StatRule::new(PctValue, "to critical strike multiplier", Flat, "CritMultiplier")
+        .requires(["critical strike multiplier", ""]).group(10),
+
+    // === Block ===
+    StatRule::new(PctValue, "chance to block", Flat, "BlockChance")
+        .excludes(["spell damage", "", "", ""]),
+    StatRule::new(Pct, "increased chance to block", Increased, "BlockChance"),
+    StatRule::new(Pct, "increased block chance", Increased, "BlockChance"),
+
+    // === Accuracy ===
+    StatRule::new(Value, "to accuracy rating", Flat, "Accuracy"),
+    StatRule::new(Pct, "increased accuracy rating", Increased, "Accuracy"),
+
+    // === Suppression ===
+    StatRule::new(PctValue, "chance to suppress spell damage", Flat, "SpellSuppression"),
+
+    // === Penetration ===
+    StatRule::new(PctValue, "fire resistance", Flat, "FirePenetration")
+        .requires(["penetrat", ""]),
+    StatRule::new(PctValue, "cold resistance", Flat, "ColdPenetration")
+        .requires(["penetrat", ""]),
+    StatRule::new(PctValue, "lightning resistance", Flat, "LightningPenetration")
+        .requires(["penetrat", ""]),
+    StatRule::new(PctValue, "chaos resistance", Flat, "ChaosPenetration")
+        .requires(["penetrat", ""]),
+    StatRule::multi3(PctValue, "elemental resistance", Flat, "FirePenetration", "ColdPenetration", "LightningPenetration")
+        .requires(["penetrat", ""]),
+
+    // === Curse / Aura effect ===
+    StatRule::new(Pct, "increased effect of curses", Increased, "CurseEffect"),
+    StatRule::new(Pct, "increased effect of your curses", Increased, "CurseEffect"),
+    StatRule::new(Pct, "increased effect of non-curse auras", Increased, "AuraEffect"),
+    StatRule::new(Pct, "increased aura effect", Increased, "AuraEffect"),
+
+    // === Minion modifiers ===
+    StatRule::new(Pct, "increased minion damage", Increased, "MinionDamage")
+        .requires(["minion", ""]),
+    StatRule::new(Pct, "increased minion attack speed", Increased, "MinionSpeed")
+        .requires(["minion", ""]),
+    StatRule::new(Pct, "increased minion life", Increased, "MinionLife")
+        .requires(["minion", ""]),
+    StatRule::new(Pct, "increased minion movement speed", Increased, "MinionMoveSpeed")
+        .requires(["minion", ""]),
+    StatRule::new(Pct, "increased damage", Increased, "MinionDamage")
+        .requires(["minions deal", ""]),
+
+    // === Gain as extra damage ===
+    StatRule::new(Pct, "of physical damage as extra fire damage", Flat, "PhysGainAsFire")
+        .requires(["gain", "as extra"]),
+    StatRule::new(Pct, "of physical damage as extra cold damage", Flat, "PhysGainAsCold")
+        .requires(["gain", "as extra"]),
+    StatRule::new(Pct, "of physical damage as extra lightning damage", Flat, "PhysGainAsLightning")
+        .requires(["gain", "as extra"]),
+    StatRule::new(Pct, "of physical damage as extra chaos damage", Flat, "PhysGainAsChaos")
+        .requires(["gain", "as extra"]),
+
+    // === Impale ===
+    StatRule::new(PctValue, "chance to impale", Flat, "ImpaleChance"),
+    StatRule::new(Pct, "increased impale effect", Increased, "ImpaleEffect"),
+
+    // === Ward ===
+    StatRule::new(Value, "to ward", Flat, "Ward"),
+
+    // === ES Recharge ===
+    StatRule::new(Pct, "faster start of energy shield recharge", Increased, "ESRechargeRate"),
+    StatRule::new(Pct, "increased energy shield recharge rate", Increased, "ESRechargeRate"),
+
+    // === Conversion ===
+    StatRule::new(Pct, "of physical damage converted to fire damage", Flat, "ConvPhysToFire")
+        .requires(["converted to", ""]),
+    StatRule::new(Pct, "of physical damage converted to cold damage", Flat, "ConvPhysToCold")
+        .requires(["converted to", ""]),
+    StatRule::new(Pct, "of physical damage converted to lightning damage", Flat, "ConvPhysToLightning")
+        .requires(["converted to", ""]),
+    StatRule::new(Pct, "of physical damage converted to chaos damage", Flat, "ConvPhysToChaos")
+        .requires(["converted to", ""]),
+    StatRule::new(Pct, "of cold damage converted to fire damage", Flat, "ConvColdToFire")
+        .requires(["converted to", ""])
+        .excludes(["physical", "", "", ""]),
+    StatRule::new(Pct, "of lightning damage converted to cold damage", Flat, "ConvLightningToCold")
+        .requires(["converted to", ""])
+        .excludes(["physical", "", "", ""]),
+
+    // === Spell Suppression (alternate wording) ===
+    StatRule::new(PctValue, "to spell suppression chance", Flat, "SpellSuppression"),
+
+    // === Fortify ===
+    StatRule::new(Pct, "increased fortification", Increased, "Fortify"),
+
+    // === Totem / Brand / Trap / Mine damage ===
+    StatRule::new(Pct, "increased totem damage", Increased, "Damage")
+        .excludes(["minion", "", "", ""]),
+    StatRule::new(Pct, "increased trap damage", Increased, "Damage")
+        .excludes(["minion", "", "", ""]),
+    StatRule::new(Pct, "increased mine damage", Increased, "Damage")
+        .excludes(["minion", "", "", ""]),
+    StatRule::new(Pct, "increased brand damage", Increased, "Damage")
+        .excludes(["minion", "", "", ""]),
+
+    // === Flask effect ===
+    StatRule::new(Pct, "increased flask effect", Increased, "FlaskEffect"),
+
+    // === Cooldown recovery ===
+    StatRule::new(Pct, "increased cooldown recovery rate", Increased, "CooldownRecovery"),
+
+    // === Spell block ===
+    StatRule::new(PctValue, "chance to block spell damage", Flat, "SpellBlockChance"),
+    StatRule::new(Pct, "increased chance to block spell damage", Increased, "SpellBlockChance"),
+
+    // === Avoidance ===
+    StatRule::new(PctValue, "chance to avoid elemental ailments", Flat, "AilmentAvoidance"),
+    StatRule::new(PctValue, "chance to avoid being stunned", Flat, "StunAvoidance"),
+
+    // === Spell-specific crit chance ===
+    StatRule::new(Pct, "increased spell critical strike chance", Increased, "CritChance")
+        .requires(["spell critical strike chance", ""]),
+
+    // === More cast speed ===
+    StatRule::new(Pct, "more cast speed", More, "AttackSpeed"),
+
+    // === Life on hit / kill ===
+    StatRule::new(Value, "life gained on hit", Flat, "LifeOnHit"),
+    StatRule::new(Value, "life gained on kill", Flat, "LifeOnKill"),
+    StatRule::new(Value, "mana gained on kill", Flat, "ManaOnKill"),
+
+    // === Maximum Charges ===
+    StatRule::new(Value, "to maximum power charges", Flat, "MaxPowerCharges")
+        .requires(["maximum power charge", ""]).group(11),
+    StatRule::new(Value, "maximum power charges", Flat, "MaxPowerCharges")
+        .requires(["maximum power charge", ""]).group(11),
+    StatRule::new(Value, "to maximum power charge", Flat, "MaxPowerCharges")
+        .requires(["maximum power charge", ""]).group(11),
+    StatRule::new(Value, "to maximum frenzy charges", Flat, "MaxFrenzyCharges")
+        .requires(["maximum frenzy charge", ""]).group(12),
+    StatRule::new(Value, "maximum frenzy charges", Flat, "MaxFrenzyCharges")
+        .requires(["maximum frenzy charge", ""]).group(12),
+    StatRule::new(Value, "to maximum frenzy charge", Flat, "MaxFrenzyCharges")
+        .requires(["maximum frenzy charge", ""]).group(12),
+    StatRule::new(Value, "to maximum endurance charges", Flat, "MaxEnduranceCharges")
+        .requires(["maximum endurance charge", ""]).group(13),
+    StatRule::new(Value, "maximum endurance charges", Flat, "MaxEnduranceCharges")
+        .requires(["maximum endurance charge", ""]).group(13),
+    StatRule::new(Value, "to maximum endurance charge", Flat, "MaxEnduranceCharges")
+        .requires(["maximum endurance charge", ""]).group(13),
+
+    // === Physical Damage from Hits taken as Element ===
+    StatRule::new(PctValue, "taken as fire damage", Flat, "PhysTakenAsFire")
+        .requires(["physical damage from hits taken as", ""]),
+    StatRule::new(PctValue, "taken as cold damage", Flat, "PhysTakenAsCold")
+        .requires(["physical damage from hits taken as", ""]),
+    StatRule::new(PctValue, "taken as lightning damage", Flat, "PhysTakenAsLightning")
+        .requires(["physical damage from hits taken as", ""]),
+    StatRule::new(PctValue, "taken as chaos damage", Flat, "PhysTakenAsChaos")
+        .requires(["physical damage from hits taken as", ""]),
+
+    // === Action Speed ===
+    StatRule::new(Pct, "increased action speed", Increased, "ActionSpeed"),
+
+    // === Stun and Block Recovery ===
+    StatRule::new(Pct, "increased stun and block recovery", Increased, "StunBlockRecovery"),
+
+    // === Aura effect on self ===
+    StatRule::new(Pct, "increased effect", Increased, "AuraEffectOnSelf")
+        .requires(["auras from your skills have", ""]),
+
+    // === Mana Cost (flat) ===
+    StatRule::new(Value, "to total mana cost", Flat, "ManaCost").group(14),
+    StatRule::new(Value, "to mana cost", Flat, "ManaCost").group(14),
+
+    // === Light Radius ===
+    StatRule::new(Pct, "increased light radius", Increased, "LightRadius"),
+
+    // -----------------------------------------------------------------------
+    // FALLBACK rules (priority 1): only tried if no primary rule matched
+    // -----------------------------------------------------------------------
+
+    // === Duration / Effect (fallback) ===
+    StatRule::new(Pct, "increased duration", Increased, "SkillDuration").fallback()
+        .requires(["increased", ""]),
+    StatRule::new(Pct, "increased cooldown recovery", Increased, "CooldownRecovery").fallback(),
+    StatRule::new(Pct, "increased global critical strike chance", Increased, "CritChance").fallback(),
+
+    // === "reduced" patterns (negative increased) ===
+    StatRule::new(Pct, "reduced mana cost", Increased, "ManaCost").fallback().scale(-1.0),
+    StatRule::new(Pct, "reduced mana reserved", Increased, "ManaReservationEfficiency").fallback(),
+    StatRule::new(Pct, "reduced attribute requirements", Increased, "AttributeRequirements").fallback().scale(-1.0),
+    StatRule::new(Pct, "reduced enemy stun threshold", Increased, "StunThreshold").fallback(),
+    StatRule::new(Pct, "reduced movement speed", Increased, "MovementSpeed").fallback().scale(-1.0),
+    StatRule::new(Pct, "reduced attack speed", Increased, "AttackSpeed").fallback().scale(-1.0),
+    StatRule::new(Pct, "reduced effect of curses on you", Increased, "CurseEffect").fallback().scale(-1.0),
+    StatRule::new(Pct, "reduced duration of ailments on you", Increased, "AilmentAvoidance").fallback(),
+
+    // === "less" patterns (negative more) ===
+    StatRule::new(Pct, "less attack speed", More, "AttackSpeed").fallback().scale(-1.0),
+    StatRule::new(Pct, "less damage", More, "Damage").fallback().scale(-1.0),
+    StatRule::new(Pct, "less armour", More, "Armour").fallback().scale(-1.0),
+    StatRule::new(Pct, "less energy shield", More, "EnergyShield").fallback().scale(-1.0),
+    StatRule::new(Pct, "less evasion", More, "Evasion").fallback().scale(-1.0),
+
+    // === Ailment chance (fallback) ===
+    StatRule::new(PctValue, "chance to ignite", Flat, "IgniteChance").fallback(),
+    StatRule::new(PctValue, "chance to freeze", Flat, "FreezeChance").fallback(),
+    StatRule::new(PctValue, "chance to shock", Flat, "ShockChance").fallback(),
+    StatRule::new(PctValue, "chance to cause bleeding on hit", Flat, "BleedChance").fallback().group(15),
+    StatRule::new(PctValue, "chance to cause bleeding", Flat, "BleedChance").fallback().group(15),
+    StatRule::new(PctValue, "chance to poison on hit", Flat, "PoisonChance").fallback(),
+
+    // === Ailment effect (fallback) ===
+    StatRule::new(Pct, "increased effect of shock", Increased, "ShockEffect").fallback(),
+    StatRule::new(Pct, "increased effect of chill", Increased, "ChillEffect").fallback(),
+
+    // === Leech rate (fallback) ===
+    StatRule::new(Pct, "increased total recovery per second from life leech", Increased, "LifeLeechRateInc").fallback(),
+    StatRule::new(Pct, "increased maximum total life recovery per second from leech", Increased, "MaxLifeLeechRate").fallback(),
+
+    // === Shield defences (fallback) ===
+    StatRule::new(Pct, "increased defences from equipped shield", Increased, "ShieldDefences").fallback(),
+
+    // === Flask recovery (fallback) ===
+    StatRule::new(Pct, "increased life recovery from flasks", Increased, "FlaskLifeRecovery").fallback(),
+
+    // === Totem stats (fallback) ===
+    StatRule::new(Pct, "increased totem life", Increased, "TotemLife").fallback(),
+    StatRule::new(Pct, "increased totem placement speed", Increased, "TotemPlacementSpeed").fallback(),
+    StatRule::new(Pct, "increased totem duration", Increased, "TotemDuration").fallback(),
+
+    // === Duration modifiers (fallback) ===
+    StatRule::new(Pct, "increased poison duration", Increased, "PoisonDuration").fallback(),
+    StatRule::new(Pct, "increased bleeding duration", Increased, "BleedDuration").fallback(),
+    StatRule::new(Pct, "increased ignite duration on enemies", Increased, "IgniteDuration").fallback(),
+    StatRule::new(Pct, "increased freeze duration on enemies", Increased, "FreezeDuration").fallback(),
+    StatRule::new(Pct, "increased endurance charge duration", Increased, "ChargeDuration").fallback().group(16),
+    StatRule::new(Pct, "increased frenzy charge duration", Increased, "ChargeDuration").fallback().group(16),
+    StatRule::new(Pct, "increased power charge duration", Increased, "ChargeDuration").fallback().group(16),
+    StatRule::new(Pct, "increased charge duration", Increased, "ChargeDuration").fallback().group(16),
+    StatRule::new(Pct, "charge duration", Increased, "ChargeDuration").fallback().group(16)
+        .requires(["endurance, frenzy and power", ""]),
+
+    // === Trap / Mine (fallback) ===
+    StatRule::new(Pct, "increased trap throwing speed", Increased, "TrapThrowingSpeed").fallback(),
+    StatRule::new(Pct, "increased mine throwing speed", Increased, "MineThrowingSpeed").fallback(),
+    StatRule::new(Pct, "increased detonation speed", Increased, "MineDetonationSpeed").fallback()
+        .requires(["mines have", ""]),
+    StatRule::new(Pct, "increased mine duration", Increased, "MineDuration").fallback(),
+    StatRule::new(Pct, "increased trap trigger area of effect", Increased, "TrapTriggerArea").fallback(),
+
+    // === Warcry (fallback) ===
+    StatRule::new(Pct, "increased warcry speed", Increased, "WarcrySpeed").fallback(),
+    StatRule::new(Pct, "increased warcry buff effect", Increased, "WarcryBuffEffect").fallback(),
+    StatRule::new(Pct, "increased warcry duration", Increased, "WarcryDuration").fallback(),
+    StatRule::new(Pct, "increased warcry cooldown recovery rate", Increased, "WarcryCooldown").fallback(),
+
+    // === Effect modifiers (fallback) ===
+    StatRule::new(Pct, "increased effect of herald buffs on you", Increased, "HeraldBuffEffect").fallback(),
+    StatRule::new(Pct, "increased effect of your marks", Increased, "MarkEffect").fallback(),
+    StatRule::new(Pct, "increased effect of onslaught on you", Increased, "OnslaughtEffect").fallback(),
+    StatRule::new(Pct, "increased effect of arcane surge on you", Increased, "ArcaneSurgeEffect").fallback(),
+    StatRule::new(Pct, "increased effect of buffs granted by your golems", Increased, "GolemBuffEffect").fallback(),
+    StatRule::new(Pct, "increased effect of non-damaging ailments", Increased, "NonDamagingAilmentEffect").fallback(),
+    StatRule::new(Pct, "increased effect of cold ailments", Increased, "ColdAilmentEffect").fallback(),
+    StatRule::new(Pct, "increased effect of lightning ailments", Increased, "LightningAilmentEffect").fallback(),
+    StatRule::new(Pct, "increased elusive effect", Increased, "ElusiveEffect").fallback(),
+    StatRule::new(Pct, "increased blind effect", Increased, "BlindEffect").fallback(),
+    StatRule::new(Pct, "increased effect of withered", Increased, "WitheredEffect").fallback(),
+    StatRule::new(Pct, "increased rage effect", Increased, "RageEffect").fallback(),
+
+    // === Cost efficiency (fallback) ===
+    StatRule::new(Pct, "increased cost efficiency of attacks", Increased, "CostEfficiency").fallback().group(17),
+    StatRule::new(Pct, "increased cost efficiency of spells", Increased, "CostEfficiency").fallback().group(17),
+    StatRule::new(Pct, "increased mana cost efficiency", Increased, "CostEfficiency").fallback().group(17),
+    StatRule::new(Pct, "increased cost efficiency", Increased, "CostEfficiency").fallback().group(17),
+
+    // === Flask charges / effect (fallback) ===
+    StatRule::new(Pct, "increased flask charges gained", Increased, "FlaskChargesGained").fallback(),
+    StatRule::new(Pct, "increased effect", Increased, "FlaskEffectApplied").fallback()
+        .requires(["flasks applied to you have", ""]),
+    StatRule::new(Pct, "increased effect", Increased, "TinctureEffect").fallback()
+        .requires(["tinctures applied to you have", ""]),
+
+    // === Recoup (fallback) ===
+    StatRule::new(Pct, "of damage taken recouped as life", Flat, "LifeRecoup").fallback(),
+
+    // === Melee Strike Range (fallback) ===
+    StatRule::new(Value, "metres to melee strike range", Flat, "MeleeRange").fallback(),
+
+    // === Double Damage (fallback) ===
+    StatRule::new(PctValue, "chance to deal double damage", Flat, "DoubleDamageChance").fallback(),
+
+    // === Block Recovery (fallback) ===
+    StatRule::new(Pct, "increased block recovery", Increased, "BlockRecovery").fallback()
+        .excludes(["stun", "", "", ""]),
+
+    // === Mana Leech (fallback) ===
+    StatRule::new(Pct, "of attack damage leeched as mana", Flat, "ManaLeechPct").fallback().group(18),
+    StatRule::new(Pct, "of damage leeched as mana", Flat, "ManaLeechPct").fallback().group(18),
+
+    // === Spell Damage Leech as ES (fallback) ===
+    StatRule::new(Pct, "of spell damage leeched as energy shield", Flat, "ESLeechPct").fallback(),
+
+    // === Burning Damage (fallback) ===
+    StatRule::new(Pct, "increased burning damage", Increased, "BurningDamage").fallback(),
+
+    // === Damage with Ailments (fallback) ===
+    StatRule::new(Pct, "increased damage with ailments from attack skills", Increased, "AilmentDamage").fallback().group(19),
+    StatRule::new(Pct, "increased damage with ailments", Increased, "AilmentDamage").fallback().group(19),
+
+    // === Stun Duration on Enemies (fallback) ===
+    StatRule::new(Pct, "increased stun duration on enemies", Increased, "StunDuration").fallback(),
+
+    // === Minion Duration (fallback) ===
+    StatRule::new(Pct, "increased minion duration", Increased, "MinionDuration").fallback(),
+
+    // === Curse Duration (fallback) ===
+    StatRule::new(Pct, "increased curse duration", Increased, "CurseDuration").fallback(),
+
+    // === Max Fortification (fallback) ===
+    StatRule::new(Value, "to maximum fortification", Flat, "MaxFortification").fallback(),
+
+    // === Reservation Efficiency (generic, fallback) ===
+    StatRule::new(Pct, "increased reservation efficiency of skills", Increased, "ReservationEfficiency").fallback()
+        .excludes(["mana", "", "", ""]),
+
+    // === Life/Mana/ES on hit/kill (fallback) ===
+    StatRule::new(Value, "life per enemy hit", Flat, "LifeOnHit").fallback(),
+    StatRule::new(Value, "mana per enemy hit", Flat, "ManaOnHit").fallback(),
+    StatRule::new(Value, "life per enemy killed", Flat, "LifeOnKill").fallback()
+        .excludes(["cursed", "", "", ""]),
+    StatRule::new(Value, "energy shield per enemy killed", Flat, "ESRegen").fallback(),
+
+    // === Avoidance (specific ailments, fallback) ===
+    StatRule::new(PctValue, "chance to avoid bleeding", Flat, "BleedAvoidance").fallback(),
+    StatRule::new(PctValue, "chance to avoid being poisoned", Flat, "PoisonAvoidance").fallback(),
+    StatRule::new(PctValue, "chance to avoid being frozen", Flat, "FreezeAvoidance").fallback(),
+
+    // === Max Rage (fallback) ===
+    StatRule::new(Value, "to maximum rage", Flat, "MaxRage").fallback(),
+
+    // === Damage taken from Mana (fallback) ===
+    StatRule::new(Pct, "of damage is taken from mana before life", Flat, "MindOverMatterPct").fallback(),
+
+    // === Knockback Distance (fallback) ===
+    StatRule::new(Pct, "increased knockback distance", Increased, "KnockbackDistance").fallback(),
+
+    // === Taunt Duration (fallback) ===
+    StatRule::new(Pct, "increased taunt duration", Increased, "TauntDuration").fallback(),
+
+    // === Max Mana/Life as Extra ES (fallback) ===
+    StatRule::new(Pct, "of maximum mana as extra maximum energy shield", Flat, "ManaAsExtraES").fallback(),
+    StatRule::new(Pct, "of maximum life as extra maximum energy shield", Flat, "LifeAsExtraES").fallback(),
+
+    // === % increased Attributes (fallback) ===
+    StatRule::new(Pct, "increased strength", Increased, "Str").fallback()
+        .excludes(["minion", "", "", ""]),
+    StatRule::new(Pct, "increased dexterity", Increased, "Dex").fallback()
+        .excludes(["minion", "", "", ""]),
+    StatRule::new(Pct, "increased intelligence", Increased, "Int").fallback()
+        .excludes(["minion", "", "", ""]),
+
+    // === Stun Threshold (fallback) ===
+    StatRule::new(Pct, "increased stun threshold", Increased, "StunThreshold").fallback(),
+
+    // === Physical Attack Damage while holding Shield (fallback) ===
+    StatRule::new(Pct, "increased physical attack damage while holding a shield", Increased, "PhysicalDamage").fallback(),
+
+    // === Elemental Resistances while holding Shield (fallback) ===
+    StatRule::multi3(PctValue, "elemental resistances while holding a shield", Flat, "FireRes", "ColdRes", "LightningRes").fallback(),
+
+    // === More Chaos/Lightning Damage (fallback) ===
+    StatRule::new(Pct, "more chaos damage", More, "ChaosDamage").fallback(),
+    StatRule::new(Pct, "more lightning damage", More, "LightningDamage").fallback(),
+
+    // === Recover % on Kill (fallback) ===
+    StatRule::new(Pct, "of life on kill", Flat, "LifeOnKill").fallback()
+        .requires(["recover", ""]),
+    StatRule::new(Pct, "of mana on kill", Flat, "ManaOnKill").fallback()
+        .requires(["recover", ""]),
+    StatRule::new(Pct, "of energy shield on kill", Flat, "ESRegen").fallback()
+        .requires(["recover", ""]),
+
+    // === Melee/Brand/Attack Crit Multi (fallback) ===
+    StatRule::new(PctValue, "to melee critical strike multiplier", Flat, "CritMultiplier").fallback(),
+    StatRule::new(PctValue, "to attack critical strike multiplier while dual wielding", Flat, "CritMultiplier").fallback(),
+    StatRule::new(PctValue, "to brand critical strike multiplier", Flat, "CritMultiplier").fallback(),
+
+    // === Damage with Attack Skills while Fortified (fallback) ===
+    StatRule::new(Pct, "increased damage with attack skills while fortified", Increased, "AttackDamage").fallback(),
+
+    // === Enemies take increased Damage (fallback) ===
+    StatRule::new(Pct, "increased damage", Increased, "Damage").fallback()
+        .requires(["enemies taunted by you take", ""]),
+    StatRule::new(Pct, "increased damage", Increased, "Damage").fallback()
+        .requires(["enemies you curse take", ""]),
+
+    // === Broad weapon/attack deal (fallback) ===
+    StatRule::new(Pct, "increased damage", Increased, "Damage").fallback()
+        .requires(["deal", ""]).guard_not_minion(),
+];
+
+// ---------------------------------------------------------------------------
+// Procedural escape hatches
+// ---------------------------------------------------------------------------
+
+fn try_nearby_enemies(line: &str, lower: &str, mods: &mut Vec<Modifier>) -> bool {
+    if !lower.contains("nearby enemies have") || !lower.contains("resistance") {
+        return false;
+    }
+    if let Some(val) = extract_pct_value(line, "to fire resistance") {
+        mods.push(flat("FirePenetration", val.abs()));
+    }
+    if let Some(val) = extract_pct_value(line, "to cold resistance") {
+        mods.push(flat("ColdPenetration", val.abs()));
+    }
+    if let Some(val) = extract_pct_value(line, "to lightning resistance") {
+        mods.push(flat("LightningPenetration", val.abs()));
+    }
+    if let Some(val) = extract_pct_value(line, "to chaos resistance") {
+        mods.push(flat("ChaosPenetration", val.abs()));
+    }
+    !mods.is_empty()
+}
+
+fn try_combined_dual_res(line: &str, lower: &str, mods: &mut Vec<Modifier>) {
+    if !lower.contains("resistances") || lower.contains("all") { return; }
+    let fire = lower.contains("fire");
+    let cold = lower.contains("cold");
+    let light = lower.contains("lightning");
+    let chaos = lower.contains("chaos");
+    let count = [fire, cold, light, chaos].iter().filter(|&&x| x).count();
+    if count == 2 {
+        if let Some(val) = extract_pct_value(line, "resistances") {
+            if fire { mods.push(flat("FireRes", val)); }
+            if cold { mods.push(flat("ColdRes", val)); }
+            if light { mods.push(flat("LightningRes", val)); }
+            if chaos { mods.push(flat("ChaosRes", val)); }
+        }
+    }
+}
+
+fn try_gem_level(line: &str, lower: &str, mods: &mut Vec<Modifier>) {
+    if !lower.contains("to level of all") || !lower.contains("skill gems") { return; }
+    if let Some(val) = extract_value(line, "to level of all") {
+        mods.push(flat("GemLevel", val));
+        mods.push(more("Damage", val * 8.0));
+    }
+}
+
+fn try_life_regen(line: &str, lower: &str, mods: &mut Vec<Modifier>) {
+    if (lower.contains("regenerate") && lower.contains("life per second"))
+        || lower.contains("life regenerated per second") {
+        if let Some(val) = extract_pct(line, "of life per second") {
+            mods.push(flat("LifeRegenPct", val));
+        } else if let Some(val) = extract_pct(line, "life regenerated per second") {
+            mods.push(flat("LifeRegenPct", val));
+        } else if let Some(val) = extract_value(line, "life per second") {
+            mods.push(flat("LifeRegen", val));
+        }
+    }
+}
+
+fn try_es_regen(line: &str, lower: &str, mods: &mut Vec<Modifier>) {
+    if lower.contains("regenerate") && lower.contains("energy shield per second") {
+        if let Some(val) = extract_pct(line, "of energy shield per second") {
+            mods.push(flat("ESRegen", val));
+        } else if let Some(val) = extract_value(line, "energy shield per second") {
+            mods.push(flat("ESRegen", val));
+        }
+    }
+}
+
+fn try_mana_regen_flat(line: &str, lower: &str, mods: &mut Vec<Modifier>) {
+    if lower.contains("regenerate") && lower.contains("mana per second") {
+        if let Some(val) = extract_value(line, "mana per second") {
+            mods.push(flat("ManaRegen", val));
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Execution engine
+// ---------------------------------------------------------------------------
+
+fn guard_ok(rule: &StatRule, ctx: &LineCtx) -> bool {
+    if rule.not_minion && ctx.is_minion { return false; }
+    if rule.not_minion_alt && ctx.is_minion_alt { return false; }
+    if rule.no_type_kw && ctx.has_type_kw { return false; }
+    if rule.not_combined && ctx.is_combined { return false; }
+    if rule.not_global && ctx.has_global { return false; }
+    true
+}
+
+fn requires_ok(rule: &StatRule, lower: &str) -> bool {
+    for r in &rule.requires {
+        if !r.is_empty() && !lower.contains(r) { return false; }
+    }
+    true
+}
+
+fn excludes_ok(rule: &StatRule, lower: &str) -> bool {
+    for e in &rule.excludes {
+        if !e.is_empty() && lower.contains(e) { return false; }
+    }
+    true
+}
+
+fn try_apply(rule: &StatRule, line: &str, mods: &mut Vec<Modifier>) -> bool {
+    match rule.extract {
+        Extract::Value => {
+            if let Some(val) = extract_value(line, rule.suffix) {
+                emit_mods(rule, val, mods);
+                return true;
+            }
+        }
+        Extract::Pct => {
+            if let Some(val) = extract_pct(line, rule.suffix) {
+                emit_mods(rule, val, mods);
+                return true;
+            }
+        }
+        Extract::PctValue => {
+            if let Some(val) = extract_pct_value(line, rule.suffix) {
+                emit_mods(rule, val, mods);
+                return true;
+            }
+        }
+        Extract::DamageRange => {
+            if let Some((min, max)) = extract_damage_range(line, rule.suffix) {
+                if !rule.stats[0].is_empty() {
+                    mods.push(flat(rule.stats[0], min * rule.scale));
                 }
-                if let Some(val) = extract_pct(line, "more damage") {
-                    mods.push(more("Damage", val));
+                if !rule.stats[1].is_empty() {
+                    mods.push(flat(rule.stats[1], max * rule.scale));
                 }
+                return true;
             }
         }
     }
+    false
+}
 
-    // --- Added flat damage ranges -------------------------------------------
-    if let Some((min, max)) = extract_damage_range(line, "physical damage") {
-        mods.push(flat("AddedPhysMin", min));
-        mods.push(flat("AddedPhysMax", max));
-    }
-    if let Some((min, max)) = extract_damage_range(line, "fire damage") {
-        mods.push(flat("AddedFireMin", min));
-        mods.push(flat("AddedFireMax", max));
-    }
-    if let Some((min, max)) = extract_damage_range(line, "cold damage") {
-        mods.push(flat("AddedColdMin", min));
-        mods.push(flat("AddedColdMax", max));
-    }
-    if let Some((min, max)) = extract_damage_range(line, "lightning damage") {
-        mods.push(flat("AddedLightningMin", min));
-        mods.push(flat("AddedLightningMax", max));
-    }
-    if let Some((min, max)) = extract_damage_range(line, "chaos damage") {
-        mods.push(flat("AddedChaosMin", min));
-        mods.push(flat("AddedChaosMax", max));
-    }
-
-    // --- Projectile / Area / Melee damage ------------------------------------
-    {
-        let lower = line.to_lowercase();
-        let is_minion = lower.contains("minions") || lower.contains("allies");
-        if !is_minion {
-            if let Some(val) = extract_pct(line, "increased projectile damage") {
-                mods.push(increased("ProjectileDamage", val));
-            }
-            if let Some(val) = extract_pct(line, "increased area damage") {
-                mods.push(increased("AreaDamage", val));
-            }
-            if let Some(val) = extract_pct(line, "increased melee damage") {
-                mods.push(increased("MeleeDamage", val));
-            }
-            if let Some(val) = extract_pct(line, "increased elemental damage with attack skills") {
-                mods.push(increased("Damage", val));
-            }
-            if let Some(val) = extract_pct(line, "increased projectile speed") {
-                mods.push(increased("ProjectileSpeed", val));
-            }
+fn emit_mods(rule: &StatRule, val: f64, mods: &mut Vec<Modifier>) {
+    let scaled = val * rule.scale;
+    for stat in &rule.stats {
+        if stat.is_empty() { break; }
+        match rule.mod_out {
+            ModOut::Flat => mods.push(flat(stat, scaled)),
+            ModOut::Increased => mods.push(increased(stat, scaled)),
+            ModOut::More => mods.push(more(stat, scaled)),
         }
     }
+}
 
-    // --- Combined Evasion and Armour / Evasion and Energy Shield -----------
-    {
-        let lower = line.to_lowercase();
-        if lower.contains("evasion") && lower.contains("armour") && lower.contains("increased") {
-            if let Some(val) = extract_pct(line, "increased evasion rating and armour") {
-                mods.push(increased("Evasion", val));
-                mods.push(increased("Armour", val));
-            } else if let Some(val) = extract_pct(line, "increased armour and evasion") {
-                mods.push(increased("Armour", val));
-                mods.push(increased("Evasion", val));
-            }
-        }
-        if lower.contains("evasion") && lower.contains("energy shield") && lower.contains("increased") {
-            if let Some(val) = extract_pct(line, "increased evasion and energy shield") {
-                mods.push(increased("Evasion", val));
-                mods.push(increased("EnergyShield", val));
-            }
+fn run_phase(rules: &[StatRule], prio: u8, line: &str, lower: &str, ctx: &LineCtx, mods: &mut Vec<Modifier>, groups: &mut u64) {
+    for rule in rules {
+        if rule.priority != prio { continue; }
+        if rule.group != 0 && (*groups & (1u64 << rule.group)) != 0 { continue; }
+        if !guard_ok(rule, ctx) { continue; }
+        if !requires_ok(rule, lower) { continue; }
+        if !excludes_ok(rule, lower) { continue; }
+        if try_apply(rule, line, mods) && rule.group != 0 {
+            *groups |= 1u64 << rule.group;
         }
     }
+}
 
-    // --- Max resistances ---------------------------------------------------
-    if let Some(val) = extract_pct_value(line, "to all maximum elemental resistances") {
-        mods.push(flat("FireResMax", val));
-        mods.push(flat("ColdResMax", val));
-        mods.push(flat("LightningResMax", val));
-    } else {
-        if let Some(val) = extract_pct_value(line, "to maximum fire resistance") {
-            mods.push(flat("FireResMax", val));
-        }
-        if let Some(val) = extract_pct_value(line, "to maximum cold resistance") {
-            mods.push(flat("ColdResMax", val));
-        }
-        if let Some(val) = extract_pct_value(line, "to maximum lightning resistance") {
-            mods.push(flat("LightningResMax", val));
-        }
-    }
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
 
-    // --- DoT Multiplier ----------------------------------------------------
-    if let Some(val) = extract_pct_value(line, "to damage over time multiplier") {
-        mods.push(flat("DamageOverTimeMulti", val));
-    }
+/// Parse a PoE stat description line into zero or more Modifiers.
+pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
+    let line = line.trim();
+    if line.is_empty() { return vec![]; }
 
-    // --- Life Regen --------------------------------------------------------
-    {
-        let lower = line.to_lowercase();
-        if (lower.contains("regenerate") && lower.contains("life per second"))
-            || lower.contains("life regenerated per second") {
-            if let Some(val) = extract_pct(line, "of life per second") {
-                mods.push(flat("LifeRegenPct", val));
-            } else if let Some(val) = extract_pct(line, "life regenerated per second") {
-                mods.push(flat("LifeRegenPct", val));
-            } else if let Some(val) = extract_value(line, "life per second") {
-                mods.push(flat("LifeRegen", val));
-            }
-        }
-    }
+    let line = &strip_ranges(line);
+    let lower = line.to_lowercase();
+    let ctx = LineCtx::new(&lower);
+    let mut mods = Vec::new();
 
-    // --- Mana Regen --------------------------------------------------------
-    if let Some(val) = extract_pct(line, "increased mana regeneration rate") {
-        mods.push(increased("ManaRegen", val));
-    }
+    // Escape hatch 1: nearby enemies (early return with value negation)
+    if try_nearby_enemies(line, &lower, &mut mods) { return mods; }
 
-    // --- Movement Speed ----------------------------------------------------
-    if let Some(val) = extract_pct(line, "increased movement speed") {
-        mods.push(increased("MovementSpeed", val));
-    }
+    // Phase 1: primary rules
+    let mut groups: u64 = 0;
+    run_phase(RULES, 0, line, &lower, &ctx, &mut mods, &mut groups);
 
-    // --- Leech -------------------------------------------------------------
-    {
-        let lower = line.to_lowercase();
-        if lower.contains("leeched as life") {
-            if let Some(val) = extract_pct(line, "of attack damage leeched as life") {
-                mods.push(flat("LifeLeechPct", val));
-            } else if let Some(val) = extract_pct(line, "of physical attack damage leeched as life") {
-                mods.push(flat("LifeLeechPct", val));
-            } else if let Some(val) = extract_pct(line, "of damage leeched as life") {
-                mods.push(flat("LifeLeechPct", val));
-            }
-        }
-        if lower.contains("leeched as energy shield") {
-            if let Some(val) = extract_pct(line, "of damage leeched as energy shield") {
-                mods.push(flat("ESLeechPct", val));
-            }
-        }
-    }
+    // Escape hatches that run between phases
+    try_combined_dual_res(line, &lower, &mut mods);
+    try_gem_level(line, &lower, &mut mods);
+    try_life_regen(line, &lower, &mut mods);
+    try_es_regen(line, &lower, &mut mods);
+    try_mana_regen_flat(line, &lower, &mut mods);
 
-    // --- Mana Reservation Efficiency ---------------------------------------
-    if let Some(val) = extract_pct(line, "increased mana reservation efficiency") {
-        mods.push(increased("ManaReservationEfficiency", val));
-    }
-
-    // --- Skill Duration ----------------------------------------------------
-    if let Some(val) = extract_pct(line, "increased skill effect duration") {
-        mods.push(increased("SkillDuration", val));
-    }
-
-    // --- Area of Effect ----------------------------------------------------
-    if let Some(val) = extract_pct(line, "increased area of effect") {
-        mods.push(increased("AreaOfEffect", val));
-    }
-
-    // --- Global Crit (matches "increased Global Critical Strike Chance") ---
-    if let Some(val) = extract_pct(line, "increased global critical strike chance") {
-        mods.push(increased("CritChance", val));
-    }
-
-    // --- Speed --------------------------------------------------------------
-    if let Some(val) = extract_pct(line, "increased attack speed") {
-        mods.push(increased("AttackSpeed", val));
-    }
-    if let Some(val) = extract_pct(line, "increased cast speed") {
-        mods.push(increased("AttackSpeed", val));
-    }
-    // "increased Attack and Cast Speed" - both in one line
-    if let Some(val) = extract_pct(line, "increased attack and cast speed") {
-        mods.push(increased("AttackSpeed", val));
-    }
-
-    // --- Crit ---------------------------------------------------------------
-    {
-        let lower = line.to_lowercase();
-        if !lower.contains("global") {
-            if let Some(val) = extract_pct(line, "increased critical strike chance") {
-                mods.push(increased("CritChance", val));
-            } else if lower.contains("critical strike chance") && lower.contains("increased") {
-                // Catch variants: "Melee/Attack/Spell Critical Strike Chance"
-                if let Some(val) = extract_pct(line, "critical strike chance") {
-                    mods.push(increased("CritChance", val));
-                }
-            }
-        }
-    }
-    {
-        let lower = line.to_lowercase();
-        if lower.contains("critical strike multiplier") {
-            if let Some(val) = extract_pct_value(line, "to global critical strike multiplier") {
-                mods.push(flat("CritMultiplier", val));
-            } else if let Some(val) = extract_pct_value(line, "critical strike multiplier for spells") {
-                mods.push(flat("CritMultiplier", val));
-            } else if let Some(val) = extract_pct_value(line, "to critical strike multiplier") {
-                mods.push(flat("CritMultiplier", val));
-            }
-        }
-    }
-
-    // --- Block (spell block checked first to avoid double-counting) ----------
-    {
-        let lower = line.to_lowercase();
-        if lower.contains("chance to block") && !lower.contains("spell damage") {
-            if let Some(val) = extract_pct_value(line, "chance to block") {
-                mods.push(flat("BlockChance", val));
-            }
-        }
-        if let Some(val) = extract_pct(line, "increased chance to block") {
-            mods.push(increased("BlockChance", val));
-        }
-        if let Some(val) = extract_pct(line, "increased block chance") {
-            mods.push(increased("BlockChance", val));
-        }
-    }
-
-    // --- Accuracy -----------------------------------------------------------
-    if let Some(val) = extract_value(line, "to accuracy rating") {
-        mods.push(flat("Accuracy", val));
-    }
-    if let Some(val) = extract_pct(line, "increased accuracy rating") {
-        mods.push(increased("Accuracy", val));
-    }
-
-    // --- Suppression --------------------------------------------------------
-    if let Some(val) = extract_pct_value(line, "chance to suppress spell damage") {
-        mods.push(flat("SpellSuppression", val));
-    }
-
-    // --- Penetration --------------------------------------------------------
-    {
-        let lower = line.to_lowercase();
-        if lower.contains("penetrat") {
-            if let Some(val) = extract_pct_value(line, "fire resistance") {
-                if lower.contains("penetrat") { mods.push(flat("FirePenetration", val)); }
-            }
-            if let Some(val) = extract_pct_value(line, "cold resistance") {
-                if lower.contains("penetrat") { mods.push(flat("ColdPenetration", val)); }
-            }
-            if let Some(val) = extract_pct_value(line, "lightning resistance") {
-                if lower.contains("penetrat") { mods.push(flat("LightningPenetration", val)); }
-            }
-            if let Some(val) = extract_pct_value(line, "chaos resistance") {
-                if lower.contains("penetrat") { mods.push(flat("ChaosPenetration", val)); }
-            }
-            if let Some(val) = extract_pct_value(line, "elemental resistance") {
-                if lower.contains("penetrat") {
-                    mods.push(flat("FirePenetration", val));
-                    mods.push(flat("ColdPenetration", val));
-                    mods.push(flat("LightningPenetration", val));
-                }
-            }
-        }
-    }
-
-    // --- Curse effect -------------------------------------------------------
-    if let Some(val) = extract_pct(line, "increased effect of curses") {
-        mods.push(increased("CurseEffect", val));
-    }
-    if let Some(val) = extract_pct(line, "increased effect of your curses") {
-        mods.push(increased("CurseEffect", val));
-    }
-
-    // --- Aura effect --------------------------------------------------------
-    if let Some(val) = extract_pct(line, "increased effect of non-curse auras") {
-        mods.push(increased("AuraEffect", val));
-    }
-    if let Some(val) = extract_pct(line, "increased aura effect") {
-        mods.push(increased("AuraEffect", val));
-    }
-
-    // --- Minion modifiers ---------------------------------------------------
-    {
-        let lower = line.to_lowercase();
-        if lower.contains("minion") {
-            if let Some(val) = extract_pct(line, "increased minion damage") {
-                mods.push(increased("MinionDamage", val));
-            }
-            if let Some(val) = extract_pct(line, "increased minion attack speed") {
-                mods.push(increased("MinionSpeed", val));
-            }
-            if let Some(val) = extract_pct(line, "increased minion life") {
-                mods.push(increased("MinionLife", val));
-            }
-            if let Some(val) = extract_pct(line, "increased minion movement speed") {
-                mods.push(increased("MinionMoveSpeed", val));
-            }
-        }
-        if lower.contains("minions deal") && lower.contains("increased damage") {
-            if let Some(val) = extract_pct(line, "increased damage") {
-                mods.push(increased("MinionDamage", val));
-            }
-        }
-    }
-
-    // --- Gain as extra damage -----------------------------------------------
-    {
-        let lower = line.to_lowercase();
-        if lower.contains("gain") && lower.contains("as extra") {
-            if lower.contains("physical") && lower.contains("fire") {
-                if let Some(val) = extract_pct(line, "of physical damage as extra fire damage") {
-                    mods.push(flat("PhysGainAsFire", val));
-                }
-            }
-            if lower.contains("physical") && lower.contains("cold") {
-                if let Some(val) = extract_pct(line, "of physical damage as extra cold damage") {
-                    mods.push(flat("PhysGainAsCold", val));
-                }
-            }
-            if lower.contains("physical") && lower.contains("lightning") {
-                if let Some(val) = extract_pct(line, "of physical damage as extra lightning damage") {
-                    mods.push(flat("PhysGainAsLightning", val));
-                }
-            }
-            if lower.contains("physical") && lower.contains("chaos") {
-                if let Some(val) = extract_pct(line, "of physical damage as extra chaos damage") {
-                    mods.push(flat("PhysGainAsChaos", val));
-                }
-            }
-        }
-    }
-
-    // --- Impale -------------------------------------------------------------
-    {
-        let lower = line.to_lowercase();
-        if lower.contains("chance to impale") {
-            if let Some(val) = extract_pct_value(line, "chance to impale") {
-                mods.push(flat("ImpaleChance", val));
-            }
-        }
-        if lower.contains("impale effect") {
-            if let Some(val) = extract_pct(line, "increased impale effect") {
-                mods.push(increased("ImpaleEffect", val));
-            }
-        }
-    }
-
-    // --- Ward ---------------------------------------------------------------
-    if let Some(val) = extract_value(line, "to ward") {
-        mods.push(flat("Ward", val));
-    }
-
-    // --- ES Recharge --------------------------------------------------------
-    if let Some(val) = extract_pct(line, "faster start of energy shield recharge") {
-        mods.push(increased("ESRechargeRate", val));
-    }
-    if let Some(val) = extract_pct(line, "increased energy shield recharge rate") {
-        mods.push(increased("ESRechargeRate", val));
-    }
-
-    // --- Conversion --------------------------------------------------------
-    {
-        let lower = line.to_lowercase();
-        if lower.contains("converted to") {
-            if lower.contains("physical") && lower.contains("fire") {
-                if let Some(val) = extract_pct(line, "of physical damage converted to fire damage") {
-                    mods.push(flat("ConvPhysToFire", val));
-                }
-            }
-            if lower.contains("physical") && lower.contains("cold") {
-                if let Some(val) = extract_pct(line, "of physical damage converted to cold damage") {
-                    mods.push(flat("ConvPhysToCold", val));
-                }
-            }
-            if lower.contains("physical") && lower.contains("lightning") {
-                if let Some(val) = extract_pct(line, "of physical damage converted to lightning damage") {
-                    mods.push(flat("ConvPhysToLightning", val));
-                }
-            }
-            if lower.contains("physical") && lower.contains("chaos") {
-                if let Some(val) = extract_pct(line, "of physical damage converted to chaos damage") {
-                    mods.push(flat("ConvPhysToChaos", val));
-                }
-            }
-            if lower.contains("cold") && lower.contains("fire") && !lower.contains("physical") {
-                if let Some(val) = extract_pct(line, "of cold damage converted to fire damage") {
-                    mods.push(flat("ConvColdToFire", val));
-                }
-            }
-            if lower.contains("lightning") && lower.contains("cold") && !lower.contains("physical") {
-                if let Some(val) = extract_pct(line, "of lightning damage converted to cold damage") {
-                    mods.push(flat("ConvLightningToCold", val));
-                }
-            }
-        }
-    }
-
-    // --- Spell Suppression (alternate wording) -----------------------------
-    if let Some(val) = extract_pct_value(line, "to spell suppression chance") {
-        mods.push(flat("SpellSuppression", val));
-    }
-
-    // --- Fortify -----------------------------------------------------------
-    if let Some(val) = extract_pct(line, "increased fortification") {
-        mods.push(increased("Fortify", val));
-    }
-
-    // --- Gem levels --------------------------------------------------------
-    {
-        let lower = line.to_lowercase();
-        if lower.contains("to level of all") && lower.contains("skill gems") {
-            if let Some(val) = extract_value(line, "to level of all") {
-                mods.push(flat("GemLevel", val));
-                mods.push(more("Damage", val * 8.0));
-            }
-        }
-    }
-
-    // --- Totem / Brand / Trap / Mine damage --------------------------------
-    {
-        let lower = line.to_lowercase();
-        if !lower.contains("minion") {
-            if let Some(val) = extract_pct(line, "increased totem damage") {
-                mods.push(increased("Damage", val));
-            }
-            if let Some(val) = extract_pct(line, "increased trap damage") {
-                mods.push(increased("Damage", val));
-            }
-            if let Some(val) = extract_pct(line, "increased mine damage") {
-                mods.push(increased("Damage", val));
-            }
-            if let Some(val) = extract_pct(line, "increased brand damage") {
-                mods.push(increased("Damage", val));
-            }
-        }
-    }
-
-    // --- Flask effect -------------------------------------------------------
-    if let Some(val) = extract_pct(line, "increased flask effect") {
-        mods.push(increased("FlaskEffect", val));
-    }
-
-    // --- Cooldown recovery --------------------------------------------------
-    if let Some(val) = extract_pct(line, "increased cooldown recovery rate") {
-        mods.push(increased("CooldownRecovery", val));
-    }
-
-    // --- Spell block -------------------------------------------------------
-    if let Some(val) = extract_pct_value(line, "chance to block spell damage") {
-        mods.push(flat("SpellBlockChance", val));
-    }
-    if let Some(val) = extract_pct(line, "increased chance to block spell damage") {
-        mods.push(increased("SpellBlockChance", val));
-    }
-
-    // --- Elemental ailment avoidance ----------------------------------------
-    if let Some(val) = extract_pct_value(line, "chance to avoid elemental ailments") {
-        mods.push(flat("AilmentAvoidance", val));
-    }
-
-    // --- Stun avoidance ----------------------------------------------------
-    if let Some(val) = extract_pct_value(line, "chance to avoid being stunned") {
-        mods.push(flat("StunAvoidance", val));
-    }
-
-    // --- ES Regen (flat) ----------------------------------------------------
-    {
-        let lower = line.to_lowercase();
-        if lower.contains("regenerate") && lower.contains("energy shield per second") {
-            if let Some(val) = extract_pct(line, "of energy shield per second") {
-                mods.push(flat("ESRegen", val));
-            } else if let Some(val) = extract_value(line, "energy shield per second") {
-                mods.push(flat("ESRegen", val));
-            }
-        }
-    }
-
-    // --- Mana Regen (flat) --------------------------------------------------
-    {
-        let lower = line.to_lowercase();
-        if lower.contains("regenerate") && lower.contains("mana per second") {
-            if let Some(val) = extract_value(line, "mana per second") {
-                mods.push(flat("ManaRegen", val));
-            }
-        }
-    }
-
-    // --- Spell-specific crit chance ------------------------------------------
-    {
-        let lower = line.to_lowercase();
-        if lower.contains("spell critical strike chance") {
-            if let Some(val) = extract_pct(line, "increased spell critical strike chance") {
-                mods.push(increased("CritChance", val));
-            }
-        }
-    }
-
-    // --- Cast Speed (separate from Attack Speed) ----------------------------
-    {
-        let lower = line.to_lowercase();
-        if lower.contains("more cast speed") {
-            if let Some(val) = extract_pct(line, "more cast speed") {
-                mods.push(more("AttackSpeed", val));
-            }
-        }
-    }
-
-    // --- Conversion (alternate wording: "X% of Physical Damage taken as") ---
-    {
-        let lower = line.to_lowercase();
-        if lower.contains("damage") && (lower.contains("taken as") || lower.contains("converted to")) {
-            if !lower.contains("converted to") {
-                // "taken as" variants - damage shift, not calc-affecting in same way
-                // but still useful to track
-            }
-        }
-    }
-
-    // --- Life on hit / kill -------------------------------------------------
-    if let Some(val) = extract_value(line, "life gained on hit") {
-        mods.push(flat("LifeOnHit", val));
-    }
-    if let Some(val) = extract_value(line, "life gained on kill") {
-        mods.push(flat("LifeOnKill", val));
-    }
-    if let Some(val) = extract_value(line, "mana gained on kill") {
-        mods.push(flat("ManaOnKill", val));
-    }
-
-    // --- Maximum Charges ----------------------------------------------------
-    {
-        let lower = line.to_lowercase();
-        if lower.contains("maximum power charge") {
-            if let Some(val) = extract_value(line, "to maximum power charges") {
-                mods.push(flat("MaxPowerCharges", val));
-            } else if let Some(val) = extract_value(line, "maximum power charges") {
-                mods.push(flat("MaxPowerCharges", val));
-            } else if let Some(val) = extract_value(line, "to maximum power charge") {
-                mods.push(flat("MaxPowerCharges", val));
-            }
-        }
-        if lower.contains("maximum frenzy charge") {
-            if let Some(val) = extract_value(line, "to maximum frenzy charges") {
-                mods.push(flat("MaxFrenzyCharges", val));
-            } else if let Some(val) = extract_value(line, "maximum frenzy charges") {
-                mods.push(flat("MaxFrenzyCharges", val));
-            } else if let Some(val) = extract_value(line, "to maximum frenzy charge") {
-                mods.push(flat("MaxFrenzyCharges", val));
-            }
-        }
-        if lower.contains("maximum endurance charge") {
-            if let Some(val) = extract_value(line, "to maximum endurance charges") {
-                mods.push(flat("MaxEnduranceCharges", val));
-            } else if let Some(val) = extract_value(line, "maximum endurance charges") {
-                mods.push(flat("MaxEnduranceCharges", val));
-            } else if let Some(val) = extract_value(line, "to maximum endurance charge") {
-                mods.push(flat("MaxEnduranceCharges", val));
-            }
-        }
-    }
-
-    // --- Physical Damage from Hits taken as Element ---------------------------
-    {
-        let lower = line.to_lowercase();
-        if lower.contains("physical damage from hits taken as") {
-            if let Some(val) = extract_pct_value(line, "taken as fire damage") {
-                mods.push(flat("PhysTakenAsFire", val));
-            }
-            if let Some(val) = extract_pct_value(line, "taken as cold damage") {
-                mods.push(flat("PhysTakenAsCold", val));
-            }
-            if let Some(val) = extract_pct_value(line, "taken as lightning damage") {
-                mods.push(flat("PhysTakenAsLightning", val));
-            }
-            if let Some(val) = extract_pct_value(line, "taken as chaos damage") {
-                mods.push(flat("PhysTakenAsChaos", val));
-            }
-        }
-    }
-
-    // --- Action Speed --------------------------------------------------------
-    if let Some(val) = extract_pct(line, "increased action speed") {
-        mods.push(increased("ActionSpeed", val));
-    }
-
-    // --- Stun and Block Recovery ---------------------------------------------
-    if let Some(val) = extract_pct(line, "increased stun and block recovery") {
-        mods.push(increased("StunBlockRecovery", val));
-    }
-
-    // --- Aura effect on self -------------------------------------------------
-    {
-        let lower = line.to_lowercase();
-        if lower.contains("auras from your skills have") && lower.contains("increased effect") {
-            if let Some(val) = extract_pct(line, "increased effect") {
-                mods.push(increased("AuraEffectOnSelf", val));
-            }
-        }
-    }
-
-    // --- Duration / Effect ---------------------------------------------------
-    {
-        let lower = line.to_lowercase();
-        if mods.is_empty() && lower.contains("increased") && lower.contains("duration") {
-            if let Some(val) = extract_pct(line, "increased duration") {
-                mods.push(increased("SkillDuration", val));
-            }
-        }
-
-        if lower.contains("cooldown recovery") {
-            if let Some(val) = extract_pct(line, "increased cooldown recovery") {
-                mods.push(increased("CooldownRecovery", val));
-            }
-        }
-
-        if mods.is_empty() && lower.contains("global critical strike chance") {
-            if let Some(val) = extract_pct(line, "increased global critical strike chance") {
-                mods.push(increased("CritChance", val));
-            }
-        }
+    // Phase 2: fallback rules (only if nothing matched yet)
+    if mods.is_empty() {
+        groups = 0;
+        run_phase(RULES, 1, line, &lower, &ctx, &mut mods, &mut groups);
     }
 
     mods
@@ -990,10 +964,8 @@ fn extract_damage_range(line: &str, damage_suffix: &str) -> Option<(f64, f64)> {
     if !lower.contains("adds") || !lower.contains(&damage_suffix.to_lowercase()) {
         return None;
     }
-    // Pattern: "Adds X to Y <type> damage"
     let suffix_idx = lower.find(&damage_suffix.to_lowercase())?;
     let before = &line[..suffix_idx];
-    // Find two numbers separated by "to"
     let parts: Vec<&str> = before.split_whitespace().collect();
     let mut nums = Vec::new();
     for part in &parts {
@@ -1169,7 +1141,6 @@ fn legacy_mod_type(s: &str) -> ModType {
 
 /// Parse a stat line into enriched `mod_db::Mod` values with flags, keywords, and conditions.
 pub fn parse_stat_line_v2(line: &str) -> Vec<mod_db::Mod> {
-    // Strip condition/flag suffixes before passing to the base parser
     let cleaned = strip_condition_suffix(line);
     let base_mods = parse_stat_line(&cleaned);
     if base_mods.is_empty() {
@@ -1366,8 +1337,6 @@ mod tests {
         assert_eq!(mods[0].stat, "Str");
     }
 
-    // --- Range notation stripping ---
-
     #[test]
     fn test_strip_range_notation() {
         let mods = parse_stat_line("(5-10)% increased Attack Speed");
@@ -1383,8 +1352,6 @@ mod tests {
         assert_eq!(mods[0].stat, "Life");
         assert_eq!(mods[0].value, 50.0);
     }
-
-    // --- New patterns ---
 
     #[test]
     fn test_projectile_damage() {
@@ -1517,14 +1484,11 @@ mod tests {
 
     #[test]
     fn test_unique_item_range_notation() {
-        // Real unique item mod: "(100-120)% increased Evasion and Energy Shield"
         let mods = parse_stat_line("(100-120)% increased Evasion and Energy Shield");
         let stats: Vec<_> = mods.iter().map(|m| m.stat.as_str()).collect();
         assert!(stats.contains(&"Evasion"), "mods: {:?}", mods);
         assert!(stats.contains(&"EnergyShield"), "mods: {:?}", mods);
     }
-
-    // --- Per-type damage tests ---
 
     #[test]
     fn test_increased_fire_damage() {
@@ -1569,8 +1533,6 @@ mod tests {
         assert_eq!(mods[0].mod_type, "increased");
     }
 
-    // --- Added damage range tests ---
-
     #[test]
     fn test_adds_physical_damage() {
         let mods = parse_stat_line("Adds 10 to 20 Physical Damage");
@@ -1609,13 +1571,10 @@ mod tests {
 
     #[test]
     fn test_generic_damage_not_matched_when_typed() {
-        // "increased Fire Damage" should produce FireDamage, NOT also generic Damage
         let mods = parse_stat_line("30% increased Fire Damage");
         assert_eq!(mods.len(), 1);
         assert_eq!(mods[0].stat, "FireDamage");
     }
-
-    // --- Minion / Aura / Curse tests ---
 
     #[test]
     fn test_minion_damage_increased() {
@@ -1662,7 +1621,7 @@ mod tests {
         assert!(mods.iter().any(|m| m.stat == "CurseEffect" && m.value == 20.0));
     }
 
-    // --- V2 parser tests: flags, conditions, multipliers ---
+    // --- V2 parser tests ---
 
     #[test]
     fn test_v2_basic_no_condition() {
@@ -1715,8 +1674,6 @@ mod tests {
 
     #[test]
     fn test_v2_enemy_shocked() {
-        // Note: "against Shocked Enemies" triggers the is_minion guard in v1 parser
-        // for generic "Damage". Use a typed damage stat that bypasses it.
         let mods = parse_stat_line_v2("15% increased Attack Speed to Shocked Enemies");
         assert_eq!(mods.len(), 1);
         assert!(matches!(mods[0].tag1, ModTag::Condition(ConditionId::EnemyShocked)));
@@ -1781,8 +1738,6 @@ mod tests {
         let mods = parse_stat_line_v2("Some completely unknown stat text xyz");
         assert!(mods.is_empty());
     }
-
-    // --- New pattern coverage tests ---
 
     #[test]
     fn test_increased_es_no_maximum() {
@@ -1897,60 +1852,41 @@ mod coverage_check {
 
     #[test]
     fn check_coverage_gaps() {
-        // These are the most common patterns from real endgame builds
         let must_parse: Vec<(&str, &str)> = vec![
-            // Conversion
             ("50% of Physical Damage converted to Fire Damage", "ConvPhysToFire"),
             ("50% of Cold Damage converted to Fire Damage", "ConvColdToFire"),
-            // Added damage with context suffixes
             ("Adds 5 to 10 Cold Damage to Spells", "AddedColdMin"),
             ("Adds 5 to 10 Fire Damage to Attacks", "AddedFireMin"),
-            // Regen
             ("Regenerate 20 Life per second", "LifeRegen"),
             ("Regenerate 1.5% of Life per second", "LifeRegenPct"),
             ("Regenerate 150 Energy Shield per second", "ESRegen"),
             ("Regenerate 5 Mana per second", "ManaRegen"),
-            // Leech
             ("0.4% of Physical Attack Damage Leeched as Life", "LifeLeechPct"),
             ("0.5% of Damage Leeched as Energy Shield", "ESLeechPct"),
-            // Speed
             ("5% increased Cast Speed", "AttackSpeed"),
             ("10% more Cast Speed", "AttackSpeed"),
             ("4% increased Attack and Cast Speed", "AttackSpeed"),
-            // DoT
             ("20% increased Damage over Time", "DamageOverTime"),
             ("+5% to Damage over Time Multiplier", "DamageOverTimeMulti"),
-            // Penetration
             ("Penetrates 10% Fire Resistance", "FirePenetration"),
             ("Damage Penetrates 5% Cold Resistance", "ColdPenetration"),
             ("Damage Penetrates 10% Elemental Resistances", "FirePenetration"),
-            // Gain as extra
             ("Gain 15% of Physical Damage as Extra Cold Damage", "PhysGainAsCold"),
-            // Gem level
             ("+1 to Level of all Spell Skill Gems", "GemLevel"),
-            // AoE/proj
             ("8% increased Area of Effect", "AreaOfEffect"),
             ("10% increased Projectile Speed", "ProjectileSpeed"),
-            // Movement
             ("10% increased Movement Speed", "MovementSpeed"),
-            // ES
             ("67% increased Energy Shield", "EnergyShield"),
             ("(56-74)% increased Energy Shield", "EnergyShield"),
             ("15% more Energy Shield", "EnergyShield"),
-            // Crit multi variants
             ("+20% to Global Critical Strike Multiplier", "CritMultiplier"),
             ("+30% to Critical Strike Multiplier for Spells", "CritMultiplier"),
-            // Combined res
             ("+(17-20)% to Fire and Lightning Resistances", "FireRes"),
-            // Nearby enemies resistance (treated as pen)
             ("Nearby Enemies have -10% to Fire Resistance", "FirePenetration"),
             ("Nearby Enemies have -9% to Cold Resistance", "ColdPenetration"),
             ("Nearby Enemies have -12% to Lightning Resistance", "LightningPenetration"),
-            // Life regen alternate wording
             ("1% of Life Regenerated per second", "LifeRegenPct"),
-            // More life
             ("10% more maximum Life", "Life"),
-            // Increased accuracy (alternate wording)
             ("200% increased Accuracy Rating", "Accuracy"),
         ];
 
@@ -2039,5 +1975,446 @@ mod coverage_check {
         assert_eq!(mods.len(), 2);
         assert!(mods.iter().any(|m| m.stat == "Dex" && m.value == 15.0));
         assert!(mods.iter().any(|m| m.stat == "Int" && m.value == 15.0));
+    }
+
+    #[test]
+    fn test_reduced_mana_cost() {
+        let mods = parse_stat_line("20% reduced Mana Cost of Skills");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "ManaCost");
+        assert_eq!(mods[0].value, -20.0);
+        assert_eq!(mods[0].mod_type, "increased");
+    }
+
+    #[test]
+    fn test_reduced_movement_speed() {
+        let mods = parse_stat_line("3% reduced Movement Speed");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "MovementSpeed");
+        assert_eq!(mods[0].value, -3.0);
+        assert_eq!(mods[0].mod_type, "increased");
+    }
+
+    #[test]
+    fn test_less_attack_speed() {
+        let mods = parse_stat_line("10% less Attack Speed");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "AttackSpeed");
+        assert_eq!(mods[0].value, -10.0);
+        assert_eq!(mods[0].mod_type, "more");
+    }
+
+    #[test]
+    fn test_less_damage() {
+        let mods = parse_stat_line("25% less Damage");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "Damage");
+        assert_eq!(mods[0].value, -25.0);
+        assert_eq!(mods[0].mod_type, "more");
+    }
+
+    #[test]
+    fn test_chance_to_ignite() {
+        let mods = parse_stat_line("20% chance to Ignite");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "IgniteChance");
+        assert_eq!(mods[0].value, 20.0);
+    }
+
+    #[test]
+    fn test_chance_to_freeze() {
+        let mods = parse_stat_line("10% chance to Freeze");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "FreezeChance");
+        assert_eq!(mods[0].value, 10.0);
+    }
+
+    #[test]
+    fn test_chance_to_shock() {
+        let mods = parse_stat_line("15% chance to Shock");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "ShockChance");
+        assert_eq!(mods[0].value, 15.0);
+    }
+
+    #[test]
+    fn test_chance_to_cause_bleeding() {
+        let mods = parse_stat_line("25% chance to cause Bleeding on Hit");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "BleedChance");
+        assert_eq!(mods[0].value, 25.0);
+    }
+
+    #[test]
+    fn test_chance_to_poison() {
+        let mods = parse_stat_line("30% chance to Poison on Hit");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "PoisonChance");
+        assert_eq!(mods[0].value, 30.0);
+    }
+
+    #[test]
+    fn test_increased_effect_of_shock() {
+        let mods = parse_stat_line("15% increased Effect of Shock");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "ShockEffect");
+        assert_eq!(mods[0].value, 15.0);
+    }
+
+    #[test]
+    fn test_increased_effect_of_chill() {
+        let mods = parse_stat_line("10% increased Effect of Chill");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "ChillEffect");
+        assert_eq!(mods[0].value, 10.0);
+    }
+
+    #[test]
+    fn test_life_leech_rate() {
+        let mods = parse_stat_line("30% increased total Recovery per second from Life Leech");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "LifeLeechRateInc");
+        assert_eq!(mods[0].value, 30.0);
+    }
+
+    #[test]
+    fn test_max_life_leech_rate() {
+        let mods = parse_stat_line("20% increased Maximum total Life Recovery per second from Leech");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "MaxLifeLeechRate");
+        assert_eq!(mods[0].value, 20.0);
+    }
+
+    #[test]
+    fn test_shield_defences() {
+        let mods = parse_stat_line("50% increased Defences from Equipped Shield");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "ShieldDefences");
+        assert_eq!(mods[0].value, 50.0);
+    }
+
+    #[test]
+    fn test_flask_life_recovery() {
+        let mods = parse_stat_line("20% increased Life Recovery from Flasks");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "FlaskLifeRecovery");
+        assert_eq!(mods[0].value, 20.0);
+    }
+
+    #[test]
+    fn test_totem_life() {
+        let mods = parse_stat_line("15% increased Totem Life");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "TotemLife");
+        assert_eq!(mods[0].value, 15.0);
+    }
+
+    #[test]
+    fn test_flat_mana_cost() {
+        let mods = parse_stat_line("-3 to Total Mana Cost");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "ManaCost");
+        assert_eq!(mods[0].value, -3.0);
+    }
+
+    #[test]
+    fn test_light_radius() {
+        let mods = parse_stat_line("5% increased Light Radius");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "LightRadius");
+    }
+
+    #[test]
+    fn test_poison_duration() {
+        let mods = parse_stat_line("5% increased Poison Duration");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "PoisonDuration");
+    }
+
+    #[test]
+    fn test_bleed_duration() {
+        let mods = parse_stat_line("25% increased Bleeding Duration");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "BleedDuration");
+    }
+
+    #[test]
+    fn test_trap_throwing_speed() {
+        let mods = parse_stat_line("5% increased Trap Throwing Speed");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "TrapThrowingSpeed");
+    }
+
+    #[test]
+    fn test_mine_throwing_speed() {
+        let mods = parse_stat_line("5% increased Mine Throwing Speed");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "MineThrowingSpeed");
+    }
+
+    #[test]
+    fn test_warcry_buff_effect() {
+        let mods = parse_stat_line("10% increased Warcry Buff Effect");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "WarcryBuffEffect");
+    }
+
+    #[test]
+    fn test_herald_buff_effect() {
+        let mods = parse_stat_line("10% increased Effect of Herald Buffs on you");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "HeraldBuffEffect");
+    }
+
+    #[test]
+    fn test_non_damaging_ailment_effect() {
+        let mods = parse_stat_line("10% increased Effect of Non-Damaging Ailments");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "NonDamagingAilmentEffect");
+    }
+
+    #[test]
+    fn test_cost_efficiency_attacks() {
+        let mods = parse_stat_line("15% increased Cost Efficiency of Attacks");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "CostEfficiency");
+    }
+
+    #[test]
+    fn test_flask_charges_gained() {
+        let mods = parse_stat_line("10% increased Flask Charges gained");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "FlaskChargesGained");
+    }
+
+    #[test]
+    fn test_flask_effect_applied() {
+        let mods = parse_stat_line("Flasks applied to you have 5% increased Effect");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "FlaskEffectApplied");
+    }
+
+    #[test]
+    fn test_recoup_life() {
+        let mods = parse_stat_line("6% of Damage taken Recouped as Life");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "LifeRecoup");
+    }
+
+    #[test]
+    fn test_melee_strike_range() {
+        let mods = parse_stat_line("+0.1 metres to Melee Strike Range");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "MeleeRange");
+    }
+
+    #[test]
+    fn test_double_damage_chance() {
+        let mods = parse_stat_line("5% chance to deal Double Damage");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "DoubleDamageChance");
+    }
+
+    #[test]
+    fn test_block_recovery() {
+        let mods = parse_stat_line("30% increased Block Recovery");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "BlockRecovery");
+    }
+
+    #[test]
+    fn test_mana_leech() {
+        let mods = parse_stat_line("0.4% of Attack Damage Leeched as Mana");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "ManaLeechPct");
+    }
+
+    #[test]
+    fn test_spell_damage_leech_es() {
+        let mods = parse_stat_line("0.3% of Spell Damage Leeched as Energy Shield");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "ESLeechPct");
+    }
+
+    #[test]
+    fn test_stun_duration_on_enemies() {
+        let mods = parse_stat_line("20% increased Stun Duration on Enemies");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "StunDuration");
+    }
+
+    #[test]
+    fn test_melee_crit_multi() {
+        let mods = parse_stat_line("+10% to Melee Critical Strike Multiplier");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "CritMultiplier");
+    }
+
+    #[test]
+    fn test_increased_strength_pct() {
+        let mods = parse_stat_line("15% increased Strength");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "Str");
+        assert_eq!(mods[0].mod_type, "increased");
+    }
+
+    #[test]
+    fn test_gain_life_per_enemy_killed() {
+        let mods = parse_stat_line("Gain 15 Life per Enemy Killed");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "LifeOnKill");
+    }
+
+    #[test]
+    fn test_warcry_cooldown_recovery() {
+        let mods = parse_stat_line("15% increased Warcry Cooldown Recovery Rate");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "WarcryCooldown");
+    }
+
+    #[test]
+    fn test_arcane_surge_effect() {
+        let mods = parse_stat_line("20% increased Effect of Arcane Surge on you");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "ArcaneSurgeEffect");
+    }
+
+    #[test]
+    fn test_avoid_bleeding() {
+        let mods = parse_stat_line("30% chance to Avoid Bleeding");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "BleedAvoidance");
+    }
+
+    #[test]
+    fn test_tincture_effect() {
+        let mods = parse_stat_line("Tinctures applied to you have 10% increased Effect");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "TinctureEffect");
+    }
+
+    #[test]
+    fn test_max_fortification() {
+        let mods = parse_stat_line("+1 to maximum Fortification");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "MaxFortification");
+    }
+
+    #[test]
+    fn test_max_rage() {
+        let mods = parse_stat_line("+3 to Maximum Rage");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "MaxRage");
+    }
+
+    #[test]
+    fn test_golem_buff_effect() {
+        let mods = parse_stat_line("20% increased Effect of Buffs granted by your Golems");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "GolemBuffEffect");
+    }
+
+    #[test]
+    fn test_totem_placement_speed() {
+        let mods = parse_stat_line("10% increased Totem Placement speed");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "TotemPlacementSpeed");
+    }
+
+    #[test]
+    fn test_reservation_efficiency() {
+        let mods = parse_stat_line("8% increased Reservation Efficiency of Skills");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "ReservationEfficiency");
+    }
+
+    #[test]
+    fn test_mana_on_hit() {
+        let mods = parse_stat_line("Gain 2 Mana per Enemy Hit with Attacks");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "ManaOnHit");
+    }
+
+    #[test]
+    fn test_burning_damage() {
+        let mods = parse_stat_line("12% increased Burning Damage");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "BurningDamage");
+    }
+
+    #[test]
+    fn test_ele_res_holding_shield() {
+        let mods = parse_stat_line("+3% Elemental Resistances while holding a Shield");
+        assert_eq!(mods.len(), 3);
+        let stats: Vec<_> = mods.iter().map(|m| m.stat.as_str()).collect();
+        assert!(stats.contains(&"FireRes"));
+        assert!(stats.contains(&"ColdRes"));
+        assert!(stats.contains(&"LightningRes"));
+    }
+
+    #[test]
+    #[ignore]
+    fn measure_tree_coverage() {
+        use std::collections::HashMap;
+
+        let tree_path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/web/public/data/tree/tree-3_29.json"
+        );
+        let data = std::fs::read_to_string(tree_path)
+            .expect("Failed to read tree JSON");
+        let json: serde_json::Value = serde_json::from_str(&data)
+            .expect("Failed to parse tree JSON");
+
+        let nodes = json.get("nodes").and_then(|n| n.as_object())
+            .expect("No nodes object in tree JSON");
+
+        let mut total_occurrences = 0usize;
+        let mut parsed_occurrences = 0usize;
+        let mut unique_lines: HashMap<String, usize> = HashMap::new();
+
+        for (_id, node) in nodes {
+            if let Some(stats) = node.get("stats").and_then(|s| s.as_array()) {
+                for stat in stats {
+                    if let Some(line) = stat.as_str() {
+                        let trimmed = line.trim();
+                        if trimmed.is_empty() { continue; }
+                        *unique_lines.entry(trimmed.to_string()).or_insert(0) += 1;
+                        total_occurrences += 1;
+                        if !parse_stat_line(trimmed).is_empty() {
+                            parsed_occurrences += 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        let unique_total = unique_lines.len();
+        let mut unique_parsed = 0usize;
+        let mut unparsed: Vec<(String, usize)> = Vec::new();
+        for (line, count) in &unique_lines {
+            if !parse_stat_line(line).is_empty() {
+                unique_parsed += 1;
+            } else {
+                unparsed.push((line.clone(), *count));
+            }
+        }
+        unparsed.sort_by(|a, b| b.1.cmp(&a.1));
+
+        let unique_unparsed = unique_total - unique_parsed;
+        let unique_pct = unique_parsed as f64 / unique_total as f64 * 100.0;
+        let occ_pct = parsed_occurrences as f64 / total_occurrences as f64 * 100.0;
+
+        println!("\n=== Tree stat_parser coverage ===");
+        println!("Unique lines:  {} total, {} parsed, {} unparsed ({:.1}%)",
+            unique_total, unique_parsed, unique_unparsed, unique_pct);
+        println!("Occurrences:   {} total, {} parsed, {} unparsed ({:.1}%)",
+            total_occurrences, parsed_occurrences,
+            total_occurrences - parsed_occurrences, occ_pct);
+        println!("\nAll unparsed (by occurrence count):");
+        for (i, (line, count)) in unparsed.iter().enumerate() {
+            println!("  {:>3}. [{}x] {}", i + 1, count, line);
+        }
+        println!();
     }
 }
