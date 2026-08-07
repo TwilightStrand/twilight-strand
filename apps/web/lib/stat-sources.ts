@@ -90,7 +90,7 @@ export function getStatSources(
           const match = mod.match(pattern);
           if (match) {
             const val = match[1];
-            const suffix = type === "flat" && (statKey.includes("res") ? "%" : "");
+            const suffix = type === "flat" && statKey.includes("res") ? "%" : "";
             sources.push({
               source: item.name || item.base || item.slot,
               value: `+${val}${suffix}`,
