@@ -1,4 +1,5 @@
 use crate::Modifier;
+use crate::mod_db::{self, ModFlags, KeywordFlags, ConditionId, MultiplierId, ModTag, ModType, StatId};
 
 /// Strip `(X-Y)` range notation to midpoint value, e.g. "(5-10)" -> "8"
 fn strip_ranges(line: &str) -> String {
@@ -748,6 +749,157 @@ fn parse_number_before(s: &str) -> Option<f64> {
 }
 
 // ---------------------------------------------------------------------------
+// V2 parser: emits mod_db::Mod with flags, keywords, and conditions
+// ---------------------------------------------------------------------------
+
+fn strip_condition_suffix(line: &str) -> String {
+    let suffixes = [
+        "while dual wielding", "while on full life", "while on low life",
+        "while leeching", "if you've killed recently", "if you have killed recently",
+        "while you have fortify", "while you have fortification",
+        "while using a flask", "during any flask effect",
+        "while stationary", "while channelling",
+        "against shocked enemies", "to shocked enemies",
+        "against chilled enemies", "to chilled enemies",
+        "against frozen enemies", "to frozen enemies",
+        "while holding a shield", "while wielding a shield",
+        "if you've dealt a critical strike recently", "if you've crit recently",
+        "if you've blocked recently", "if you've been hit recently",
+        "with attacks", "with spells", "with melee",
+        "with bows", "with wands", "with swords", "with axes",
+        "with maces", "with sceptres", "with daggers", "with claws", "with staves",
+        "per power charge", "per frenzy charge", "per endurance charge",
+        "per grand spectrum", "per totem",
+    ];
+    let lower = line.to_lowercase();
+    let mut end = line.len();
+    for suffix in &suffixes {
+        if let Some(pos) = lower.rfind(suffix) {
+            end = end.min(pos);
+        }
+    }
+    line[..end].trim().to_string()
+}
+
+fn detect_flags(line: &str) -> ModFlags {
+    let lower = line.to_lowercase();
+    let mut flags = ModFlags::empty();
+    if lower.contains("with attacks") || lower.contains("to attacks") || lower.contains("attack damage") {
+        flags |= ModFlags::ATTACK;
+    }
+    if lower.contains("with spells") || lower.contains("spell damage") {
+        flags |= ModFlags::SPELL;
+    }
+    if lower.contains("with melee") || lower.contains("melee damage") {
+        flags |= ModFlags::MELEE;
+    }
+    if lower.contains("with bows") { flags |= ModFlags::BOW; }
+    if lower.contains("with wands") { flags |= ModFlags::WAND; }
+    if lower.contains("with swords") { flags |= ModFlags::SWORD; }
+    if lower.contains("with axes") { flags |= ModFlags::AXE; }
+    if lower.contains("with maces") || lower.contains("with sceptres") { flags |= ModFlags::MACE; }
+    if lower.contains("with daggers") { flags |= ModFlags::DAGGER; }
+    if lower.contains("with claws") { flags |= ModFlags::CLAW; }
+    if lower.contains("with staves") { flags |= ModFlags::STAFF; }
+    flags
+}
+
+fn detect_condition(line: &str) -> Option<ConditionId> {
+    let lower = line.to_lowercase();
+    if lower.contains("while dual wielding") { return Some(ConditionId::DualWielding); }
+    if lower.contains("while on full life") { return Some(ConditionId::OnFullLife); }
+    if lower.contains("while on low life") { return Some(ConditionId::OnLowLife); }
+    if lower.contains("while leeching") { return Some(ConditionId::IsLeeching); }
+    if lower.contains("if you've killed recently") || lower.contains("if you have killed recently") {
+        return Some(ConditionId::KilledRecently);
+    }
+    if lower.contains("while you have fortify") || lower.contains("while you have fortification") {
+        return Some(ConditionId::HaveFortify);
+    }
+    if lower.contains("while using a flask") || lower.contains("during any flask effect") {
+        return Some(ConditionId::UsingFlask);
+    }
+    if lower.contains("while stationary") { return Some(ConditionId::Stationary); }
+    if lower.contains("while channelling") { return Some(ConditionId::Channelling); }
+    if lower.contains("against shocked") || lower.contains("to shocked enemies") {
+        return Some(ConditionId::EnemyShocked);
+    }
+    if lower.contains("against chilled") || lower.contains("to chilled enemies") {
+        return Some(ConditionId::EnemyChilled);
+    }
+    if lower.contains("against frozen") || lower.contains("to frozen enemies") {
+        return Some(ConditionId::EnemyFrozen);
+    }
+    if lower.contains("while holding a shield") || lower.contains("while wielding a shield") {
+        return Some(ConditionId::UsingShield);
+    }
+    if lower.contains("if you've dealt a critical strike recently") || lower.contains("if you've crit recently") {
+        return Some(ConditionId::CritRecently);
+    }
+    if lower.contains("if you've blocked recently") { return Some(ConditionId::BlockedRecently); }
+    if lower.contains("if you've been hit recently") { return Some(ConditionId::HitRecently); }
+    None
+}
+
+fn detect_multiplier(line: &str) -> Option<MultiplierId> {
+    let lower = line.to_lowercase();
+    if lower.contains("per power charge") { return Some(MultiplierId::PowerCharge); }
+    if lower.contains("per frenzy charge") { return Some(MultiplierId::FrenzyCharge); }
+    if lower.contains("per endurance charge") { return Some(MultiplierId::EnduranceCharge); }
+    if lower.contains("per grand spectrum") { return Some(MultiplierId::GrandSpectrum); }
+    if lower.contains("per totem") { return Some(MultiplierId::Totem); }
+    None
+}
+
+fn legacy_mod_type(s: &str) -> ModType {
+    match s {
+        "flat" => ModType::Base,
+        "increased" => ModType::Increased,
+        "more" => ModType::More,
+        _ => ModType::Base,
+    }
+}
+
+/// Parse a stat line into enriched `mod_db::Mod` values with flags, keywords, and conditions.
+pub fn parse_stat_line_v2(line: &str) -> Vec<mod_db::Mod> {
+    // Strip condition/flag suffixes before passing to the base parser
+    let cleaned = strip_condition_suffix(line);
+    let base_mods = parse_stat_line(&cleaned);
+    if base_mods.is_empty() {
+        return vec![];
+    }
+
+    let flags = detect_flags(line);
+    let condition = detect_condition(line);
+    let multiplier = detect_multiplier(line);
+
+    base_mods.into_iter().filter_map(|m| {
+        let stat_id = StatId::from_str(&m.stat)?;
+        let mt = legacy_mod_type(&m.mod_type);
+        let mut result = mod_db::Mod::new(stat_id, mt, m.value);
+
+        if !flags.is_empty() {
+            result = result.with_flags(flags);
+        }
+
+        if let Some(cond) = condition {
+            result = result.with_condition(cond);
+        }
+
+        if let Some(mult) = multiplier {
+            result = result.with_multiplier(mult);
+        }
+
+        Some(result)
+    }).collect()
+}
+
+/// Parse multiple stat lines into enriched Mods.
+pub fn parse_stats_v2(lines: &[String]) -> Vec<mod_db::Mod> {
+    lines.iter().flat_map(|line| parse_stat_line_v2(line)).collect()
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -1201,5 +1353,137 @@ mod tests {
     fn test_curse_effect_your_curses() {
         let mods = parse_stat_line("20% increased effect of your Curses");
         assert!(mods.iter().any(|m| m.stat == "CurseEffect" && m.value == 20.0));
+    }
+
+    // --- V2 parser tests: flags, conditions, multipliers ---
+
+    #[test]
+    fn test_v2_basic_no_condition() {
+        let mods = parse_stat_line_v2("+50 to maximum Life");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, StatId::LIFE);
+        assert_eq!(mods[0].mod_type, ModType::Base);
+        assert_eq!(mods[0].value, 50.0);
+        assert_eq!(mods[0].flags, ModFlags::empty());
+        assert!(matches!(mods[0].tag1, ModTag::None));
+    }
+
+    #[test]
+    fn test_v2_attack_flag() {
+        let mods = parse_stat_line_v2("Adds 5 to 10 Physical Damage with Attacks");
+        assert!(!mods.is_empty());
+        for m in &mods {
+            assert!(m.flags.contains(ModFlags::ATTACK), "expected ATTACK flag on {:?}", m);
+        }
+    }
+
+    #[test]
+    fn test_v2_spell_flag() {
+        let mods = parse_stat_line_v2("40% increased Spell Damage with Spells");
+        assert!(!mods.is_empty());
+        assert!(mods[0].flags.contains(ModFlags::SPELL));
+    }
+
+    #[test]
+    fn test_v2_dual_wield_condition() {
+        let mods = parse_stat_line_v2("10% increased Attack Speed while Dual Wielding");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, StatId::ATTACK_SPEED);
+        assert!(matches!(mods[0].tag1, ModTag::Condition(ConditionId::DualWielding)));
+    }
+
+    #[test]
+    fn test_v2_full_life_condition() {
+        let mods = parse_stat_line_v2("40% more Damage while on Full Life");
+        assert_eq!(mods.len(), 1);
+        assert!(matches!(mods[0].tag1, ModTag::Condition(ConditionId::OnFullLife)));
+    }
+
+    #[test]
+    fn test_v2_killed_recently() {
+        let mods = parse_stat_line_v2("20% increased Attack Speed if you've Killed Recently");
+        assert_eq!(mods.len(), 1);
+        assert!(matches!(mods[0].tag1, ModTag::Condition(ConditionId::KilledRecently)));
+    }
+
+    #[test]
+    fn test_v2_enemy_shocked() {
+        // Note: "against Shocked Enemies" triggers the is_minion guard in v1 parser
+        // for generic "Damage". Use a typed damage stat that bypasses it.
+        let mods = parse_stat_line_v2("15% increased Attack Speed to Shocked Enemies");
+        assert_eq!(mods.len(), 1);
+        assert!(matches!(mods[0].tag1, ModTag::Condition(ConditionId::EnemyShocked)));
+    }
+
+    #[test]
+    fn test_v2_per_power_charge() {
+        let mods = parse_stat_line_v2("+25% to Critical Strike Multiplier per Power Charge");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, StatId::CRIT_MULTIPLIER);
+        assert!(matches!(mods[0].tag1, ModTag::Multiplier(MultiplierId::PowerCharge))
+            || matches!(mods[0].tag2, ModTag::Multiplier(MultiplierId::PowerCharge)),
+            "expected PowerCharge multiplier, got tag1={:?} tag2={:?}", mods[0].tag1, mods[0].tag2);
+    }
+
+    #[test]
+    fn test_v2_per_frenzy_charge() {
+        let mods = parse_stat_line_v2("4% increased Attack Speed per Frenzy Charge");
+        assert_eq!(mods.len(), 1);
+        assert!(matches!(mods[0].tag1, ModTag::Multiplier(MultiplierId::FrenzyCharge))
+            || matches!(mods[0].tag2, ModTag::Multiplier(MultiplierId::FrenzyCharge)));
+    }
+
+    #[test]
+    fn test_v2_condition_and_flag() {
+        let mods = parse_stat_line_v2("10% increased Attack Speed with Axes while Dual Wielding");
+        assert_eq!(mods.len(), 1);
+        assert!(mods[0].flags.contains(ModFlags::AXE));
+        assert!(matches!(mods[0].tag1, ModTag::Condition(ConditionId::DualWielding)));
+    }
+
+    #[test]
+    fn test_v2_weapon_flag_bow() {
+        let mods = parse_stat_line_v2("20% increased Physical Damage with Bows");
+        assert_eq!(mods.len(), 1);
+        assert!(mods[0].flags.contains(ModFlags::BOW));
+    }
+
+    #[test]
+    fn test_v2_channelling() {
+        let mods = parse_stat_line_v2("25% more Damage while Channelling");
+        assert_eq!(mods.len(), 1);
+        assert!(matches!(mods[0].tag1, ModTag::Condition(ConditionId::Channelling)));
+    }
+
+    #[test]
+    fn test_v2_using_flask() {
+        let mods = parse_stat_line_v2("10% increased Attack Speed during any Flask Effect");
+        assert_eq!(mods.len(), 1);
+        assert!(matches!(mods[0].tag1, ModTag::Condition(ConditionId::UsingFlask)));
+    }
+
+    #[test]
+    fn test_v2_stationary() {
+        let mods = parse_stat_line_v2("20% increased Accuracy Rating while Stationary");
+        assert_eq!(mods.len(), 1);
+        assert!(matches!(mods[0].tag1, ModTag::Condition(ConditionId::Stationary)));
+    }
+
+    #[test]
+    fn test_v2_unknown_line_empty() {
+        let mods = parse_stat_line_v2("Some completely unknown stat text xyz");
+        assert!(mods.is_empty());
+    }
+
+    #[test]
+    fn test_v2_parse_stats_multi() {
+        let lines = vec![
+            "+50 to maximum Life".to_string(),
+            "10% increased Attack Speed while Dual Wielding".to_string(),
+        ];
+        let mods = parse_stats_v2(&lines);
+        assert_eq!(mods.len(), 2);
+        assert_eq!(mods[0].stat, StatId::LIFE);
+        assert!(matches!(mods[1].tag1, ModTag::Condition(ConditionId::DualWielding)));
     }
 }

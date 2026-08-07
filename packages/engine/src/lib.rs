@@ -1,9 +1,9 @@
 use wasm_bindgen::prelude::*;
 use serde::{Deserialize, Serialize};
 use tsify_next::Tsify;
-use std::collections::HashMap;
 
 pub mod damage;
+pub mod mod_db;
 
 mod gems;
 pub use gems::{lookup_gem, avg_base_damage, GemData, DamageType, GemTag};
@@ -252,74 +252,11 @@ pub struct CalcOutput {
 }
 
 // ---------------------------------------------------------------------------
-// Modifier aggregation
+// Stat calculation helpers
 // ---------------------------------------------------------------------------
 
-/// Buckets for a single stat: (sum_flat, sum_increased_pct, product_of_more)
-type ModBuckets = (f64, f64, f64);
-
-fn aggregate_mods(modifiers: &[Modifier]) -> HashMap<String, ModBuckets> {
-    let mut agg: HashMap<String, ModBuckets> = HashMap::new();
-    for m in modifiers {
-        let entry = agg.entry(m.stat.clone()).or_insert((0.0, 0.0, 1.0));
-        match m.mod_type.as_str() {
-            "flat" => entry.0 += m.value,
-            "increased" => entry.1 += m.value,
-            "more" => entry.2 *= 1.0 + m.value / 100.0,
-            _ => {}
-        }
-    }
-    agg
-}
-
-fn get_buckets(agg: &HashMap<String, ModBuckets>, stat: &str) -> ModBuckets {
-    agg.get(stat).cloned().unwrap_or((0.0, 0.0, 1.0))
-}
-
-// ---------------------------------------------------------------------------
-// Stat calculation helpers – mirrors PoE game mechanics
-// ---------------------------------------------------------------------------
-
-/// Generic stat formula: (base + flat) * (1 + increased/100) * more
 fn calc_stat(base: f64, flat: f64, increased: f64, more: f64) -> f64 {
     (base + flat) * (1.0 + increased / 100.0) * more
-}
-
-/// Life = (base_life + (level-1)*12 + str/2 + flat) * (1+inc/100) * more
-fn calc_life(level: u32, strength: f64, agg: &HashMap<String, ModBuckets>) -> f64 {
-    let base = 38.0 + (level as f64 - 1.0) * 12.0 + (strength / 2.0).floor();
-    let (flat, inc, more) = get_buckets(agg, "Life");
-    calc_stat(base, flat, inc, more).round().max(1.0)
-}
-
-/// Mana = (base_mana + (level-1)*6 + int/2 + flat) * (1+inc/100) * more
-fn calc_mana(level: u32, intelligence: f64, agg: &HashMap<String, ModBuckets>) -> f64 {
-    let base = 34.0 + (level as f64 - 1.0) * 6.0 + (intelligence / 2.0).floor();
-    let (flat, inc, more) = get_buckets(agg, "Mana");
-    calc_stat(base, flat, inc, more).round().max(0.0)
-}
-
-/// ES = (flat_from_gear + flat_mods) * (1 + inc + int_bonus) * more
-fn calc_es(agg: &HashMap<String, ModBuckets>, intelligence: f64) -> f64 {
-    let (flat, inc, more) = get_buckets(agg, "EnergyShield");
-    let int_bonus = (intelligence / 5.0).floor(); // 2% per 10 int
-    calc_stat(0.0, flat, inc + int_bonus, more).round().max(0.0)
-}
-
-/// Accuracy = (base + dex*2 + flat) * (1+inc/100) * more
-fn calc_accuracy(level: u32, dexterity: f64, agg: &HashMap<String, ModBuckets>) -> f64 {
-    let base = (level as f64 - 1.0) * 2.0 + dexterity * 2.0;
-    let (flat, inc, more) = get_buckets(agg, "Accuracy");
-    calc_stat(base, flat, inc, more).round().max(0.0)
-}
-
-/// Hit chance: 1.15 * accuracy / (accuracy + (enemy_evasion)^0.8)
-fn calc_hit_chance(accuracy: f64, enemy_evasion: f64) -> f64 {
-    if enemy_evasion <= 0.0 {
-        return 100.0;
-    }
-    let raw = 1.15 * accuracy / (accuracy + enemy_evasion.powf(0.8));
-    (raw * 100.0).clamp(5.0, 100.0)
 }
 
 /// Evade chance: 1 - hit_chance_of_enemy_against_us
@@ -416,28 +353,57 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
         all_mods.push(Modifier { stat: "PhysicalDamage".into(), value: 20.0, mod_type: "more".into() });
     }
 
-    let agg = aggregate_mods(&all_mods);
+    // Build ModDB from legacy modifiers
+    use mod_db::{ModDB, StatId, SkillCfg, BuildState as MdbState, ConditionId};
+    let mut db = ModDB::new();
+    for m in &all_mods {
+        db.add_legacy(&m.stat, m.value, &m.mod_type);
+    }
+    let cfg = SkillCfg::default();
+    let mut mst = MdbState::default();
+
+    // Populate BuildState from input flags so conditional mods can evaluate
+    mst.power_charges = input.power_charges as u8;
+    mst.frenzy_charges = input.frenzy_charges as u8;
+    mst.endurance_charges = input.endurance_charges as u8;
+    if input.is_dual_wield { mst.set_condition(ConditionId::DualWielding); }
+    if input.on_full_life { mst.set_condition(ConditionId::OnFullLife); }
+    if input.on_low_life { mst.set_condition(ConditionId::OnLowLife); }
+    if input.is_leeching { mst.set_condition(ConditionId::IsLeeching); }
+    if input.have_fortify { mst.set_condition(ConditionId::HaveFortify); }
+    if input.have_killed_recently { mst.set_condition(ConditionId::KilledRecently); }
+    if input.have_onslaught { mst.set_condition(ConditionId::HaveOnslaught); }
+    if input.have_tailwind { mst.set_condition(ConditionId::HaveTailwind); }
+    if input.have_arcane_surge { mst.set_condition(ConditionId::HaveArcaneSurge); }
 
     // --- Attributes ----------------------------------------------------------
-    let (sf, si, sm) = get_buckets(&agg, "Str");
-    let strength = calc_stat(eff_str as f64, sf, si, sm).round();
-
-    let (df, di, dm) = get_buckets(&agg, "Dex");
-    let dexterity = calc_stat(eff_dex as f64, df, di, dm).round();
-
-    let (nf, ni, nm) = get_buckets(&agg, "Int");
-    let intelligence = calc_stat(eff_int as f64, nf, ni, nm).round();
+    let strength = db.calc(StatId::STR, eff_str as f64, &cfg, &mst).round();
+    let dexterity = db.calc(StatId::DEX, eff_dex as f64, &cfg, &mst).round();
+    let intelligence = db.calc(StatId::INT, eff_int as f64, &cfg, &mst).round();
+    mst.strength = strength;
+    mst.dexterity = dexterity;
+    mst.intelligence = intelligence;
 
     // --- Pool ----------------------------------------------------------------
-    let life = calc_life(input.level, strength, &agg);
-    let energy_shield = calc_es(&agg, intelligence);
-    let mana = calc_mana(input.level, intelligence, &agg);
+    let life = {
+        let base = 38.0 + (input.level as f64 - 1.0) * 12.0 + (strength / 2.0).floor();
+        db.calc(StatId::LIFE, base, &cfg, &mst).round().max(1.0)
+    };
+    let energy_shield = {
+        let int_bonus = (intelligence / 5.0).floor();
+        let (flat, inc, more) = db.buckets(StatId::ENERGY_SHIELD, &cfg, &mst);
+        (flat * (1.0 + (inc + int_bonus) / 100.0) * more).round().max(0.0)
+    };
+    let mana = {
+        let base = 34.0 + (input.level as f64 - 1.0) * 6.0 + (intelligence / 2.0).floor();
+        db.calc(StatId::MANA, base, &cfg, &mst).round().max(0.0)
+    };
 
     // --- Ward ----------------------------------------------------------------
-    let ward = get_buckets(&agg, "Ward").0.max(0.0);
+    let ward = db.sum_base(StatId::WARD, &cfg, &mst).max(0.0);
 
     // --- ES Recharge ---------------------------------------------------------
-    let es_recharge_inc = get_buckets(&agg, "ESRechargeRate").1;
+    let es_recharge_inc = db.sum_inc(StatId::ES_RECHARGE_RATE, &cfg, &mst);
     let es_recharge_rate = if energy_shield > 0.0 {
         (energy_shield / 2.0) * (1.0 + es_recharge_inc / 100.0)
     } else {
@@ -445,33 +411,37 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     };
 
     // --- Armour / Evasion ----------------------------------------------------
-    let (af, ai, am) = get_buckets(&agg, "Armour");
-    let str_armour_bonus = (strength / 5.0).floor();
-    let armour = calc_stat(str_armour_bonus, af, ai, am).round();
-
-    let (ef, ei, em) = get_buckets(&agg, "Evasion");
-    let dex_evasion_bonus = (dexterity / 5.0).floor();
-    let evasion = calc_stat(dex_evasion_bonus, ef, ei, em).round().max(0.0);
+    let armour = {
+        let str_armour_bonus = (strength / 5.0).floor();
+        db.calc(StatId::ARMOUR, str_armour_bonus, &cfg, &mst).round()
+    };
+    let evasion = {
+        let dex_evasion_bonus = (dexterity / 5.0).floor();
+        db.calc(StatId::EVASION, dex_evasion_bonus, &cfg, &mst).round().max(0.0)
+    };
 
     // --- Resistances with max res cap ----------------------------------------
-    let fire_res_max = 75.0 + get_buckets(&agg, "FireResMax").0;
-    let cold_res_max = 75.0 + get_buckets(&agg, "ColdResMax").0;
-    let lightning_res_max = 75.0 + get_buckets(&agg, "LightningResMax").0;
+    let fire_res_max = 75.0 + db.sum_base(StatId::FIRE_RES_MAX, &cfg, &mst);
+    let cold_res_max = 75.0 + db.sum_base(StatId::COLD_RES_MAX, &cfg, &mst);
+    let lightning_res_max = 75.0 + db.sum_base(StatId::LIGHTNING_RES_MAX, &cfg, &mst);
     let chaos_res_max = 75.0;
-    let fire_res = (get_buckets(&agg, "FireRes").0 - 60.0).min(fire_res_max);
-    let cold_res = (get_buckets(&agg, "ColdRes").0 - 60.0).min(cold_res_max);
-    let lightning_res = (get_buckets(&agg, "LightningRes").0 - 60.0).min(lightning_res_max);
-    let chaos_res = (get_buckets(&agg, "ChaosRes").0 - 60.0).min(chaos_res_max);
+    let fire_res = (db.sum_base(StatId::FIRE_RES, &cfg, &mst) - 60.0).min(fire_res_max);
+    let cold_res = (db.sum_base(StatId::COLD_RES, &cfg, &mst) - 60.0).min(cold_res_max);
+    let lightning_res = (db.sum_base(StatId::LIGHTNING_RES, &cfg, &mst) - 60.0).min(lightning_res_max);
+    let chaos_res = (db.sum_base(StatId::CHAOS_RES, &cfg, &mst) - 60.0).min(chaos_res_max);
 
     // --- Block ---------------------------------------------------------------
-    let block_chance = get_buckets(&agg, "BlockChance").0.clamp(0.0, 75.0);
-    let spell_block = get_buckets(&agg, "SpellBlockChance").0.clamp(0.0, 75.0);
+    let block_chance = db.sum_base(StatId::BLOCK_CHANCE, &cfg, &mst).clamp(0.0, 75.0);
+    let spell_block = db.sum_base(StatId::SPELL_BLOCK_CHANCE, &cfg, &mst).clamp(0.0, 75.0);
 
     // --- Suppression ---------------------------------------------------------
-    let suppression = get_buckets(&agg, "SpellSuppression").0.clamp(0.0, 100.0);
+    let suppression = db.sum_base(StatId::SPELL_SUPPRESSION, &cfg, &mst).clamp(0.0, 100.0);
 
     // --- Accuracy / Hit Chance (PoB formula) ---------------------------------
-    let accuracy = calc_accuracy(input.level, dexterity, &agg);
+    let accuracy = {
+        let base = (input.level as f64 - 1.0) * 2.0 + dexterity * 2.0;
+        db.calc(StatId::ACCURACY, base, &cfg, &mst).round().max(0.0)
+    };
     let enemy_evasion = 600.0;
     let hit_chance = if enemy_evasion <= 0.0 {
         100.0
@@ -530,22 +500,22 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     // Added flat damage from mods
     let effectiveness = gem.map(|g| g.damage_effectiveness).unwrap_or(1.0);
     let added_types = [
-        ("AddedPhysMin", "AddedPhysMax", damage::DamageType::Physical),
-        ("AddedFireMin", "AddedFireMax", damage::DamageType::Fire),
-        ("AddedColdMin", "AddedColdMax", damage::DamageType::Cold),
-        ("AddedLightningMin", "AddedLightningMax", damage::DamageType::Lightning),
-        ("AddedChaosMin", "AddedChaosMax", damage::DamageType::Chaos),
+        (StatId::ADDED_PHYS_MIN, StatId::ADDED_PHYS_MAX, damage::DamageType::Physical),
+        (StatId::ADDED_FIRE_MIN, StatId::ADDED_FIRE_MAX, damage::DamageType::Fire),
+        (StatId::ADDED_COLD_MIN, StatId::ADDED_COLD_MAX, damage::DamageType::Cold),
+        (StatId::ADDED_LIGHTNING_MIN, StatId::ADDED_LIGHTNING_MAX, damage::DamageType::Lightning),
+        (StatId::ADDED_CHAOS_MIN, StatId::ADDED_CHAOS_MAX, damage::DamageType::Chaos),
     ];
     for (min_stat, max_stat, dt) in &added_types {
-        let min_val = get_buckets(&agg, min_stat).0;
-        let max_val = get_buckets(&agg, max_stat).0;
+        let min_val = db.sum_base(*min_stat, &cfg, &mst);
+        let max_val = db.sum_base(*max_stat, &cfg, &mst);
         if min_val > 0.0 || max_val > 0.0 {
             base_dmg.add(*dt, (min_val + max_val) / 2.0 * effectiveness);
         }
     }
 
     // Generic flat "Damage" mod spread equally across present types or as physical
-    let generic_flat = get_buckets(&agg, "Damage").0;
+    let generic_flat = db.sum_base(StatId::DAMAGE, &cfg, &mst);
     if generic_flat > 0.0 {
         let present: Vec<damage::DamageType> = damage::DamageType::ALL.iter()
             .filter(|dt| base_dmg.get(**dt) > 0.0)
@@ -563,13 +533,13 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     let phys_base = base_dmg.get(damage::DamageType::Physical);
     if phys_base > 0.0 {
         let gain_as = [
-            ("PhysGainAsFire", damage::DamageType::Fire),
-            ("PhysGainAsCold", damage::DamageType::Cold),
-            ("PhysGainAsLightning", damage::DamageType::Lightning),
-            ("PhysGainAsChaos", damage::DamageType::Chaos),
+            (StatId::PHYS_GAIN_AS_FIRE, damage::DamageType::Fire),
+            (StatId::PHYS_GAIN_AS_COLD, damage::DamageType::Cold),
+            (StatId::PHYS_GAIN_AS_LIGHTNING, damage::DamageType::Lightning),
+            (StatId::PHYS_GAIN_AS_CHAOS, damage::DamageType::Chaos),
         ];
         for (stat, dt) in &gain_as {
-            let pct = get_buckets(&agg, stat).0;
+            let pct = db.sum_base(*stat, &cfg, &mst);
             if pct > 0.0 {
                 base_dmg.add(*dt, phys_base * pct / 100.0);
             }
@@ -594,64 +564,62 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     // Build per-type damage modifiers
     let mut type_mods = damage::DamageModifiers::new();
     let type_stat_map = [
-        (damage::DamageType::Physical, "PhysicalDamage"),
-        (damage::DamageType::Fire, "FireDamage"),
-        (damage::DamageType::Cold, "ColdDamage"),
-        (damage::DamageType::Lightning, "LightningDamage"),
-        (damage::DamageType::Chaos, "ChaosDamage"),
+        (damage::DamageType::Physical, StatId::PHYSICAL_DAMAGE),
+        (damage::DamageType::Fire, StatId::FIRE_DAMAGE),
+        (damage::DamageType::Cold, StatId::COLD_DAMAGE),
+        (damage::DamageType::Lightning, StatId::LIGHTNING_DAMAGE),
+        (damage::DamageType::Chaos, StatId::CHAOS_DAMAGE),
     ];
     for (dt, stat) in &type_stat_map {
-        let (flat, inc, more) = get_buckets(&agg, stat);
+        let (flat, inc, more) = db.buckets(*stat, &cfg, &mst);
         if flat != 0.0 || inc != 0.0 || more != 1.0 {
             type_mods.insert(*dt, (flat, inc, more));
         }
     }
 
     // Global + tag-based damage mods
-    let (_, global_inc, global_more) = get_buckets(&agg, "Damage");
-    let mut total_global_inc = global_inc;
-    let mut total_global_more = global_more;
+    let mut total_global_inc = db.sum_inc(StatId::DAMAGE, &cfg, &mst);
+    let mut total_global_more = db.product_more(StatId::DAMAGE, &cfg, &mst);
 
     if let Some(g) = gem {
         for tag in g.tags {
             let tag_stat = match tag {
-                gems::GemTag::Attack => Some("AttackDamage"),
-                gems::GemTag::Spell => Some("SpellDamage"),
-                gems::GemTag::Melee => Some("MeleeDamage"),
-                gems::GemTag::Projectile => Some("ProjectileDamage"),
-                gems::GemTag::AoE => Some("AreaDamage"),
+                gems::GemTag::Attack => Some(StatId::ATTACK_DAMAGE),
+                gems::GemTag::Spell => Some(StatId::SPELL_DAMAGE),
+                gems::GemTag::Melee => Some(StatId::MELEE_DAMAGE),
+                gems::GemTag::Projectile => Some(StatId::PROJECTILE_DAMAGE),
+                gems::GemTag::AoE => Some(StatId::AREA_DAMAGE),
                 _ => None,
             };
             if let Some(stat) = tag_stat {
-                let (_, ti, tm) = get_buckets(&agg, stat);
-                total_global_inc += ti;
-                total_global_more *= tm;
+                total_global_inc += db.sum_inc(stat, &cfg, &mst);
+                total_global_more *= db.product_more(stat, &cfg, &mst);
             }
         }
         if g.tags.contains(&gems::GemTag::DoT) || g.is_dot {
-            let (_, ti, tm) = get_buckets(&agg, "DamageOverTime");
-            total_global_inc += ti;
-            total_global_more *= tm;
+            total_global_inc += db.sum_inc(StatId::DAMAGE_OVER_TIME, &cfg, &mst);
+            total_global_more *= db.product_more(StatId::DAMAGE_OVER_TIME, &cfg, &mst);
         }
     }
 
     // Speed
-    let (spd_flat, spd_inc, spd_more) = get_buckets(&agg, "AttackSpeed");
     let base_speed = match gem {
         Some(g) if !g.is_dot => if has_weapon { eff_weapon_aps } else { 1.0 / g.base_cast_time },
         _ => if has_weapon { eff_weapon_aps } else { 1.0 },
     };
-    let attack_speed = calc_stat(base_speed, spd_flat, spd_inc, spd_more);
+    let attack_speed = db.calc(StatId::ATTACK_SPEED, base_speed, &cfg, &mst);
 
     // Crit
-    let (crit_base_mod, crit_inc, crit_more) = get_buckets(&agg, "CritChance");
+    let crit_base_mod = db.sum_base(StatId::CRIT_CHANCE, &cfg, &mst);
     let gem_base_crit = match gem {
         Some(g) if !g.is_dot => if has_weapon && eff_weapon_crit > 0.0 { eff_weapon_crit } else { g.base_crit_chance },
         _ => if has_weapon && eff_weapon_crit > 0.0 { eff_weapon_crit } else { 5.0 },
     };
     let base_crit = if crit_base_mod != 0.0 { gem_base_crit + crit_base_mod } else { gem_base_crit };
+    let crit_inc = db.sum_inc(StatId::CRIT_CHANCE, &cfg, &mst);
+    let crit_more = db.product_more(StatId::CRIT_CHANCE, &cfg, &mst);
     let crit_chance = calc_stat(base_crit, 0.0, crit_inc, crit_more).clamp(0.0, 100.0);
-    let crit_multi = 150.0 + get_buckets(&agg, "CritMultiplier").0;
+    let crit_multi = 150.0 + db.sum_base(StatId::CRIT_MULTIPLIER, &cfg, &mst);
 
     // Use damage.rs pipeline for hit DPS
     let hit_result = damage::calc_hit_dps(
@@ -662,10 +630,10 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     );
 
     // Per-type resistance application
-    let fire_pen = get_buckets(&agg, "FirePenetration").0;
-    let cold_pen = get_buckets(&agg, "ColdPenetration").0;
-    let lightning_pen = get_buckets(&agg, "LightningPenetration").0;
-    let _chaos_pen = get_buckets(&agg, "ChaosPenetration").0;
+    let fire_pen = db.sum_base(StatId::FIRE_PEN, &cfg, &mst);
+    let cold_pen = db.sum_base(StatId::COLD_PEN, &cfg, &mst);
+    let lightning_pen = db.sum_base(StatId::LIGHTNING_PEN, &cfg, &mst);
+    let _chaos_pen = db.sum_base(StatId::CHAOS_PEN, &cfg, &mst);
 
     let (e_fire, e_cold, e_light, _e_chaos) = if input.enemy_is_boss {
         (input.enemy_fire_res.max(40.0), input.enemy_cold_res.max(40.0),
@@ -681,8 +649,9 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
 
     let total_dps = if gem.map_or(false, |g| g.is_dot) {
         let dot_base = gem.unwrap().dot_base;
-        let (dot_flat, dot_inc, dot_more) = get_buckets(&agg, "Damage");
-        let (_, dot_inc2, dot_more2) = get_buckets(&agg, "DamageOverTime");
+        let (dot_flat, dot_inc, dot_more) = db.buckets(StatId::DAMAGE, &cfg, &mst);
+        let dot_inc2 = db.sum_inc(StatId::DAMAGE_OVER_TIME, &cfg, &mst);
+        let dot_more2 = db.product_more(StatId::DAMAGE_OVER_TIME, &cfg, &mst);
         calc_stat(dot_base, dot_flat, dot_inc + dot_inc2, dot_more * dot_more2) * res_mult
     } else {
         hit_result.dps * res_mult
@@ -695,18 +664,18 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
 
     let bleed_dps = if phys_hit > 0.0 {
         let crimson = input.allocated_keystones.iter().any(|k| k.contains("Crimson Dance"));
-        damage::calc_bleed(phys_hit, get_buckets(&agg, "BleedDamage").1, 1.0, 0.0, crimson).total_dps
+        damage::calc_bleed(phys_hit, db.sum_inc(StatId::BLEED_DAMAGE, &cfg, &mst), 1.0, 0.0, crimson).total_dps
     } else { 0.0 };
 
     let poison_dps = if (phys_hit + chaos_hit) > 0.0 {
-        let poison_chance = get_buckets(&agg, "PoisonChance").0.min(100.0);
+        let poison_chance = db.sum_base(StatId::POISON_CHANCE, &cfg, &mst).min(100.0);
         if poison_chance > 0.0 {
-            damage::calc_poison(phys_hit, chaos_hit, get_buckets(&agg, "PoisonDamage").1, 1.0, 0.0, poison_chance, attack_speed).total_dps
+            damage::calc_poison(phys_hit, chaos_hit, db.sum_inc(StatId::POISON_DAMAGE, &cfg, &mst), 1.0, 0.0, poison_chance, attack_speed).total_dps
         } else { 0.0 }
     } else { 0.0 };
 
     let ignite_dps = if fire_hit > 0.0 {
-        damage::calc_ignite(fire_hit, get_buckets(&agg, "IgniteDamage").1, 1.0, 0.0).total_dps
+        damage::calc_ignite(fire_hit, db.sum_inc(StatId::IGNITE_DAMAGE, &cfg, &mst), 1.0, 0.0).total_dps
     } else { 0.0 };
 
     // --- Trigger rate capping --------------------------------------------------
@@ -739,8 +708,9 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     // --- Minion DPS -----------------------------------------------------------
     let total_dps_with_minions = if !input.minion_skill_id.is_empty() {
         if let Some(base) = minions::get_minion_base(&input.minion_skill_id) {
-            let (_, minion_inc, minion_more) = get_buckets(&agg, "MinionDamage");
-            let (_, minion_spd_inc, _) = get_buckets(&agg, "MinionSpeed");
+            let minion_inc = db.sum_inc(StatId::MINION_DAMAGE, &cfg, &mst);
+            let minion_more = db.product_more(StatId::MINION_DAMAGE, &cfg, &mst);
+            let minion_spd_inc = db.sum_inc(StatId::MINION_SPEED, &cfg, &mst);
             let minion_dps = minions::calc_minion_dps(
                 base,
                 minion_inc,
@@ -756,11 +726,11 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     };
 
     // Impale DPS
-    let impale_chance_total = input.impale_chance + get_buckets(&agg, "ImpaleChance").0;
+    let impale_chance_total = input.impale_chance + db.sum_base(StatId::IMPALE_CHANCE, &cfg, &mst);
     let impale_dps = if impale_chance_total > 0.0 && phys_hit > 0.0 {
         let chance = impale_chance_total.min(100.0);
         let stacks = 5_u32;
-        let impale_effect = get_buckets(&agg, "ImpaleEffect").0;
+        let impale_effect = db.sum_base(StatId::IMPALE_EFFECT, &cfg, &mst);
         phys_hit * attack_speed * (hit_chance / 100.0)
             * (chance / 100.0)
             * stacks.min(5) as f64
@@ -774,15 +744,16 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     let combined_dps = total_dps + bleed_dps + poison_dps + ignite_dps + impale_dps;
 
     // --- Regen ---------------------------------------------------------------
-    let life_regen_flat = get_buckets(&agg, "LifeRegen").0;
-    let life_regen_pct = get_buckets(&agg, "LifeRegenPct").0;
+    let life_regen_flat = db.sum_base(StatId::LIFE_REGEN, &cfg, &mst);
+    let life_regen_pct = db.sum_base(StatId::LIFE_REGEN_PCT, &cfg, &mst);
     let life_regen = life_regen_flat + life * life_regen_pct / 100.0;
 
-    let (mana_regen_flat, mana_regen_inc, _) = get_buckets(&agg, "ManaRegen");
-    let base_mana_regen = mana * 0.0175; // 1.75% base
+    let mana_regen_flat = db.sum_base(StatId::MANA_REGEN, &cfg, &mst);
+    let mana_regen_inc = db.sum_inc(StatId::MANA_REGEN, &cfg, &mst);
+    let base_mana_regen = mana * 0.0175;
     let mana_regen = (base_mana_regen + mana_regen_flat) * (1.0 + mana_regen_inc / 100.0);
 
-    let es_regen = get_buckets(&agg, "ESRegen").0;
+    let es_regen = db.sum_base(StatId::ES_REGEN, &cfg, &mst);
 
     // --- Aura reservation -------------------------------------------------------
     let mana_reserved_pct = input.mana_reserved_pct.clamp(0.0, 100.0);
@@ -805,7 +776,7 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     };
 
     // --- Leech rate --------------------------------------------------------------
-    let leech_pct = get_buckets(&agg, "LifeLeechPct").0;
+    let leech_pct = db.sum_base(StatId::LIFE_LEECH_PCT, &cfg, &mst);
     let max_life_leech_rate = life * 0.20; // 20% of max life per second
     let life_leech_rate = if leech_pct > 0.0 && total_dps > 0.0 {
         (total_dps * leech_pct / 100.0).min(max_life_leech_rate)
@@ -813,7 +784,7 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
         0.0
     };
 
-    let es_leech_pct = get_buckets(&agg, "ESLeechPct").0;
+    let es_leech_pct = db.sum_base(StatId::ES_LEECH_PCT, &cfg, &mst);
     let max_es_leech_rate = energy_shield * 0.20;
     let es_leech_rate = if es_leech_pct > 0.0 && total_dps > 0.0 {
         (total_dps * es_leech_pct / 100.0).min(max_es_leech_rate)
@@ -823,8 +794,8 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
 
     // --- Derived defences ----------------------------------------------------
     let phys_reduction = phys_reduction_from_armour(armour, 83.0 * 5.0)
-        + get_buckets(&agg, "PhysicalDamageReduction").0
-        + get_buckets(&agg, "DamageTakenReduction").0;
+        + db.sum_base(StatId::PHYS_DAMAGE_REDUCTION, &cfg, &mst)
+        + db.sum_base(StatId::DAMAGE_TAKEN_REDUCTION, &cfg, &mst);
     let phys_reduction = phys_reduction.min(90.0);
     let evade_chance = calc_evade_chance(evasion, 600.0);
 
