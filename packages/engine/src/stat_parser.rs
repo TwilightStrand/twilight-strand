@@ -112,6 +112,15 @@ pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
         mods.push(flat("Str", val));
         mods.push(flat("Dex", val));
         mods.push(flat("Int", val));
+    } else if let Some(val) = extract_value(line, "to strength and dexterity") {
+        mods.push(flat("Str", val));
+        mods.push(flat("Dex", val));
+    } else if let Some(val) = extract_value(line, "to strength and intelligence") {
+        mods.push(flat("Str", val));
+        mods.push(flat("Int", val));
+    } else if let Some(val) = extract_value(line, "to dexterity and intelligence") {
+        mods.push(flat("Dex", val));
+        mods.push(flat("Int", val));
     } else {
         if let Some(val) = extract_value(line, "to strength") {
             mods.push(flat("Str", val));
@@ -2006,5 +2015,29 @@ mod coverage_check {
         assert_eq!(mods.len(), 1);
         assert_eq!(mods[0].stat, "MaxPowerCharges");
         assert_eq!(mods[0].value, 1.0);
+    }
+
+    #[test]
+    fn test_dual_attribute_str_int() {
+        let mods = parse_stat_line("+10 to Strength and Intelligence");
+        assert_eq!(mods.len(), 2);
+        assert!(mods.iter().any(|m| m.stat == "Str" && m.value == 10.0));
+        assert!(mods.iter().any(|m| m.stat == "Int" && m.value == 10.0));
+    }
+
+    #[test]
+    fn test_dual_attribute_str_dex() {
+        let mods = parse_stat_line("+20 to Strength and Dexterity");
+        assert_eq!(mods.len(), 2);
+        assert!(mods.iter().any(|m| m.stat == "Str" && m.value == 20.0));
+        assert!(mods.iter().any(|m| m.stat == "Dex" && m.value == 20.0));
+    }
+
+    #[test]
+    fn test_dual_attribute_dex_int() {
+        let mods = parse_stat_line("+15 to Dexterity and Intelligence");
+        assert_eq!(mods.len(), 2);
+        assert!(mods.iter().any(|m| m.stat == "Dex" && m.value == 15.0));
+        assert!(mods.iter().any(|m| m.stat == "Int" && m.value == 15.0));
     }
 }
