@@ -256,16 +256,52 @@ pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
             if let Some(val) = extract_pct(line, "more damage over time") {
                 mods.push(more("DamageOverTime", val));
             }
+
+            // Attack Physical Damage / Melee Physical Damage
+            if lower.contains("attack") && lower.contains("physical") {
+                if let Some(val) = extract_pct(line, "increased attack physical damage") {
+                    mods.push(increased("PhysicalDamage", val));
+                }
+            }
+            if lower.contains("melee") && lower.contains("physical") {
+                if let Some(val) = extract_pct(line, "increased melee physical damage") {
+                    mods.push(increased("PhysicalDamage", val));
+                }
+            }
+
+            // Weapon-specific damage patterns
+            // "Axe/Sword/Mace/Dagger/Claw/Staff/Bow Attacks deal X% increased Damage"
+            if lower.contains("attacks deal") && lower.contains("increased damage") {
+                if let Some(val) = extract_pct(line, "increased damage") {
+                    mods.push(increased("Damage", val));
+                }
+            }
+        }
+
+        // DoT multiplier per element
+        if !is_minion {
+            if let Some(val) = extract_pct_value(line, "to fire damage over time multiplier") {
+                mods.push(flat("DamageOverTimeMulti", val));
+            }
+            if let Some(val) = extract_pct_value(line, "to cold damage over time multiplier") {
+                mods.push(flat("DamageOverTimeMulti", val));
+            }
+            if let Some(val) = extract_pct_value(line, "to chaos damage over time multiplier") {
+                mods.push(flat("DamageOverTimeMulti", val));
+            }
+            if let Some(val) = extract_pct_value(line, "to physical damage over time multiplier") {
+                mods.push(flat("DamageOverTimeMulti", val));
+            }
         }
 
         // Global damage (generic, after specific types)
         if !is_minion {
-            // Only match generic "increased damage" when no type keyword is present
             let has_type_keyword = lower.contains("physical") || lower.contains("fire")
                 || lower.contains("cold") || lower.contains("lightning")
                 || lower.contains("chaos") || lower.contains("elemental")
                 || lower.contains("spell") || lower.contains("attack")
-                || lower.contains("over time");
+                || lower.contains("over time") || lower.contains("melee")
+                || lower.contains("projectile") || lower.contains("area");
             if !has_type_keyword {
                 if let Some(val) = extract_pct(line, "increased damage") {
                     mods.push(increased("Damage", val));
