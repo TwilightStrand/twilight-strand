@@ -2,6 +2,8 @@ import type { Camera } from "./tree-camera";
 import { worldToScreen } from "./tree-camera";
 import type { SpriteCoord, SpriteSheet, TreeData, TreeNode } from "./tree-data";
 
+const spriteImageCache = new Map<string, HTMLImageElement>();
+
 const NODE_RADIUS_NORMAL = 26;
 const NODE_RADIUS_NOTABLE = 38;
 const NODE_RADIUS_KEYSTONE = 52;
@@ -83,17 +85,19 @@ export class TreeRenderer {
     }
 
     const loads = Array.from(filenames).map(async (url) => {
+      const localUrl = this.resolveUrl(url);
+      const cached = spriteImageCache.get(localUrl);
+      if (cached) return { url, img: cached };
       const img = new Image();
       img.crossOrigin = "anonymous";
-      const localUrl = this.resolveUrl(url);
       img.src = localUrl;
-      await new Promise<void>((resolve, _reject) => {
+      await new Promise<void>((resolve) => {
         img.onload = () => resolve();
-        img.onerror = () => {
-          console.warn(`Failed to load sprite: ${localUrl}`);
-          resolve();
-        };
+        img.onerror = () => resolve();
       });
+      if (img.complete && img.naturalWidth > 0) {
+        spriteImageCache.set(localUrl, img);
+      }
       return { url, img };
     });
 
@@ -111,13 +115,19 @@ export class TreeRenderer {
     // Load group background images
     const bgFiles = ["PSGroupBackground1.png", "PSGroupBackground2.png", "PSGroupBackground3.png"];
     const bgLoads = bgFiles.map(async (name) => {
+      const bgUrl = `/data/pob/TreeData/${name}`;
+      const cached = spriteImageCache.get(bgUrl);
+      if (cached) return { name, img: cached };
       const img = new Image();
       img.crossOrigin = "anonymous";
-      img.src = `/data/pob/TreeData/${name}`;
+      img.src = bgUrl;
       await new Promise<void>((resolve) => {
         img.onload = () => resolve();
         img.onerror = () => resolve();
       });
+      if (img.complete && img.naturalWidth > 0) {
+        spriteImageCache.set(bgUrl, img);
+      }
       return { name, img };
     });
     const bgResults = await Promise.all(bgLoads);
