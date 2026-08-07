@@ -47,12 +47,38 @@ pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
 
     let mut mods = Vec::new();
 
+    // --- Nearby Enemies resistance reduction (treated as penetration) --------
+    // Must come before resistance patterns to avoid matching as player res
+    {
+        let lower = line.to_lowercase();
+        if lower.contains("nearby enemies have") && lower.contains("resistance") {
+            if let Some(val) = extract_pct_value(line, "to fire resistance") {
+                mods.push(flat("FirePenetration", val.abs()));
+            }
+            if let Some(val) = extract_pct_value(line, "to cold resistance") {
+                mods.push(flat("ColdPenetration", val.abs()));
+            }
+            if let Some(val) = extract_pct_value(line, "to lightning resistance") {
+                mods.push(flat("LightningPenetration", val.abs()));
+            }
+            if let Some(val) = extract_pct_value(line, "to chaos resistance") {
+                mods.push(flat("ChaosPenetration", val.abs()));
+            }
+            if !mods.is_empty() {
+                return mods;
+            }
+        }
+    }
+
     // --- Life ---------------------------------------------------------------
     if let Some(val) = extract_value(line, "to maximum life") {
         mods.push(flat("Life", val));
     }
     if let Some(val) = extract_pct(line, "increased maximum life") {
         mods.push(increased("Life", val));
+    }
+    if let Some(val) = extract_pct(line, "more maximum life") {
+        mods.push(more("Life", val));
     }
 
     // --- Energy Shield ------------------------------------------------------
@@ -341,8 +367,11 @@ pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
     // --- Life Regen --------------------------------------------------------
     {
         let lower = line.to_lowercase();
-        if lower.contains("regenerate") && lower.contains("life per second") {
+        if (lower.contains("regenerate") && lower.contains("life per second"))
+            || lower.contains("life regenerated per second") {
             if let Some(val) = extract_pct(line, "of life per second") {
+                mods.push(flat("LifeRegenPct", val));
+            } else if let Some(val) = extract_pct(line, "life regenerated per second") {
                 mods.push(flat("LifeRegenPct", val));
             } else if let Some(val) = extract_value(line, "life per second") {
                 mods.push(flat("LifeRegen", val));
@@ -736,6 +765,42 @@ pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
     }
     if let Some(val) = extract_value(line, "mana gained on kill") {
         mods.push(flat("ManaOnKill", val));
+    }
+
+    // --- Maximum Charges ----------------------------------------------------
+    {
+        let lower = line.to_lowercase();
+        if lower.contains("maximum power charge") {
+            if let Some(val) = extract_value(line, "to maximum power charges") {
+                mods.push(flat("MaxPowerCharges", val));
+            } else if let Some(val) = extract_value(line, "maximum power charges") {
+                mods.push(flat("MaxPowerCharges", val));
+            }
+        }
+        if lower.contains("maximum frenzy charge") {
+            if let Some(val) = extract_value(line, "to maximum frenzy charges") {
+                mods.push(flat("MaxFrenzyCharges", val));
+            } else if let Some(val) = extract_value(line, "maximum frenzy charges") {
+                mods.push(flat("MaxFrenzyCharges", val));
+            }
+        }
+        if lower.contains("maximum endurance charge") {
+            if let Some(val) = extract_value(line, "to maximum endurance charges") {
+                mods.push(flat("MaxEnduranceCharges", val));
+            } else if let Some(val) = extract_value(line, "maximum endurance charges") {
+                mods.push(flat("MaxEnduranceCharges", val));
+            }
+        }
+    }
+
+    // --- Aura effect on self -------------------------------------------------
+    {
+        let lower = line.to_lowercase();
+        if lower.contains("auras from your skills have") && lower.contains("increased effect") {
+            if let Some(val) = extract_pct(line, "increased effect") {
+                mods.push(increased("AuraEffectOnSelf", val));
+            }
+        }
     }
 
     // --- Duration / Effect ---------------------------------------------------
@@ -1700,5 +1765,88 @@ mod tests {
         assert_eq!(mods.len(), 2);
         assert_eq!(mods[0].stat, StatId::LIFE);
         assert!(matches!(mods[1].tag1, ModTag::Condition(ConditionId::DualWielding)));
+    }
+}
+
+#[cfg(test)]
+mod coverage_check {
+    use super::*;
+
+    #[test]
+    fn check_coverage_gaps() {
+        // These are the most common patterns from real endgame builds
+        let must_parse: Vec<(&str, &str)> = vec![
+            // Conversion
+            ("50% of Physical Damage converted to Fire Damage", "ConvPhysToFire"),
+            ("50% of Cold Damage converted to Fire Damage", "ConvColdToFire"),
+            // Added damage with context suffixes
+            ("Adds 5 to 10 Cold Damage to Spells", "AddedColdMin"),
+            ("Adds 5 to 10 Fire Damage to Attacks", "AddedFireMin"),
+            // Regen
+            ("Regenerate 20 Life per second", "LifeRegen"),
+            ("Regenerate 1.5% of Life per second", "LifeRegenPct"),
+            ("Regenerate 150 Energy Shield per second", "ESRegen"),
+            ("Regenerate 5 Mana per second", "ManaRegen"),
+            // Leech
+            ("0.4% of Physical Attack Damage Leeched as Life", "LifeLeechPct"),
+            ("0.5% of Damage Leeched as Energy Shield", "ESLeechPct"),
+            // Speed
+            ("5% increased Cast Speed", "AttackSpeed"),
+            ("10% more Cast Speed", "AttackSpeed"),
+            ("4% increased Attack and Cast Speed", "AttackSpeed"),
+            // DoT
+            ("20% increased Damage over Time", "DamageOverTime"),
+            ("+5% to Damage over Time Multiplier", "DamageOverTimeMulti"),
+            // Penetration
+            ("Penetrates 10% Fire Resistance", "FirePenetration"),
+            ("Damage Penetrates 5% Cold Resistance", "ColdPenetration"),
+            ("Damage Penetrates 10% Elemental Resistances", "FirePenetration"),
+            // Gain as extra
+            ("Gain 15% of Physical Damage as Extra Cold Damage", "PhysGainAsCold"),
+            // Gem level
+            ("+1 to Level of all Spell Skill Gems", "GemLevel"),
+            // AoE/proj
+            ("8% increased Area of Effect", "AreaOfEffect"),
+            ("10% increased Projectile Speed", "ProjectileSpeed"),
+            // Movement
+            ("10% increased Movement Speed", "MovementSpeed"),
+            // ES
+            ("67% increased Energy Shield", "EnergyShield"),
+            ("(56-74)% increased Energy Shield", "EnergyShield"),
+            ("15% more Energy Shield", "EnergyShield"),
+            // Crit multi variants
+            ("+20% to Global Critical Strike Multiplier", "CritMultiplier"),
+            ("+30% to Critical Strike Multiplier for Spells", "CritMultiplier"),
+            // Combined res
+            ("+(17-20)% to Fire and Lightning Resistances", "FireRes"),
+            // Nearby enemies resistance (treated as pen)
+            ("Nearby Enemies have -10% to Fire Resistance", "FirePenetration"),
+            ("Nearby Enemies have -9% to Cold Resistance", "ColdPenetration"),
+            ("Nearby Enemies have -12% to Lightning Resistance", "LightningPenetration"),
+            // Life regen alternate wording
+            ("1% of Life Regenerated per second", "LifeRegenPct"),
+            // More life
+            ("10% more maximum Life", "Life"),
+            // Increased accuracy (alternate wording)
+            ("200% increased Accuracy Rating", "Accuracy"),
+        ];
+
+        let mut missing = vec![];
+        for (line, expected_stat) in &must_parse {
+            let mods = parse_stat_line(line);
+            if mods.is_empty() {
+                missing.push(format!("NO PARSE: \"{}\" (expected {})", line, expected_stat));
+            } else if !mods.iter().any(|m| m.stat == *expected_stat) {
+                let got: Vec<_> = mods.iter().map(|m| format!("{}={}", m.stat, m.value)).collect();
+                missing.push(format!("WRONG STAT: \"{}\" expected {} got [{}]", line, expected_stat, got.join(", ")));
+            }
+        }
+
+        if !missing.is_empty() {
+            for m in &missing {
+                eprintln!("  {}", m);
+            }
+            panic!("{} of {} patterns need fixing", missing.len(), must_parse.len());
+        }
     }
 }
