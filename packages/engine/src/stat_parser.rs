@@ -527,12 +527,20 @@ pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
         }
     }
 
-    // --- Block --------------------------------------------------------------
-    if let Some(val) = extract_pct_value(line, "chance to block") {
-        mods.push(flat("BlockChance", val));
-    }
-    if let Some(val) = extract_pct(line, "increased block chance") {
-        mods.push(increased("BlockChance", val));
+    // --- Block (spell block checked first to avoid double-counting) ----------
+    {
+        let lower = line.to_lowercase();
+        if lower.contains("chance to block") && !lower.contains("spell damage") {
+            if let Some(val) = extract_pct_value(line, "chance to block") {
+                mods.push(flat("BlockChance", val));
+            }
+        }
+        if let Some(val) = extract_pct(line, "increased chance to block") {
+            mods.push(increased("BlockChance", val));
+        }
+        if let Some(val) = extract_pct(line, "increased block chance") {
+            mods.push(increased("BlockChance", val));
+        }
     }
 
     // --- Accuracy -----------------------------------------------------------
@@ -760,6 +768,9 @@ pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
     if let Some(val) = extract_pct_value(line, "chance to block spell damage") {
         mods.push(flat("SpellBlockChance", val));
     }
+    if let Some(val) = extract_pct(line, "increased chance to block spell damage") {
+        mods.push(increased("SpellBlockChance", val));
+    }
 
     // --- Elemental ailment avoidance ----------------------------------------
     if let Some(val) = extract_pct_value(line, "chance to avoid elemental ailments") {
@@ -843,12 +854,16 @@ pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
                 mods.push(flat("MaxPowerCharges", val));
             } else if let Some(val) = extract_value(line, "maximum power charges") {
                 mods.push(flat("MaxPowerCharges", val));
+            } else if let Some(val) = extract_value(line, "to maximum power charge") {
+                mods.push(flat("MaxPowerCharges", val));
             }
         }
         if lower.contains("maximum frenzy charge") {
             if let Some(val) = extract_value(line, "to maximum frenzy charges") {
                 mods.push(flat("MaxFrenzyCharges", val));
             } else if let Some(val) = extract_value(line, "maximum frenzy charges") {
+                mods.push(flat("MaxFrenzyCharges", val));
+            } else if let Some(val) = extract_value(line, "to maximum frenzy charge") {
                 mods.push(flat("MaxFrenzyCharges", val));
             }
         }
@@ -857,8 +872,39 @@ pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
                 mods.push(flat("MaxEnduranceCharges", val));
             } else if let Some(val) = extract_value(line, "maximum endurance charges") {
                 mods.push(flat("MaxEnduranceCharges", val));
+            } else if let Some(val) = extract_value(line, "to maximum endurance charge") {
+                mods.push(flat("MaxEnduranceCharges", val));
             }
         }
+    }
+
+    // --- Physical Damage from Hits taken as Element ---------------------------
+    {
+        let lower = line.to_lowercase();
+        if lower.contains("physical damage from hits taken as") {
+            if let Some(val) = extract_pct_value(line, "taken as fire damage") {
+                mods.push(flat("PhysTakenAsFire", val));
+            }
+            if let Some(val) = extract_pct_value(line, "taken as cold damage") {
+                mods.push(flat("PhysTakenAsCold", val));
+            }
+            if let Some(val) = extract_pct_value(line, "taken as lightning damage") {
+                mods.push(flat("PhysTakenAsLightning", val));
+            }
+            if let Some(val) = extract_pct_value(line, "taken as chaos damage") {
+                mods.push(flat("PhysTakenAsChaos", val));
+            }
+        }
+    }
+
+    // --- Action Speed --------------------------------------------------------
+    if let Some(val) = extract_pct(line, "increased action speed") {
+        mods.push(increased("ActionSpeed", val));
+    }
+
+    // --- Stun and Block Recovery ---------------------------------------------
+    if let Some(val) = extract_pct(line, "increased stun and block recovery") {
+        mods.push(increased("StunBlockRecovery", val));
     }
 
     // --- Aura effect on self -------------------------------------------------
@@ -1916,5 +1962,49 @@ mod coverage_check {
             }
             panic!("{} of {} patterns need fixing", missing.len(), must_parse.len());
         }
+    }
+
+    #[test]
+    fn test_phys_taken_as_element() {
+        let mods = parse_stat_line("7% of Physical Damage from Hits taken as Cold Damage");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "PhysTakenAsCold");
+        assert_eq!(mods[0].value, 7.0);
+
+        let mods = parse_stat_line("11% of Physical Damage from Hits taken as Chaos Damage");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "PhysTakenAsChaos");
+        assert_eq!(mods[0].value, 11.0);
+
+        let mods = parse_stat_line("5% of Physical Damage from Hits taken as Fire Damage");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "PhysTakenAsFire");
+        assert_eq!(mods[0].value, 5.0);
+    }
+
+    #[test]
+    fn test_action_speed() {
+        let mods = parse_stat_line("4% increased Action Speed");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "ActionSpeed");
+        assert_eq!(mods[0].value, 4.0);
+        assert_eq!(mods[0].mod_type, "increased");
+    }
+
+    #[test]
+    fn test_stun_block_recovery() {
+        let mods = parse_stat_line("30% increased Stun and Block Recovery");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "StunBlockRecovery");
+        assert_eq!(mods[0].value, 30.0);
+        assert_eq!(mods[0].mod_type, "increased");
+    }
+
+    #[test]
+    fn test_singular_max_charge() {
+        let mods = parse_stat_line("+1 to Maximum Power Charge");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "MaxPowerCharges");
+        assert_eq!(mods[0].value, 1.0);
     }
 }

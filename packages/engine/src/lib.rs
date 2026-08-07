@@ -184,6 +184,16 @@ pub struct BuildInput {
     pub weapon2_crit: f64,
     #[serde(default)]
     pub is_dual_wield: bool,
+    #[serde(default)]
+    pub stat_lines: Vec<String>,
+    #[serde(default)]
+    pub gear_armour: f64,
+    #[serde(default)]
+    pub gear_evasion: f64,
+    #[serde(default)]
+    pub gear_es: f64,
+    #[serde(default)]
+    pub gear_block: f64,
 }
 
 fn default_enemy_level() -> u32 { 83 }
@@ -352,9 +362,19 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
         all_mods.push(Modifier { stat: "PhysicalDamage".into(), value: 20.0, mod_type: "more".into() });
     }
 
-    // Build ModDB from legacy modifiers
+    // Build ModDB
     use mod_db::{ModDB, StatId, SkillCfg, BuildState as MdbState, ConditionId};
     let mut db = ModDB::new();
+
+    // v2-parsed stat lines carry conditions, flags, and multipliers
+    if !input.stat_lines.is_empty() {
+        let v2_mods = stat_parser::parse_stats_v2(&input.stat_lines);
+        for m in v2_mods {
+            db.add(m);
+        }
+    }
+
+    // Legacy modifiers (support gems, uniques, flasks, charges, buffs, keystones)
     for m in &all_mods {
         db.add_legacy(&m.stat, m.value, &m.mod_type);
     }
@@ -391,7 +411,7 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     let energy_shield = {
         let int_bonus = (intelligence / 5.0).floor();
         let (flat, inc, more) = db.buckets(StatId::ENERGY_SHIELD, &cfg, &mst);
-        (flat * (1.0 + (inc + int_bonus) / 100.0) * more).round().max(0.0)
+        ((input.gear_es + flat) * (1.0 + (inc + int_bonus) / 100.0) * more).round().max(0.0)
     };
     let mana = {
         let base = 34.0 + (input.level as f64 - 1.0) * 6.0 + (intelligence / 2.0).floor();
@@ -409,14 +429,14 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
         0.0
     };
 
-    // --- Armour / Evasion ----------------------------------------------------
+    // --- Armour / Evasion (gear values are pre-computed with local mods) -----
     let armour = {
         let str_armour_bonus = (strength / 5.0).floor();
-        db.calc(StatId::ARMOUR, str_armour_bonus, &cfg, &mst).round()
+        db.calc(StatId::ARMOUR, input.gear_armour + str_armour_bonus, &cfg, &mst).round()
     };
     let evasion = {
         let dex_evasion_bonus = (dexterity / 5.0).floor();
-        db.calc(StatId::EVASION, dex_evasion_bonus, &cfg, &mst).round().max(0.0)
+        db.calc(StatId::EVASION, input.gear_evasion + dex_evasion_bonus, &cfg, &mst).round().max(0.0)
     };
 
     // --- Resistances with max res cap ----------------------------------------
@@ -430,7 +450,7 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     let chaos_res = (db.sum_base(StatId::CHAOS_RES, &cfg, &mst) - 60.0).min(chaos_res_max);
 
     // --- Block ---------------------------------------------------------------
-    let block_chance = db.sum_base(StatId::BLOCK_CHANCE, &cfg, &mst).clamp(0.0, 75.0);
+    let block_chance = (input.gear_block + db.sum_base(StatId::BLOCK_CHANCE, &cfg, &mst)).clamp(0.0, 75.0);
     let spell_block = db.sum_base(StatId::SPELL_BLOCK_CHANCE, &cfg, &mst).clamp(0.0, 75.0);
 
     // --- Suppression ---------------------------------------------------------
@@ -616,7 +636,9 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
         Some(g) if !g.is_dot => if has_weapon { eff_weapon_aps } else { 1.0 / g.base_cast_time },
         _ => if has_weapon { eff_weapon_aps } else { 1.0 },
     };
-    let attack_speed = db.calc(StatId::ATTACK_SPEED, base_speed, &cfg, &mst);
+    let action_speed_inc = db.sum_inc(StatId::ACTION_SPEED, &cfg, &mst);
+    let action_speed_mult = 1.0 + action_speed_inc / 100.0;
+    let attack_speed = db.calc(StatId::ATTACK_SPEED, base_speed, &cfg, &mst) * action_speed_mult;
 
     // Crit
     let crit_base_mod = db.sum_base(StatId::CRIT_CHANCE, &cfg, &mst);
@@ -805,7 +827,20 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     let phys_reduction = phys_reduction_from_armour(armour, 83.0 * 5.0)
         + db.sum_base(StatId::PHYS_DAMAGE_REDUCTION, &cfg, &mst)
         + db.sum_base(StatId::DAMAGE_TAKEN_REDUCTION, &cfg, &mst);
-    let phys_reduction = phys_reduction.min(90.0);
+    // Phys taken as element: shifted portion benefits from elemental resistances
+    let phys_as_fire = db.sum_base(StatId::PHYS_TAKEN_AS_FIRE, &cfg, &mst).min(100.0);
+    let phys_as_cold = db.sum_base(StatId::PHYS_TAKEN_AS_COLD, &cfg, &mst).min(100.0);
+    let phys_as_lightning = db.sum_base(StatId::PHYS_TAKEN_AS_LIGHTNING, &cfg, &mst).min(100.0);
+    let phys_as_chaos = db.sum_base(StatId::PHYS_TAKEN_AS_CHAOS, &cfg, &mst).min(100.0);
+    let phys_shift_total = (phys_as_fire + phys_as_cold + phys_as_lightning + phys_as_chaos).min(100.0);
+    let phys_shift_reduction = if phys_shift_total > 0.0 {
+        (phys_as_fire * fire_res + phys_as_cold * cold_res
+            + phys_as_lightning * lightning_res + phys_as_chaos * chaos_res)
+            / 100.0
+    } else {
+        0.0
+    };
+    let phys_reduction = (phys_reduction + phys_shift_reduction).min(90.0);
     let evade_chance = calc_evade_chance(evasion, 600.0);
 
     // Suppression reduces spell damage by 50%

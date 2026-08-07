@@ -82,6 +82,11 @@ export interface RustBuildInput {
   weapon2_aps: number;
   weapon2_crit: number;
   is_dual_wield: boolean;
+  stat_lines: string[];
+  gear_armour: number;
+  gear_evasion: number;
+  gear_es: number;
+  gear_block: number;
 }
 
 export interface RustCalcOutput {
@@ -148,6 +153,11 @@ export function defaultRustInput(overrides?: Partial<RustBuildInput>): RustBuild
     have_arcane_surge: false,
     weapon2_phys_min: 0, weapon2_phys_max: 0, weapon2_aps: 0, weapon2_crit: 0,
     is_dual_wield: false,
+    stat_lines: [],
+    gear_armour: 0,
+    gear_evasion: 0,
+    gear_es: 0,
+    gear_block: 0,
     ...overrides,
   };
 }

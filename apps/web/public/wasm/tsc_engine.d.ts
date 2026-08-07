@@ -1,15 +1,58 @@
 /* tslint:disable */
 /* eslint-disable */
 export interface BuildInput {
-    level: number;
-    class_id: number;
-    base_str: number;
-    base_dex: number;
-    base_int: number;
-    modifiers: Modifier[];
-    allocated_keystones: string[];
+    level?: number;
+    class_id?: number;
+    base_str?: number;
+    base_dex?: number;
+    base_int?: number;
+    modifiers?: Modifier[];
+    allocated_keystones?: string[];
     main_skill_id?: string;
     ascendancy_name?: string;
+    enemy_level?: number;
+    enemy_fire_res?: number;
+    enemy_cold_res?: number;
+    enemy_lightning_res?: number;
+    enemy_chaos_res?: number;
+    enemy_is_boss?: boolean;
+    support_gems?: string[];
+    equipped_uniques?: string[];
+    active_flasks?: string[];
+    weapon_base_type?: string;
+    weapon_phys_min?: number;
+    weapon_phys_max?: number;
+    weapon_aps?: number;
+    weapon_crit?: number;
+    power_charges?: number;
+    frenzy_charges?: number;
+    endurance_charges?: number;
+    on_full_life?: boolean;
+    on_low_life?: boolean;
+    is_leeching?: boolean;
+    have_fortify?: boolean;
+    have_killed_recently?: boolean;
+    conversion_phys_to_fire?: number;
+    conversion_phys_to_cold?: number;
+    conversion_phys_to_lightning?: number;
+    conversion_phys_to_chaos?: number;
+    minion_skill_id?: string;
+    mana_reserved_pct?: number;
+    life_reserved_pct?: number;
+    impale_chance?: number;
+    have_onslaught?: boolean;
+    have_tailwind?: boolean;
+    have_arcane_surge?: boolean;
+    weapon2_phys_min?: number;
+    weapon2_phys_max?: number;
+    weapon2_aps?: number;
+    weapon2_crit?: number;
+    is_dual_wield?: boolean;
+    stat_lines?: string[];
+    gear_armour?: number;
+    gear_evasion?: number;
+    gear_es?: number;
+    gear_block?: number;
 }
 
 export interface BuildStats {
@@ -73,6 +116,26 @@ export interface CalcOutput {
     accuracy: number;
     hit_chance: number;
     total_ehp: number;
+    bleed_dps: number;
+    poison_dps: number;
+    ignite_dps: number;
+    combined_dps: number;
+    life_regen: number;
+    mana_regen: number;
+    es_regen: number;
+    evade_chance: number;
+    phys_reduction: number;
+    suppression: number;
+    trigger_rate: number;
+    total_dps_with_minions: number;
+    mana_unreserved: number;
+    life_unreserved: number;
+    mana_reserved_percent: number;
+    life_leech_rate: number;
+    es_leech_rate: number;
+    impale_dps: number;
+    ward: number;
+    es_recharge_rate: number;
 }
 
 export interface DeltaResult {
