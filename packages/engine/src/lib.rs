@@ -307,9 +307,8 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     let mut all_mods = input.modifiers.clone();
     keystones::apply_keystones(&input, &mut all_mods);
 
-    if !input.ascendancy_name.is_empty() {
-        all_mods.extend(ascendancy::get_ascendancy_mods(&input.ascendancy_name));
-    }
+    // Ascendancy mods come from tree node stats parsed by the converter.
+    // The hardcoded approximations in get_ascendancy_mods were double-counting.
 
     for gem_name in &input.support_gems {
         all_mods.extend(supports::get_support_modifiers(gem_name));
