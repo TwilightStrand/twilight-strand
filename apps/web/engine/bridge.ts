@@ -21,7 +21,7 @@ export class EngineBridge {
   async init(gameId: GameId = "poe1"): Promise<void> {
     if (this.worker) return;
 
-    this.worker = new Worker("/engine-worker.js");
+    this.worker = new Worker("/engine-worker.js", { type: "module" });
 
     this.worker.onmessage = (e: MessageEvent<EngineResponse>) => {
       const msg = e.data;
