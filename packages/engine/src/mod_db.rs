@@ -539,6 +539,141 @@ define_stats! {
     (WARD_RESTORATION, "WardRestoration") = 350,
     // Spell less crit chance
     (SPELL_LESS_CRIT, "SpellLessCrit") = 351,
+    // Gem level/quality (socketed and global)
+    (SOCKETED_GEM_LEVEL, "SocketedGemLevel") = 352,
+    (SOCKETED_GEM_QUALITY, "SocketedGemQuality") = 353,
+    // Threshold jewel flag
+    (THRESHOLD_JEWEL, "ThresholdJewel") = 354,
+    // Item rarity/quantity
+    (ITEM_RARITY, "ItemRarity") = 355,
+    (ITEM_QUANTITY, "ItemQuantity") = 356,
+    // Sap/Scorch/Brittle chance
+    (SAP_CHANCE, "SapChance") = 357,
+    (SCORCH_CHANCE, "ScorchChance") = 358,
+    (BRITTLE_CHANCE, "BrittleChance") = 359,
+    // Corrosion
+    (CORROSION_CHANCE, "CorrosionChance") = 360,
+    // Weapon range
+    (WEAPON_RANGE, "WeaponRange") = 361,
+    // Life per stat
+    (LIFE_PER_DEX, "LifePerDex") = 362,
+    (LIFE_PER_STR, "LifePerStr") = 363,
+    (LIFE_PER_INT, "LifePerInt") = 364,
+    // ES per stat
+    (ES_PER_INT, "ESPerInt") = 365,
+    (MANA_PER_INT, "ManaPerInt") = 366,
+    // Damage per charge
+    (DAMAGE_PER_POWER, "DamagePerPower") = 367,
+    (DAMAGE_PER_FRENZY, "DamagePerFrenzy") = 368,
+    (DAMAGE_PER_ENDURANCE, "DamagePerEndurance") = 369,
+    // Evasion per dex
+    (EVASION_PER_DEX, "EvasionPerDex") = 370,
+    // Off hand crit
+    (OFF_HAND_CRIT, "OffHandCrit") = 371,
+    // Crit multi per charge
+    (CRIT_MULTI_PER_POWER, "CritMultiPerPower") = 372,
+    // ES gained on kill
+    (ES_ON_KILL, "ESOnKill") = 373,
+    // Mana on block
+    (MANA_ON_BLOCK, "ManaOnBlock") = 374,
+    // Mana recovery from flasks
+    (FLASK_MANA_RECOVERY, "FlaskManaRecovery") = 375,
+    // Phasing
+    (PHASING, "Phasing") = 376,
+    // Onslaught conditional
+    (ONSLAUGHT, "Onslaught") = 377,
+    // Damage per endurance/frenzy/power charge
+    (ATTACK_SPEED_PER_FRENZY, "AttackSpeedPerFrenzy") = 378,
+    // Chaos damage per charge
+    (CHAOS_DAMAGE_PER_CHARGE, "ChaosDamagePerCharge") = 379,
+    // Elemental damage taken as physical
+    (ELE_TAKEN_AS_PHYS, "EleTakenAsPhys") = 380,
+    // Body armour defences doubled
+    (BODY_ARMOUR_DEFENCES_DOUBLED, "BodyArmourDefencesDoubled") = 381,
+    // Crimson dance
+    (CRIMSON_DANCE, "CrimsonDance") = 382,
+    // Perfect agony
+    (PERFECT_AGONY, "PerfectAgony") = 383,
+    // Resolute technique
+    (RESOLUTE_TECHNIQUE, "ResoluteTechnique") = 384,
+    // Zealot's oath
+    (ZEALOTS_OATH, "ZealotsOath") = 385,
+    // Hexproof
+    (HEXPROOF, "Hexproof") = 386,
+    // Elemental conflux
+    (ELEMENTAL_CONFLUX, "ElementalConflux") = 387,
+    // Ghost shroud
+    (GHOST_SHROUD, "GhostShroud") = 388,
+    // Point blank
+    (POINT_BLANK, "PointBlank") = 389,
+    // Malediction
+    (MALEDICTION, "Malediction") = 390,
+    // Onslaught on vaal
+    (ONSLAUGHT_ON_VAAL, "OnslaughtOnVaal") = 391,
+    // Damage taken from blocked hits
+    (DAMAGE_FROM_BLOCKED, "DamageFromBlocked") = 392,
+    // Elemental equilibrium
+    (ELE_EQUILIBRIUM, "EleEquilibrium") = 393,
+    // Additional ignite
+    (ADDITIONAL_IGNITE, "AdditionalIgnite") = 394,
+    // Blind on hit attack
+    (BLIND_ON_HIT_ATTACK, "BlindOnHitAttack") = 395,
+    // Intimidate on hit
+    (INTIMIDATE_ON_HIT_ATTACK, "IntimidateOnHitAttack") = 396,
+    // Suppressed spell damage recoup as ES
+    (SUPPRESS_RECOUP_ES, "SuppressRecoupES") = 397,
+    // Less flask charges from kills
+    (LESS_FLASK_CHARGES_KILL, "LessFlaskChargesKill") = 398,
+    // Less ward during effect
+    (LESS_WARD, "LessWard") = 399,
+    // Less impale duration
+    (LESS_IMPALE_DURATION, "LessImpaleDuration") = 400,
+    // Less crit chance
+    (LESS_CRIT_CHANCE, "LessCritChance") = 401,
+    // Less ignite/poison duration
+    (LESS_IGNITE_DURATION, "LessIgniteDuration") = 402,
+    (LESS_POISON_DURATION, "LessPoisonDuration") = 403,
+    // Slower restoration of ward
+    (SLOWER_WARD_RESTORATION, "SlowerWardRestoration") = 404,
+    // Less life recovery from flasks
+    (LESS_FLASK_RECOVERY, "LessFlaskRecovery") = 405,
+    // Less life regen
+    (LESS_LIFE_REGEN, "LessLifeRegen") = 406,
+    // Less charge duration
+    (LESS_CHARGE_DURATION, "LessChargeDuration") = 407,
+    // Additional offering type
+    (ADDITIONAL_OFFERING, "AdditionalOffering") = 408,
+    // Melee splash
+    (ADDITIONAL_PROJECTILE, "AdditionalProjectile") = 409,
+    // Unaffected conditional
+    (UNAFFECTED_CHILL_CHANNEL, "UnaffectedChillChannel") = 410,
+    // You have Onslaught while
+    (ONSLAUGHT_CONDITIONAL, "OnslaughtConditional") = 411,
+    // Phasing conditional
+    (PHASING_CONDITIONAL, "PhasingConditional") = 412,
+    // Endurance charge on kill
+    (ENDURANCE_ON_KILL, "EnduranceOnKill") = 413,
+    // Frenzy charge on kill
+    (FRENZY_ON_KILL, "FrenzyOnKill") = 414,
+    // Cannot be maimed/hindered
+    (MAIM_IMMUNE, "MaimImmune") = 415,
+    (HINDER_IMMUNE, "HinderImmune") = 416,
+    // Cannot be cursed with silence
+    (SILENCE_IMMUNE, "SilenceImmune") = 417,
+    // Fungal ground
+    (FUNGAL_GROUND, "FungalGround") = 418,
+    // Divinity
+    (DIVINITY, "Divinity") = 419,
+    // Additional remote mines
+    (MAX_REMOTE_MINES, "MaxRemoteMines") = 420,
+    // Max skeletons, zombies, spectres  (also existing, but adding for max X summoned)
+    (MAX_SKELETON_MAGES, "MaxSkeletonMages") = 421,
+    // Warcry cooldown
+    (WARCRY_COOLDOWN_TIME, "WarcryCooldownTime") = 422,
+    // Animate weapon count
+    (ANIMATE_WEAPON_COUNT, "AnimateWeaponCount") = 423,
+    // Fortify duration
+    (FORTIFY_DURATION, "FortifyDuration") = 424,
 }
 
 // ---------------------------------------------------------------------------
