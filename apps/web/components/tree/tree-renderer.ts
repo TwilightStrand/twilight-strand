@@ -491,6 +491,7 @@ export class TreeRenderer {
         this.drawMasteryStar(ctx, sx, sy, radius, allocated);
       } else {
         this.drawNodeCircle(ctx, sx, sy, radius, node, allocated);
+        this.drawNodeFrame(ctx, sx, sy, radius, node, allocated);
       }
 
       if (this.searchResults.size > 0 && this.searchResults.has(nid)) {
@@ -669,6 +670,36 @@ export class TreeRenderer {
     ctx.strokeStyle = border;
     ctx.lineWidth = Math.max(1, radius * 0.08);
     ctx.stroke();
+  }
+
+  private drawNodeFrame(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    radius: number,
+    node: TreeNode,
+    allocated: boolean,
+  ): void {
+    let frameName: string;
+    if (node.isKeystone) {
+      frameName = allocated ? "KeystoneFrameAllocated" : "KeystoneFrameUnallocated";
+    } else if (node.isNotable) {
+      frameName = allocated ? "NotableFrameAllocated" : "NotableFrameUnallocated";
+    } else {
+      frameName = allocated ? "PSSkillFrameActive" : "PSSkillFrame";
+    }
+
+    const atlas = this.atlases.get("frame");
+    if (!atlas) return;
+    const coord = atlas.coords[frameName];
+    if (!coord) return;
+
+    const frameSize = radius * 2.4;
+    ctx.drawImage(
+      atlas.image,
+      coord.x, coord.y, coord.w, coord.h,
+      x - frameSize / 2, y - frameSize / 2, frameSize, frameSize,
+    );
   }
 
   private drawNodeIcon(
