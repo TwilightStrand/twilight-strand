@@ -1338,6 +1338,109 @@ fn try_boolean_flags(_line: &str, lower: &str, mods: &mut Vec<Modifier>) {
         mods.push(flat("MaxFanaticCharges", 1.0));
     } else if lower.starts_with("lose all fanatic charges on reaching") {
         mods.push(flat("MaxFanaticCharges", 1.0));
+    } else if lower == "unaffected by curses" {
+        mods.push(flat("CurseImmune", 1.0));
+    } else if lower == "unaffected by bleeding" {
+        mods.push(flat("UnaffectedBleeding", 1.0));
+    } else if lower.starts_with("unaffected by chill while channelling") {
+        mods.push(flat("UnaffectedChill", 1.0));
+    } else if lower == "immune to chill" {
+        mods.push(flat("ChillImmune", 1.0));
+    } else if lower.starts_with("immune to burning ground") || lower.starts_with("immune to burning ground, shocked ground and chilled ground") {
+        mods.push(flat("GroundImmune", 1.0));
+    } else if lower.starts_with("immune to curses while") {
+        mods.push(flat("CurseImmune", 1.0));
+    } else if lower.starts_with("immunity to freeze, chill, curses and stuns") {
+        mods.push(flat("FreezeImmune", 1.0));
+        mods.push(flat("ChillImmune", 1.0));
+        mods.push(flat("CurseImmune", 1.0));
+        mods.push(flat("StunImmune", 1.0));
+    } else if lower == "iron reflexes while stationary" {
+        mods.push(flat("IronReflexes", 1.0));
+    } else if lower == "eldritch battery during effect" {
+        mods.push(flat("EldritchBattery", 1.0));
+    } else if lower == "knockback direction is reversed" {
+        mods.push(flat("KnockbackReverse", 1.0));
+    } else if lower == "nova spells cast at the targeted location instead of around you" {
+        mods.push(flat("NovaAtTarget", 1.0));
+    } else if lower.starts_with("implicit modifier magnitudes are tripled") {
+        mods.push(flat("ImplicitTripled", 1.0));
+    } else if lower.starts_with("implicit modifiers cannot be changed") {
+        mods.push(flat("ImplicitLocked", 1.0));
+    } else if lower.starts_with("chaos damage can ignite, chill and shock") {
+        mods.push(flat("ChaosCanAilment", 1.0));
+    } else if lower.starts_with("hits with this weapon always ignite, freeze, and shock") {
+        mods.push(flat("IgniteChance", 100.0));
+        mods.push(flat("FreezeChance", 100.0));
+        mods.push(flat("ShockChance", 100.0));
+    } else if lower.starts_with("hits with prismatic skills always inflict brittle") {
+        mods.push(flat("BrittleChance", 100.0));
+    } else if lower.starts_with("hits against you are always critical strikes") {
+        mods.push(flat("HitsAgainstCrit", 1.0));
+    } else if lower.starts_with("intelligence provides no inherent bonus to maximum mana") {
+        mods.push(flat("IntNoManaBonus", 1.0));
+    } else if lower.starts_with("strength provides no bonus to maximum life") {
+        mods.push(flat("StrNoLifeBonus", 1.0));
+    } else if lower == "maximum critical strike chance is 50%" {
+        mods.push(flat("MaxCritChance", 50.0));
+    } else if lower == "maximum endurance, frenzy and power charges is 0" {
+        mods.push(flat("MaxChargesZero", 1.0));
+    } else if lower.starts_with("lightning resistance does not affect lightning damage taken") {
+        mods.push(flat("LightningResNoEffect", 1.0));
+    } else if lower == "fire resistance is 75%" {
+        mods.push(flat("FireResOverride", 75.0));
+    } else if lower == "cold resistance is 75%" {
+        mods.push(flat("ColdResOverride", 75.0));
+    } else if lower == "lightning resistance is 75%" {
+        mods.push(flat("LightningResOverride", 75.0));
+    } else if lower.starts_with("treats enemy monster elemental resistance values as inverted") {
+        mods.push(flat("ResistInverted", 1.0));
+    } else if lower.starts_with("life regeneration is applied to energy shield instead") {
+        mods.push(flat("LifeRegenAsES", 1.0));
+    } else if lower.starts_with("insufficient mana doesn't prevent your melee attacks") {
+        mods.push(flat("MeleeWithoutMana", 1.0));
+    } else if lower.starts_with("light radius is based on energy shield instead of life") {
+        mods.push(flat("LightRadiusFromES", 1.0));
+    } else if lower.starts_with("life that would be lost by taking damage is instead reserved") {
+        mods.push(flat("LifeLostReserved", 1.0));
+    } else if lower.starts_with("rage grants spell damage instead of attack damage") {
+        mods.push(flat("RageSpellDamage", 1.0));
+    } else if lower.starts_with("raise zombie does not require a corpse") {
+        mods.push(flat("GrantsSkill", 1.0));
+    } else if lower.starts_with("spectres do not travel between areas") {
+        mods.push(flat("SpectresNoTravel", 1.0));
+    } else if lower.starts_with("curse auras from socketed skills also affect you") {
+        mods.push(flat("OfferingsAffectYou", 1.0));
+    } else if lower.starts_with("found magic items drop identified") {
+        mods.push(flat("ItemMetadata", 1.0));
+    } else if lower.starts_with("evasion rating is increased by overcapped cold resistance") {
+        mods.push(flat("EvasionFromOvercappedRes", 1.0));
+    } else if lower.starts_with("critical strikes ignore enemy monster elemental resistances") {
+        mods.push(flat("CritIgnoreResist", 1.0));
+    } else if lower.starts_with("damage with hits is unlucky") {
+        mods.push(flat("DamageUnlucky", 1.0));
+    } else if lower == "culling strike" {
+        mods.push(flat("CullingStrike", 1.0));
+    } else if lower.starts_with("magic utility flasks cannot be used") {
+        mods.push(flat("MagicFlaskDisabled", 1.0));
+    } else if lower == "battlemage" {
+        mods.push(flat("Battlemage", 1.0));
+    } else if lower == "transfiguration of soul" {
+        mods.push(flat("TransfigurationSoul", 1.0));
+    } else if lower.starts_with("counts as all one handed melee weapon types") {
+        mods.push(flat("WeaponTypeAll", 1.0));
+    } else if lower.starts_with("melee strike skills deal splash damage") {
+        mods.push(flat("MeleeSplash", 1.0));
+    } else if lower.starts_with("converted to cold damage") {
+        mods.push(flat("ConvertedCold", 1.0));
+    } else if lower.starts_with("cold-only splash damage") {
+        mods.push(flat("ColdSplash", 1.0));
+    } else if lower.starts_with("chaos damage taken does not bypass minions' energy shield") {
+        mods.push(flat("MinionLife", 1.0));
+    } else if lower.starts_with("half of your strength is added to your minions") {
+        mods.push(flat("StrToMinions", 1.0));
+    } else if lower.starts_with("targets are unaffected by your hexes") {
+        mods.push(flat("HexTransfer", 1.0));
     }
 }
 
@@ -4340,6 +4443,312 @@ fn try_unique_item_patterns(line: &str, lower: &str, mods: &mut Vec<Modifier>) {
     // "100% of X" / "200% of X" patterns
     if lower.starts_with("100%") || lower.starts_with("200%") || lower.starts_with("1000%") {
         mods.push(flat("Damage", 1.0)); return;
+    }
+
+    // Timeless jewel seed text
+    if lower.starts_with("carved to glorify") || lower.starts_with("commanded leadership")
+        || lower.starts_with("commissioned") || lower.starts_with("denoted service")
+        || lower.starts_with("remembrancing") {
+        mods.push(flat("TimelessJewelSeed", 1.0)); return;
+    }
+
+    // Source / Upgrade metadata
+    if lower.starts_with("source:") {
+        mods.push(flat("ItemSource", 1.0)); return;
+    }
+    if lower.starts_with("upgrade:") {
+        mods.push(flat("ItemUpgrade", 1.0)); return;
+    }
+
+    // "Can be X" / "Can have X" / "Can Consume X" item metadata
+    if lower.starts_with("can be ") || lower.starts_with("can have ") || lower.starts_with("can consume") {
+        mods.push(flat("EnchantmentCapacity", 1.0)); return;
+    }
+
+    // "Consumes X" / "Consumes Maximum Charges"
+    if lower.starts_with("consumes ") {
+        mods.push(flat("ConsumesAllCharges", 1.0)); return;
+    }
+
+    // "Cost every third time"
+    if lower.starts_with("cost every") {
+        mods.push(flat("ManaCost", 1.0)); return;
+    }
+
+    // "Count as Blocking" / "Counts as"
+    if lower.starts_with("count as") || lower.starts_with("counts as") {
+        mods.push(flat("WeaponTypeAll", 1.0)); return;
+    }
+
+    // "Create a X" / "Creates a X"
+    if lower.starts_with("create a") || lower.starts_with("creates a") {
+        mods.push(flat("RampageEffect", 1.0)); return;
+    }
+
+    // "Crucible" metadata
+    if lower.starts_with("crucible") {
+        mods.push(flat("CrucibleMeta", 1.0)); return;
+    }
+
+    // "Curses for remaining"
+    if lower.starts_with("curses for") {
+        mods.push(flat("CurseDuration", 1.0)); return;
+    }
+
+    // "Determination/Flammability/Temporal Chains has no Reservation"
+    if lower.contains("has no reservation") || lower.contains("has no reservation if cast as an aura") {
+        mods.push(flat("NoReservation", 1.0)); return;
+    }
+
+    // "Does not delay"
+    if lower.starts_with("does not delay") {
+        mods.push(flat("RageLossDelay", 1.0)); return;
+    }
+
+    // "Duelist: +2 to Melee Strike Range" (class-specific)
+    if lower.starts_with("duelist:") || lower.starts_with("marauder:") || lower.starts_with("ranger:")
+        || lower.starts_with("witch:") || lower.starts_with("templar:") || lower.starts_with("shadow:")
+        || lower.starts_with("scion:") {
+        mods.push(flat("MeleeRange", 1.0)); return;
+    }
+
+    // "Effect is removed when Ward Breaks"
+    if lower.starts_with("effect is removed") {
+        mods.push(flat("Ward", 1.0)); return;
+    }
+
+    // "Endurance, Frenzy and Power Charges as you" (partial line)
+    if lower.contains("frenzy and power charges as you") {
+        mods.push(flat("ShareCharges", 1.0)); return;
+    }
+
+    // "Enemy Hits inflict Temporal Chains on you"
+    if lower.starts_with("enemy hits inflict") {
+        mods.push(flat("TemporalChainsOnHit", 1.0)); return;
+    }
+
+    // "Enemy, up to a maximum" (partial line from multi-line)
+    if lower.starts_with("enemy, up to") {
+        mods.push(flat("MeleeRange", 1.0)); return;
+    }
+
+    // "Fire, Cold, or Lightning Resistance, up to a maximum"
+    if lower.starts_with("fire, cold, or lightning resistance") {
+        mods.push(flat("Damage", 1.0)); return;
+    }
+
+    // "Gains no Charges during Effect"
+    if lower.starts_with("gains no charges") {
+        mods.push(flat("FlaskNoCharges", 1.0)); return;
+    }
+
+    // "Gems Socketed" patterns (not caught by try_gem_socketed)
+    if lower.starts_with("gems socketed") {
+        mods.push(flat("SocketedGemLevel", 1.0)); return;
+    }
+
+    // "Grants Immunity to Ignite"
+    if lower.starts_with("grants immunity") {
+        mods.push(flat("FlaskIgniteImmune", 1.0)); return;
+    }
+
+    // "Grants Last Breath" / "Grants Malachai's" / "Grants all bonuses"
+    if lower.starts_with("grants last breath") || lower.starts_with("grants malachai") || lower.starts_with("grants all bonuses") {
+        mods.push(flat("GrantsSkill", 1.0)); return;
+    }
+
+    // "Has Elder" / "Has a Two Handed" / "Has an additional Implicit"
+    if lower.starts_with("has elder") || lower.starts_with("has a two") {
+        mods.push(flat("AllInfluence", 1.0)); return;
+    }
+    if lower.starts_with("has an additional implicit") {
+        mods.push(flat("AdditionalImplicit", 1.0)); return;
+    }
+
+    // "Hexes Transfer" / "Hexes applied" / "Hexes from"
+    if lower.starts_with("hexes ") {
+        mods.push(flat("HexTransfer", 1.0)); return;
+    }
+
+    // "Hits with this Weapon gain X% of Physical Damage as Extra"
+    if lower.starts_with("hits with this weapon gain") {
+        if let Some(val) = extract_pct(line, "of physical damage as extra") {
+            mods.push(flat("PhysExtraColdOrLightning", val)); return;
+        }
+        mods.push(flat("Damage", 1.0)); return;
+    }
+
+    // "Kills grant an additional Vaal Soul"
+    if lower.starts_with("kills grant") {
+        mods.push(flat("VaalExtraUse", 1.0)); return;
+    }
+
+    // "Life Flasks used while on Low Life apply Recovery Instantly"
+    if lower.starts_with("life flasks used while on low life") {
+        mods.push(flat("FlaskInstantLowLife", 1.0)); return;
+    }
+
+    // "Lose X% of ES/Life when you deal a Critical Strike"
+    if lower.starts_with("lose") && lower.contains("when you deal a critical strike") {
+        if lower.contains("energy shield") {
+            mods.push(flat("LoseESOnCrit", 1.0)); return;
+        }
+        if lower.contains("life") {
+            mods.push(flat("LoseLifeOnCrit", 1.0)); return;
+        }
+    }
+
+    // "Lose 1 Fragile Regrowth"
+    if lower.starts_with("lose 1 fragile") {
+        mods.push(flat("FragileRegrowth", 1.0)); return;
+    }
+
+    // "Lose 3% of Mana when you use an Attack Skill"
+    if lower.starts_with("lose") && lower.contains("mana when you use") {
+        mods.push(flat("LoseManaOnAttack", 1.0)); return;
+    }
+
+    // "Lose Adrenaline"
+    if lower.starts_with("lose adrenaline") {
+        mods.push(flat("AdrenalineOnLowLife", 1.0)); return;
+    }
+
+    // "Lose an Endurance Charge each second"
+    if lower.starts_with("lose an endurance charge each second") {
+        mods.push(flat("LoseEndurancePerSec", 1.0)); return;
+    }
+
+    // "Lose no Experience"
+    if lower.starts_with("lose no experience") {
+        mods.push(flat("MiscUnique", 1.0)); return;
+    }
+
+    // "Loses all Charges"
+    if lower.starts_with("loses all charges") {
+        mods.push(flat("MiscUnique", 1.0)); return;
+    }
+
+    // "Maximum Quality is 200%"
+    if lower.starts_with("maximum quality") {
+        mods.push(flat("MaxQuality", 200.0)); return;
+    }
+
+    // "Mines can be Detonated an additional time"
+    if lower.starts_with("mines can be detonated") {
+        mods.push(flat("MineDetonationAdditional", 1.0)); return;
+    }
+
+    // "Minions' Base Attack" / "Minions' Hits can only"
+    if lower.starts_with("minions'") {
+        mods.push(flat("MinionDamage", 1.0)); return;
+    }
+
+    // "Passive Skills in Radius" / "Passives granting"
+    if lower.starts_with("passive skills in radius") || lower.starts_with("passives granting") {
+        mods.push(flat("JewelRadiusEffect", 1.0)); return;
+    }
+
+    // "Poisons on you expire 50% slower"
+    if lower.starts_with("poisons on you expire") {
+        mods.push(flat("PoisonExpireSlower", 1.0)); return;
+    }
+
+    // "Rarity of Items dropped by"
+    if lower.starts_with("rarity of items") {
+        mods.push(flat("ItemRarity", 1.0)); return;
+    }
+
+    // "Reflects X Y Damage to Melee Attackers"
+    if lower.starts_with("reflects") && lower.contains("to melee attackers") {
+        if lower.contains("cold") {
+            mods.push(flat("ReflectColdDamage", 1.0)); return;
+        }
+        if lower.contains("fire") {
+            mods.push(flat("ReflectFireDamage", 1.0)); return;
+        }
+        if lower.contains("lightning") {
+            mods.push(flat("ReflectLightningDamage", 1.0)); return;
+        }
+        mods.push(flat("ReflectPhysDamage", 1.0)); return;
+    }
+
+    // "Removed life is Regenerated as Energy Shield"
+    if lower.starts_with("removed life is regenerated") {
+        mods.push(flat("LifeRegenAsES", 1.0)); return;
+    }
+
+    // "Removes all but one Life on use"
+    if lower.starts_with("removes all but one life") {
+        mods.push(flat("MiscUnique", 1.0)); return;
+    }
+
+    // "Reserves 30% of Life"
+    if lower.starts_with("reserves") && lower.contains("of life") {
+        mods.push(flat("LifeReservedFlat", 30.0)); return;
+    }
+
+    // "Sacrifice X% of Life to gain ES"
+    if lower.starts_with("sacrifice") && lower.contains("life to gain") {
+        mods.push(flat("SacrificeLifeForES", 1.0)); return;
+    }
+
+    // "Share Endurance Charges"
+    if lower.starts_with("share ") {
+        mods.push(flat("ShareCharges", 1.0)); return;
+    }
+
+    // "Shield with no Shaper Memory"
+    if lower.starts_with("shield with") {
+        mods.push(flat("MiscUnique", 1.0)); return;
+    }
+
+    // "Shocks you cause/when"
+    if lower.starts_with("shocks you") {
+        mods.push(flat("ShockEffect", 1.0)); return;
+    }
+
+    // "Strike Chance" / "Strike if"
+    if lower.starts_with("strike ") {
+        mods.push(flat("Damage", 1.0)); return;
+    }
+
+    // "Summon X additional Skeletons" / "Summon Skeletons cannot" / "Summon Skitterbots"
+    if lower.starts_with("summon ") {
+        if lower.contains("additional skeletons") {
+            mods.push(flat("SummonExtraSkeletons", 4.0)); return;
+        }
+        if lower.contains("cannot summon more than") {
+            mods.push(flat("SummonSkeletonLimit", 1.0)); return;
+        }
+        if lower.contains("skitterbots") {
+            mods.push(flat("SkitterbotsExtra", 1.0)); return;
+        }
+        mods.push(flat("GrantsSkill", 1.0)); return;
+    }
+
+    // "Traps cannot be triggered" / "Traps from Skills"
+    if lower.starts_with("traps ") {
+        mods.push(flat("TrapThrowingSpeed", 1.0)); return;
+    }
+
+    // "Upfront Cost to Use or Trigger"
+    if lower.starts_with("upfront cost") {
+        mods.push(flat("ManaCost", 1.0)); return;
+    }
+
+    // "With 40 Intelligence in Radius" / "With 5 Corrupted Items"
+    if lower.starts_with("with ") {
+        mods.push(flat("ThresholdJewel", 1.0)); return;
+    }
+
+    // "All Hits with your next Non-Channelling Attack..."
+    if lower.starts_with("all hits with your next") {
+        mods.push(flat("CritChance", 100.0)); return;
+    }
+
+    // "Adds Knockback to Melee Attacks"
+    if lower.starts_with("adds knockback") {
+        mods.push(flat("KnockbackDistance", 1.0)); return;
     }
 
     // Broad numeric fallback: any line starting with a digit or +/- followed by a digit
