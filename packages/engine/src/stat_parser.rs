@@ -501,9 +501,17 @@ pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
     }
 
     // --- Crit ---------------------------------------------------------------
-    if !line.to_lowercase().contains("global") {
-        if let Some(val) = extract_pct(line, "increased critical strike chance") {
-            mods.push(increased("CritChance", val));
+    {
+        let lower = line.to_lowercase();
+        if !lower.contains("global") {
+            if let Some(val) = extract_pct(line, "increased critical strike chance") {
+                mods.push(increased("CritChance", val));
+            } else if lower.contains("critical strike chance") && lower.contains("increased") {
+                // Catch variants: "Melee/Attack/Spell Critical Strike Chance"
+                if let Some(val) = extract_pct(line, "critical strike chance") {
+                    mods.push(increased("CritChance", val));
+                }
+            }
         }
     }
     {
