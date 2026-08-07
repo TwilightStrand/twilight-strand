@@ -546,32 +546,42 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
         }
     }
 
-    // Build conversion table
+    // Build conversion table from both BuildInput fields and parsed mods
     let mut conversions = damage::ConversionTable::new();
-    if input.conversion_phys_to_fire > 0.0 {
-        conversions.insert((damage::DamageType::Physical, damage::DamageType::Fire), input.conversion_phys_to_fire);
-    }
-    if input.conversion_phys_to_cold > 0.0 {
-        conversions.insert((damage::DamageType::Physical, damage::DamageType::Cold), input.conversion_phys_to_cold);
-    }
-    if input.conversion_phys_to_lightning > 0.0 {
-        conversions.insert((damage::DamageType::Physical, damage::DamageType::Lightning), input.conversion_phys_to_lightning);
-    }
-    if input.conversion_phys_to_chaos > 0.0 {
-        conversions.insert((damage::DamageType::Physical, damage::DamageType::Chaos), input.conversion_phys_to_chaos);
+    let conv_sources = [
+        (StatId::CONV_PHYS_TO_FIRE, damage::DamageType::Physical, damage::DamageType::Fire, input.conversion_phys_to_fire),
+        (StatId::CONV_PHYS_TO_COLD, damage::DamageType::Physical, damage::DamageType::Cold, input.conversion_phys_to_cold),
+        (StatId::CONV_PHYS_TO_LIGHTNING, damage::DamageType::Physical, damage::DamageType::Lightning, input.conversion_phys_to_lightning),
+        (StatId::CONV_PHYS_TO_CHAOS, damage::DamageType::Physical, damage::DamageType::Chaos, input.conversion_phys_to_chaos),
+        (StatId::CONV_COLD_TO_FIRE, damage::DamageType::Cold, damage::DamageType::Fire, 0.0),
+        (StatId::CONV_LIGHTNING_TO_COLD, damage::DamageType::Lightning, damage::DamageType::Cold, 0.0),
+    ];
+    for (stat, from, to, input_val) in &conv_sources {
+        let mod_val = db.sum_base(*stat, &cfg, &mst);
+        let total = input_val + mod_val;
+        if total > 0.0 {
+            conversions.insert((*from, *to), total);
+        }
     }
 
-    // Build per-type damage modifiers
+    // Build per-type damage modifiers, including ElementalDamage for ele types
+    let ele_inc = db.sum_inc(StatId::ELEMENTAL_DAMAGE, &cfg, &mst);
+    let ele_more = db.product_more(StatId::ELEMENTAL_DAMAGE, &cfg, &mst);
+
     let mut type_mods = damage::DamageModifiers::new();
     let type_stat_map = [
-        (damage::DamageType::Physical, StatId::PHYSICAL_DAMAGE),
-        (damage::DamageType::Fire, StatId::FIRE_DAMAGE),
-        (damage::DamageType::Cold, StatId::COLD_DAMAGE),
-        (damage::DamageType::Lightning, StatId::LIGHTNING_DAMAGE),
-        (damage::DamageType::Chaos, StatId::CHAOS_DAMAGE),
+        (damage::DamageType::Physical, StatId::PHYSICAL_DAMAGE, false),
+        (damage::DamageType::Fire, StatId::FIRE_DAMAGE, true),
+        (damage::DamageType::Cold, StatId::COLD_DAMAGE, true),
+        (damage::DamageType::Lightning, StatId::LIGHTNING_DAMAGE, true),
+        (damage::DamageType::Chaos, StatId::CHAOS_DAMAGE, false),
     ];
-    for (dt, stat) in &type_stat_map {
-        let (flat, inc, more) = db.buckets(*stat, &cfg, &mst);
+    for (dt, stat, is_ele) in &type_stat_map {
+        let (flat, mut inc, mut more) = db.buckets(*stat, &cfg, &mst);
+        if *is_ele {
+            inc += ele_inc;
+            more *= ele_more;
+        }
         if flat != 0.0 || inc != 0.0 || more != 1.0 {
             type_mods.insert(*dt, (flat, inc, more));
         }
