@@ -14,6 +14,22 @@ import { parseTreeData, type TreeData } from "./tree-data";
 import { TreeRenderer } from "./tree-renderer";
 import { SpatialGrid } from "./tree-spatial";
 
+let cachedTreeData: TreeData | null = null;
+let treeDataPromise: Promise<TreeData> | null = null;
+
+function getTreeData(): Promise<TreeData> {
+  if (cachedTreeData) return Promise.resolve(cachedTreeData);
+  if (treeDataPromise) return treeDataPromise;
+  treeDataPromise = (async () => {
+    const resp = await fetch("/data/tree/tree-3_29.json");
+    if (!resp.ok) throw new Error(`Failed to load tree data: ${resp.status}`);
+    const raw = await resp.json();
+    cachedTreeData = parseTreeData(raw);
+    return cachedTreeData;
+  })();
+  return treeDataPromise;
+}
+
 function AllocatedKeystones({ treeData }: { treeData: TreeData | null }) {
   const allocatedNodes = useTreeStore((s) => s.allocatedNodes);
 
@@ -335,14 +351,15 @@ export function TreeCanvas() {
 
     async function init() {
       try {
-        const resp = await fetch("/data/tree/tree-3_29.json");
-        if (!resp.ok) throw new Error(`Failed to load tree data: ${resp.status}`);
-        const raw = await resp.json();
-        if (destroyed) return;
+        // Skip if already initialized (prevents zoom reset on re-renders)
+        if (rendererRef.current) {
+          setLoading(false);
+          return;
+        }
 
-        const treeData: TreeData = parseTreeData(raw);
+        const treeData = await getTreeData();
+
         treeDataRef.current = treeData;
-        setTreeData(treeData);
 
         const renderer = new TreeRenderer(canvas!, treeData);
         const spatial = new SpatialGrid(treeData.nodes);
@@ -353,10 +370,12 @@ export function TreeCanvas() {
 
         renderer.resize();
         await renderer.loadSprites();
-        if (destroyed) return;
 
         renderer.render(cameraRef.current);
-        setLoading(false);
+        if (!destroyed) {
+          setTreeData(treeData);
+          setLoading(false);
+        }
       } catch (e) {
         if (!destroyed) setError(String(e));
       }
