@@ -283,14 +283,54 @@ if not ok then _tsc_extract_error = tostring(err) end
 `;
 
 const EXTRACT_ITEMS_LUA = `
+local ok, err = pcall(function()
 local mainObject = GetMainObject()
 local b = mainObject.main and mainObject.main.modes and mainObject.main.modes["BUILD"]
 local items = {}
-if b and b.itemsTab and b.itemsTab.items then
-  local idx = 1
-  for _, item in pairs(b.itemsTab.items) do
-    if item.name and item.name ~= "" then
+if b and b.itemsTab then
+  -- Build reverse map: selItemId -> slot name
+  -- PoB uses activeItemSet to track which item is in each slot
+  local slotMap = {}
+  local activeSet = b.itemsTab.activeItemSet
+  if activeSet then
+    for slotName, slotData in pairs(activeSet) do
+      if type(slotData) == "table" and slotData.selItemId and slotData.selItemId ~= 0 then
+        slotMap[slotData.selItemId] = slotName
+      end
+    end
+  end
+  -- Fallback: check slot controls directly
+  if not activeSet and b.itemsTab.slots then
+    for slotName, slot in pairs(b.itemsTab.slots) do
+      if type(slot) == "table" and slot.selItemId and slot.selItemId ~= 0 then
+        slotMap[slot.selItemId] = slotName
+      end
+    end
+  end
+
+  -- Items are stored as sparse table keyed by item.id
+  if b.itemsTab.items then
+    local idx = 1
+    for id, item in pairs(b.itemsTab.items) do
+    if item and (item.title or item.name or item.baseName) then
+      local sockStr = ""
+      if item.sockets and #item.sockets > 0 then
+        for si, s in ipairs(item.sockets) do
+          if si > 1 then
+            sockStr = sockStr .. (s.group == item.sockets[si-1].group and "-" or " ")
+          end
+          sockStr = sockStr .. (s.color or "W")
+        end
+      end
+
       local mods = {}
+      if item.implicitModLines then
+        for _, modLine in ipairs(item.implicitModLines) do
+          if modLine.line and modLine.line ~= "" then
+            mods[#mods+1] = modLine.line .. " (implicit)"
+          end
+        end
+      end
       if item.explicitModLines then
         for _, modLine in ipairs(item.explicitModLines) do
           if modLine.line and modLine.line ~= "" then
@@ -298,20 +338,32 @@ if b and b.itemsTab and b.itemsTab.items then
           end
         end
       end
+
+      local rawRarity = item.rarity or "NORMAL"
+      if rawRarity == "RELIC" then rawRarity = "UNIQUE" end
+      local rarity = rawRarity:sub(1,1):upper() .. rawRarity:sub(2):lower()
+
+      local displayName = item.title or item.name or item.baseName or "?"
+      local baseName = item.baseName or ""
+
+      local resolvedSlot = slotMap[id] or slotMap[item.id or 0] or ""
+
       items[idx] = {
-        slot = item.slotName or "",
-        name = item.name or "",
-        base = item.baseName or item.base or "",
-        rarity = item.rarity or "Normal",
+        slot = resolvedSlot,
+        name = displayName,
+        base = baseName,
+        rarity = rarity,
         mods = mods,
         quality = item.quality or 0,
-        sockets = "",
+        sockets = sockStr,
       }
       idx = idx + 1
     end
   end
 end
 _tsc_result = _tsc_json_encode(items)
+end)
+if not ok then _tsc_result = "[]" end
 `;
 
 const EXTRACT_SKILLS_LUA = `
@@ -499,9 +551,11 @@ async function handleEvaluate(
     };
 
     // Extract items
+    await imports.doString(`_tsc_result = nil`);
     await imports.doString(EXTRACT_ITEMS_LUA);
     const itemsJson = await captureGlobal("_tsc_result");
     const rawItems = JSON.parse(itemsJson) as Record<string, Record<string, unknown>>;
+    console.log("[item-diag]", rawItems._diag_keys, "slots:", rawItems._diag_slots, "listType:", rawItems._diag_listType, "ipairs:", rawItems._diag_ipairs, "pairs:", rawItems._diag_pairs, "first:", rawItems._diag_first);
     const items: ItemData[] = [];
     for (const item of Object.values(rawItems)) {
       if (item && typeof item === "object") {
@@ -524,6 +578,7 @@ async function handleEvaluate(
     }
 
     // Extract skills
+    await imports.doString(`_tsc_result = nil`);
     await imports.doString(EXTRACT_SKILLS_LUA);
     const skillsJson = await captureGlobal("_tsc_result");
     const rawSkills = JSON.parse(skillsJson) as Record<string, Record<string, unknown>>;
@@ -565,6 +620,114 @@ async function handleEvaluate(
   }
 }
 
+async function handleReconfigure(
+  id: number,
+  config: Record<string, string | boolean | number>
+): Promise<void> {
+  if (!initialized || !imports) {
+    reply({ id, type: "error", message: "Engine not initialized" });
+    return;
+  }
+
+  try {
+    imports.setGlobalString("_tsc_config_json", JSON.stringify(config));
+    await imports.doString(`
+      local dkjson = require("dkjson")
+      local config = dkjson.decode(_tsc_config_json)
+      _tsc_config_json = nil
+      local mainObject = GetMainObject()
+      local b = mainObject.main.modes and mainObject.main.modes["BUILD"]
+      if b and b.configTab and b.configTab.input then
+        for k, v in pairs(config) do
+          b.configTab.input[k] = v
+        end
+        pcall(function() b.configTab:BuildModList() end)
+        b.buildFlag = true
+      end
+    `);
+    for (let i = 0; i < 50; i++) {
+      await imports.onFrame();
+    }
+
+    // Force another recalc cycle
+    await imports.doString(`
+      local mainObject = GetMainObject()
+      local b = mainObject.main.modes and mainObject.main.modes["BUILD"]
+      if b then b.buildFlag = true end
+    `);
+    for (let i = 0; i < 50; i++) {
+      await imports.onFrame();
+    }
+
+    await imports.doString(`_tsc_result = nil; _tsc_extract_error = nil`);
+    await imports.doString(EXTRACT_STATS_LUA);
+    const statsJson = await captureGlobal("_tsc_result");
+    if (!statsJson || statsJson === "nil") {
+      throw new Error("Stats extraction failed after reconfigure");
+    }
+    const rawStats = JSON.parse(statsJson) as Record<string, unknown>;
+
+    const stats: BuildStats = {
+      total_dps: (rawStats.total_dps as number) ?? 0,
+      combined_dps: (rawStats.combined_dps as number) ?? 0,
+      total_ehp: (rawStats.total_ehp as number) ?? 0,
+      life: (rawStats.life as number) ?? 0,
+      energy_shield: (rawStats.energy_shield as number) ?? 0,
+      mana: (rawStats.mana as number) ?? 0,
+      strength: (rawStats.strength as number) ?? 0,
+      dexterity: (rawStats.dexterity as number) ?? 0,
+      intelligence: (rawStats.intelligence as number) ?? 0,
+      armour: (rawStats.armour as number) ?? 0,
+      evasion: (rawStats.evasion as number) ?? 0,
+      evade_chance: (rawStats.evade_chance as number) ?? 0,
+      block_chance: (rawStats.block_chance as number) ?? 0,
+      spell_block: (rawStats.spell_block as number) ?? 0,
+      suppression: (rawStats.suppression as number) ?? 0,
+      phys_reduction: (rawStats.phys_reduction as number) ?? 0,
+      fire_res: (rawStats.fire_res as number) ?? 0,
+      cold_res: (rawStats.cold_res as number) ?? 0,
+      lightning_res: (rawStats.lightning_res as number) ?? 0,
+      chaos_res: (rawStats.chaos_res as number) ?? 0,
+      fire_res_max: (rawStats.fire_res_max as number) ?? 75,
+      cold_res_max: (rawStats.cold_res_max as number) ?? 75,
+      lightning_res_max: (rawStats.lightning_res_max as number) ?? 75,
+      chaos_res_max: (rawStats.chaos_res_max as number) ?? 75,
+      life_regen: (rawStats.life_regen as number) ?? 0,
+      mana_regen: (rawStats.mana_regen as number) ?? 0,
+      mana_unreserved: (rawStats.mana_unreserved as number) ?? 0,
+      life_unreserved: (rawStats.life_unreserved as number) ?? 0,
+      mana_reserved_percent: (rawStats.mana_reserved_percent as number) ?? 0,
+      crit_chance: (rawStats.crit_chance as number) ?? 0,
+      crit_multiplier: (rawStats.crit_multiplier as number) ?? 150,
+      attack_speed: (rawStats.attack_speed as number) ?? 1.2,
+      hit_chance: (rawStats.hit_chance as number) ?? 5,
+      accuracy: (rawStats.accuracy as number) ?? 40,
+      ward: (rawStats.ward as number) ?? 0,
+      total_dps_with_minions: (rawStats.total_dps_with_minions as number) ?? 0,
+      bleed_dps: (rawStats.bleed_dps as number) ?? 0,
+      poison_dps: (rawStats.poison_dps as number) ?? 0,
+      ignite_dps: (rawStats.ignite_dps as number) ?? 0,
+      impale_dps: (rawStats.impale_dps as number) ?? 0,
+      life_leech_rate: (rawStats.life_leech_rate as number) ?? 0,
+      es_leech_rate: (rawStats.es_leech_rate as number) ?? 0,
+      es_regen: (rawStats.es_regen as number) ?? 0,
+      es_recharge_rate: (rawStats.es_recharge_rate as number) ?? 0,
+      class_name: (rawStats.class_name as string) ?? "Scion",
+      ascendancy: (rawStats.ascendancy as string) ?? "",
+      level: (rawStats.level as number) ?? 1,
+      allocated_nodes: rawStats.allocated_nodes
+        ? Object.values(rawStats.allocated_nodes as Record<string, number>).map(Number)
+        : [],
+      main_socket_group: (rawStats.main_socket_group as number) ?? 0,
+      tree_version: (rawStats.tree_version as string) ?? "3_29",
+    };
+
+    reply({ id, type: "evaluated", stats, items: [], skills: [] });
+  } catch (e) {
+    reply({ id, type: "error", message: e instanceof Error ? e.message : String(e) });
+  }
+}
+
 self.onmessage = async (e: MessageEvent<EngineRequest>) => {
   const msg = e.data;
 
@@ -577,6 +740,12 @@ self.onmessage = async (e: MessageEvent<EngineRequest>) => {
         msg.id,
         msg.xml,
         (msg as { config?: Record<string, string | boolean | number> }).config
+      );
+      break;
+    case "reconfigure":
+      await handleReconfigure(
+        msg.id,
+        (msg as { config: Record<string, string | boolean | number> }).config
       );
       break;
     case "ping":

@@ -6,7 +6,7 @@ import type { UniqueItemData } from "@/data/unique-data.generated";
 let _cachedUniques: UniqueItemData[] | null = null;
 async function getUniques(): Promise<UniqueItemData[]> {
   if (_cachedUniques) return _cachedUniques;
-  const mod = await import("@/data/unique-data.generated");
+  const mod = await import("../../data/unique-data.generated");
   _cachedUniques = mod.UNIQUE_ITEMS;
   return _cachedUniques;
 }

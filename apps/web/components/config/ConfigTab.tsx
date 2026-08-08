@@ -227,10 +227,7 @@ function getDefaultValue(opt: ConfigOptionDef): boolean | string | number {
 export function ConfigTab() {
   const configOverrides = useBuildStore((s) => s.configOverrides);
   const setConfigOverride = useBuildStore((s) => s.setConfigOverride);
-  const reEvaluate = useBuildStore((s) => s.reEvaluate);
-  const evaluating = useBuildStore((s) => s.evaluating);
   const skills = useBuildStore((s) => s.skills);
-  const [configDirty, setConfigDirty] = useState(false);
   const [configFilter, setConfigFilter] = useState("");
   const [showAll, setShowAll] = useState(false);
   const [customMods, setCustomMods] = useState("");
@@ -273,7 +270,6 @@ export function ConfigTab() {
   const updateValue = useCallback(
     (id: string, value: boolean | string | number) => {
       setConfigOverride(id, value);
-      setConfigDirty(true);
     },
     [setConfigOverride],
   );
@@ -287,7 +283,6 @@ export function ConfigTab() {
     for (const [key, value] of Object.entries(preset.config)) {
       setConfigOverride(key, value);
     }
-    setConfigDirty(true);
   };
 
   const totalCount = CONFIG_OPTIONS.length;
@@ -343,25 +338,6 @@ export function ConfigTab() {
           </p>
         )}
 
-        {configDirty && (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-400/10 border border-amber-400/20 rounded text-[10px] font-mono text-amber-400 mb-3">
-            <span>Config changed.</span>
-            <button
-              onClick={() => {
-                reEvaluate();
-                setConfigDirty(false);
-              }}
-              disabled={evaluating}
-              className="underline hover:text-amber-300 disabled:opacity-40"
-            >
-              {evaluating ? "Calculating..." : "Recalculate"}
-            </button>
-            <button onClick={() => setConfigDirty(false)} className="text-text-dim hover:text-text-primary ml-auto">
-              x
-            </button>
-          </div>
-        )}
-
         <BuildInfoSection />
 
         {CONFIG_SECTIONS.filter((s) => sectionGroups[s]?.length).map((section) => (
@@ -384,7 +360,6 @@ export function ConfigTab() {
               setCustomMods(e.target.value);
               const lines = e.target.value.split("\n").filter((l: string) => l.trim());
               setConfigOverride("customMods", lines.join("|"));
-              setConfigDirty(true);
             }}
             placeholder={
               "Enter one modifier per line:\n+100 to maximum Life\n20% increased Damage\n+30% to Fire Resistance"
@@ -398,7 +373,7 @@ export function ConfigTab() {
         </ConfigSection>
 
         <p className="text-text-dim text-[10px] font-mono mt-6">
-          Config changes will trigger re-evaluation when the engine is connected.
+          Config changes automatically trigger re-evaluation after a short delay.
         </p>
       </div>
     </div>

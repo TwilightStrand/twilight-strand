@@ -32,7 +32,7 @@ export function UpgradeSuggester() {
     try {
       const [rustBridge, corruptionMod] = await Promise.all([
         import("@/engine/rust-bridge"),
-        import("@/data/corruption-data.generated"),
+        import("../../data/corruption-data.generated"),
       ]);
 
       const { isRustEngineReady, evaluateBuildRust, parseStatLine, defaultRustInput } = rustBridge;

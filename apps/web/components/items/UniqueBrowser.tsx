@@ -31,7 +31,7 @@ export function UniqueBrowser({ onEquip, onClose, defaultSlot }: UniqueBrowserPr
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    import("@/data/unique-data.generated").then((mod) => {
+    import("../../data/unique-data.generated").then((mod) => {
       setUniques(mod.UNIQUE_ITEMS);
       setLoaded(true);
     }).catch(() => setLoaded(true));

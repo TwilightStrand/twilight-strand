@@ -68,7 +68,7 @@ export function GemBrowser({ onSelect, onClose, supportOnly }: GemBrowserProps) 
   const [gemData, setGemData] = useState<Record<string, GeneratedGem> | null>(null);
 
   useEffect(() => {
-    import("@/data/gem-data.generated").then((mod) => setGemData(mod.GEM_DATA));
+    import("../../data/gem-data.generated").then((mod) => setGemData(mod.GEM_DATA));
   }, []);
 
   const allGems = useMemo(() => {

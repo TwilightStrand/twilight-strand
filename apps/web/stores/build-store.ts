@@ -74,6 +74,8 @@ interface BuildState {
   loadCloudBuilds: () => Promise<SavedBuild[]>;
 }
 
+let configDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
 export const useBuildStore = create<BuildState>((set, get) => ({
   code: null,
   xml: null,
@@ -128,13 +130,23 @@ export const useBuildStore = create<BuildState>((set, get) => ({
 
   setConfigOverride(key: string, value: string | boolean | number) {
     set((s) => ({ configOverrides: { ...s.configOverrides, [key]: value } }));
+    if (configDebounceTimer) clearTimeout(configDebounceTimer);
+    configDebounceTimer = setTimeout(() => {
+      get().reEvaluate();
+    }, 600);
   },
 
   async reEvaluate() {
-    const { xml, stats, items, skills, engineStatus } = get();
+    const { xml, stats, items, skills, engineStatus, configOverrides } = get();
     if (!xml) return;
     if (stats) runRustEval(stats, items, skills);
-    if (engineStatus === "ready") evaluateWithLua(xml);
+    if (engineStatus === "ready") {
+      if (Object.keys(configOverrides).length > 0) {
+        reconfigureLua(configOverrides);
+      } else {
+        evaluateWithLua(xml);
+      }
+    }
   },
 
   recalcFromTree(allocatedNodes: Set<string>) {
@@ -551,6 +563,35 @@ async function runRustEval(xmlStats: BuildStats, items: ItemData[], skills: Skil
     });
   } catch (e) {
     console.warn("[rust-engine] Fast eval failed, XML stats remain:", e);
+  }
+}
+
+async function reconfigureLua(config: Record<string, string | boolean | number>) {
+  const { setState, getState } = useBuildStore;
+  setState({ evaluating: true });
+  try {
+    const { getEngineBridge } = await import("@/engine/bridge");
+    const bridge = getEngineBridge();
+    const result = await bridge.reconfigure(config);
+
+    const prev = getState().stats;
+    const merged = { ...result.stats };
+    if (prev) {
+      if (merged.class_name === "?" && prev.class_name !== "?") merged.class_name = prev.class_name;
+      if (!merged.ascendancy && prev.ascendancy) merged.ascendancy = prev.ascendancy;
+      if (merged.level <= 1 && prev.level > 1) merged.level = prev.level;
+      if (prev.allocated_nodes.length > 0 && merged.allocated_nodes.length === 0) {
+        merged.allocated_nodes = prev.allocated_nodes;
+      }
+    }
+
+    setState({
+      stats: merged,
+      evaluating: false,
+    });
+  } catch (e) {
+    console.warn("Lua reconfigure failed:", e);
+    setState({ evaluating: false });
   }
 }
 

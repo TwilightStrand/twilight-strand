@@ -131,6 +131,7 @@ function SocketGroupCard({ group, index, isMain, totalDps, onEdit, onDelete }: {
               i === index ? { ...s, enabled: !s.enabled } : s
             );
             useBuildStore.setState({ skills: updated });
+            setTimeout(() => useBuildStore.getState().reEvaluate(), 100);
           }}
           className={`w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold transition-colors ${
             group.enabled
