@@ -224,3 +224,190 @@ describe("rust-converter: main skill group selection", () => {
     expect(result.main_skill_id).toBe("Grace");
   });
 });
+
+describe("rust-converter: gem levels", () => {
+  it("extracts main skill level from gem data", () => {
+    const skills: SkillGroup[] = [{
+      slot: "Body Armour", enabled: true, label: "Main",
+      gems: [
+        { name: "Fireball", level: 21, quality: 23, enabled: true, skillId: "Fireball", isSupport: false },
+        { name: "Faster Casting Support", level: 19, quality: 20, enabled: true, skillId: "SupportFasterCasting", isSupport: true },
+      ],
+    }];
+    const result = convertToRustInput(baseStats, [], skills, mockTreeNodes([]));
+    expect(result.main_skill_level).toBe(21);
+  });
+
+  it("extracts support gem levels parallel to support_gems", () => {
+    const skills: SkillGroup[] = [{
+      slot: "Body Armour", enabled: true, label: "Main",
+      gems: [
+        { name: "Ground Slam", level: 20, quality: 0, enabled: true, skillId: "GroundSlam", isSupport: false },
+        { name: "Melee Physical Damage Support", level: 21, quality: 20, enabled: true, skillId: "SupportMeleePhys", isSupport: true },
+        { name: "Faster Attacks Support", level: 18, quality: 10, enabled: true, skillId: "SupportFasterAttacks", isSupport: true },
+      ],
+    }];
+    const result = convertToRustInput(baseStats, [], skills, mockTreeNodes([]));
+    expect(result.support_gem_levels).toEqual([21, 18]);
+    expect(result.support_gems).toEqual(["Melee Physical Damage Support", "Faster Attacks Support"]);
+  });
+
+  it("defaults to 20 when gem level is 0 or missing", () => {
+    const skills: SkillGroup[] = [{
+      slot: "Body Armour", enabled: true, label: "Main",
+      gems: [
+        { name: "Fireball", level: 0, quality: 0, enabled: true, skillId: "Fireball", isSupport: false },
+      ],
+    }];
+    const result = convertToRustInput(baseStats, [], skills, mockTreeNodes([]));
+    expect(result.main_skill_level).toBe(20);
+  });
+});
+
+describe("rust-converter: socket groups", () => {
+  it("builds socket groups from all enabled skill groups", () => {
+    const skills: SkillGroup[] = [
+      {
+        slot: "Body Armour", enabled: true, label: "Main",
+        gems: [
+          { name: "Ground Slam", level: 20, quality: 0, enabled: true, skillId: "GroundSlam", isSupport: false },
+          { name: "Brutality Support", level: 20, quality: 0, enabled: true, skillId: "SupportBrutality", isSupport: true },
+        ],
+      },
+      {
+        slot: "Helmet", enabled: true, label: "Aura",
+        gems: [
+          { name: "Hatred", level: 20, quality: 0, enabled: true, skillId: "Hatred", isSupport: false },
+        ],
+      },
+    ];
+    const result = convertToRustInput(baseStats, [], skills, mockTreeNodes([]));
+    expect(result.socket_groups).toHaveLength(2);
+    expect(result.socket_groups[0]).toEqual({
+      active_skill: "GroundSlam",
+      support_gems: ["Brutality Support"],
+    });
+    expect(result.socket_groups[1]).toEqual({
+      active_skill: "Hatred",
+      support_gems: [],
+    });
+  });
+
+  it("skips disabled skill groups", () => {
+    const skills: SkillGroup[] = [
+      {
+        slot: "Body Armour", enabled: true, label: "Main",
+        gems: [
+          { name: "Ground Slam", level: 20, quality: 0, enabled: true, skillId: "GroundSlam", isSupport: false },
+        ],
+      },
+      {
+        slot: "Helmet", enabled: false, label: "Disabled",
+        gems: [
+          { name: "Fireball", level: 20, quality: 0, enabled: true, skillId: "Fireball", isSupport: false },
+        ],
+      },
+    ];
+    const result = convertToRustInput(baseStats, [], skills, mockTreeNodes([]));
+    expect(result.socket_groups).toHaveLength(1);
+    expect(result.socket_groups[0].active_skill).toBe("GroundSlam");
+  });
+
+  it("skips disabled gems within a group", () => {
+    const skills: SkillGroup[] = [{
+      slot: "Body Armour", enabled: true, label: "Main",
+      gems: [
+        { name: "Ground Slam", level: 20, quality: 0, enabled: true, skillId: "GroundSlam", isSupport: false },
+        { name: "Disabled Support", level: 20, quality: 0, enabled: false, skillId: "SupportDisabled", isSupport: true },
+        { name: "Enabled Support", level: 20, quality: 0, enabled: true, skillId: "SupportEnabled", isSupport: true },
+      ],
+    }];
+    const result = convertToRustInput(baseStats, [], skills, mockTreeNodes([]));
+    expect(result.socket_groups[0].support_gems).toEqual(["Enabled Support"]);
+  });
+});
+
+describe("rust-converter: config conditions", () => {
+  it("maps config overrides to boolean fields", () => {
+    const config: Record<string, boolean> = {
+      conditionOnConsecratedGround: true,
+      conditionEnemyIntimidated: true,
+      conditionEnemyUnnerved: true,
+      buffPhasing: true,
+      buffElusive: true,
+      conditionEnemyHindered: true,
+      conditionBeenHitRecently: true,
+      conditionUsedSkillRecently: true,
+    };
+    const result = convertToRustInput(baseStats, [], [], mockTreeNodes([]), config);
+    expect(result.on_consecrated_ground).toBe(true);
+    expect(result.enemy_intimidated).toBe(true);
+    expect(result.enemy_unnerved).toBe(true);
+    expect(result.have_phasing).toBe(true);
+    expect(result.have_elusive).toBe(true);
+    expect(result.enemy_hindered).toBe(true);
+    expect(result.hit_recently_by_enemy).toBe(true);
+    expect(result.used_skill_recently).toBe(true);
+  });
+
+  it("defaults new boolean fields to false when no config", () => {
+    const result = convertToRustInput(baseStats, [], [], mockTreeNodes([]));
+    expect(result.on_consecrated_ground).toBe(false);
+    expect(result.enemy_intimidated).toBe(false);
+    expect(result.enemy_unnerved).toBe(false);
+    expect(result.have_phasing).toBe(false);
+    expect(result.have_elusive).toBe(false);
+    expect(result.enemy_hindered).toBe(false);
+    expect(result.crit_in_past_8_seconds).toBe(false);
+    expect(result.hit_recently_by_enemy).toBe(false);
+    expect(result.used_skill_recently).toBe(false);
+    expect(result.nearby_rare_or_unique).toBe(false);
+  });
+
+  it("maps buffOnslaught, buffTailwind, buffArcaneSurge from config", () => {
+    const config: Record<string, boolean> = {
+      buffOnslaught: true,
+      buffTailwind: true,
+      buffArcaneSurge: true,
+    };
+    const result = convertToRustInput(baseStats, [], [], mockTreeNodes([]), config);
+    expect(result.have_onslaught).toBe(true);
+    expect(result.have_tailwind).toBe(true);
+    expect(result.have_arcane_surge).toBe(true);
+  });
+
+  it("maps buffFortification and conditionKilledRecently", () => {
+    const config: Record<string, boolean> = {
+      buffFortification: true,
+      conditionKilledRecently: true,
+    };
+    const result = convertToRustInput(baseStats, [], [], mockTreeNodes([]), config);
+    expect(result.have_fortify).toBe(true);
+    expect(result.have_killed_recently).toBe(true);
+  });
+
+  it("maps conditionLeeching from config", () => {
+    const config: Record<string, boolean> = {
+      conditionLeeching: true,
+    };
+    const result = convertToRustInput(baseStats, [], [], mockTreeNodes([]), config);
+    expect(result.is_leeching).toBe(true);
+  });
+
+  it("maps Champion intimidate as enemy_intimidated", () => {
+    const config: Record<string, boolean> = {
+      conditionChampionIntimidate: true,
+    };
+    const result = convertToRustInput(baseStats, [], [], mockTreeNodes([]), config);
+    expect(result.enemy_intimidated).toBe(true);
+  });
+
+  it("maps conditionFullLife and conditionLowLife from config", () => {
+    const lowLifeConfig: Record<string, boolean> = {
+      conditionLowLife: true,
+    };
+    const result = convertToRustInput(baseStats, [], [], mockTreeNodes([]), lowLifeConfig);
+    expect(result.on_low_life).toBe(true);
+    expect(result.on_full_life).toBe(false);
+  });
+});

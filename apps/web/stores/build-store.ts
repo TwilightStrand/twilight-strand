@@ -535,7 +535,8 @@ async function runRustEval(xmlStats: BuildStats, items: ItemData[], skills: Skil
     if (!isRustEngineReady()) return;
 
     const treeNodes = await ensureTreeData();
-    const rustInput = convertToRustInput(xmlStats, items, skills, treeNodes);
+    const config = useBuildStore.getState().configOverrides;
+    const rustInput = convertToRustInput(xmlStats, items, skills, treeNodes, config);
     const rustStart = performance.now();
     const rustOutput = evaluateBuildRust(rustInput);
     const rustTime = Math.round(performance.now() - rustStart);
@@ -619,7 +620,8 @@ async function runDivergenceCheck(luaStats: BuildStats, items: ItemData[], skill
     if (!isRustEngineReady()) return;
 
     const treeNodes = await ensureTreeData();
-    const rustInput = convertToRustInput(luaStats, items, skills, treeNodes);
+    const config = useBuildStore.getState().configOverrides;
+    const rustInput = convertToRustInput(luaStats, items, skills, treeNodes, config);
     const rustOutput = evaluateBuildRust(rustInput);
 
     if (!rustOutput) {
