@@ -22,7 +22,8 @@ pub fn apply_keystones(input: &BuildInput, mods: &mut Vec<Modifier>) {
                 mods.push(Modifier { stat: "BlockChance".into(), value: -50.0, mod_type: "more".into() });
             }
             "Pain Attunement" => {
-                mods.push(Modifier { stat: "SpellDamage".into(), value: 30.0, mod_type: "more".into() });
+                // Applied conditionally in evaluate_build (lib.rs) when on low life;
+                // do NOT add here to avoid double-counting.
             }
             "Iron Grip" => {
                 mods.push(Modifier { stat: "Damage".into(), value: 20.0, mod_type: "increased".into() });
