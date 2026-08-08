@@ -1,6 +1,8 @@
-import { createAPIFileRoute } from "@tanstack/react-start/api";
+import { createFileRoute } from "@tanstack/react-router";
 
-export const APIRoute = createAPIFileRoute("/api/builds/leaderboard")({
+export const Route = createFileRoute("/api/builds_/leaderboard")({
+  server: {
+    handlers: {
   GET: async ({ request }) => {
     try {
       const { db } = await import("@/db");
@@ -66,5 +68,7 @@ export const APIRoute = createAPIFileRoute("/api/builds/leaderboard")({
         { status: 503 },
       );
     }
+  },
+    },
   },
 });

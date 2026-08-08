@@ -1,6 +1,8 @@
-import { createAPIFileRoute } from "@tanstack/react-start/api";
+import { createFileRoute } from "@tanstack/react-router";
 
-export const APIRoute = createAPIFileRoute("/sitemap.xml")({
+export const Route = createFileRoute("/sitemap/xml")({
+  server: {
+    handlers: {
   GET: async () => {
     const baseUrl = process.env.PUBLIC_URL || "https://twilightstrand.gg";
 
@@ -51,5 +53,7 @@ ${urls}
     return new Response(xml, {
       headers: { "Content-Type": "application/xml" },
     });
+  },
+    },
   },
 });
