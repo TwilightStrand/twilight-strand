@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "node scripts/build-worker.mjs && next dev --turbopack",
+    "dev:tanstack": "node scripts/build-worker.mjs && vite dev",
     "dev:worker": "node scripts/build-worker.mjs --watch",
     "build": "node scripts/build-worker.mjs --minify && next build",
     "start": "next start",
@@ -17,6 +18,8 @@
   "dependencies": {
     "@auth/drizzle-adapter": "^1.7.4",
     "@neondatabase/serverless": "^0.10.4",
+    "@tanstack/react-router": "1.170.23",
+    "@tanstack/react-start": "1.168.40",
     "@tsc/build-codec": "workspace:*",
     "@tsc/pob-codec": "workspace:*",
     "@zenfs/archives": "1.0.5",
@@ -43,6 +46,9 @@
     "postcss": "^8.5.0",
     "tailwindcss": "^4.1.0",
     "typescript": "^5.8.0",
+    "vite": "^7.3.6",
+    "vite-plugin-top-level-await": "1.6.0",
+    "vite-plugin-wasm": "3.6.0",
     "vitest": "^3.2.0"
   }
 }
