@@ -705,4 +705,342 @@ mod tests {
         assert!(out.energy_shield > 200.0, "gear_es should contribute: {}", out.energy_shield);
         assert!(out.block_chance >= 20.0, "gear_block should contribute: {}", out.block_chance);
     }
+
+    // ========================================================================
+    // Precise numeric output tests
+    // Pin exact values to catch calc divergences from PoB formulas.
+    // ========================================================================
+
+    fn assert_near(actual: f64, expected: f64, epsilon: f64, label: &str) {
+        assert!(
+            (actual - expected).abs() <= epsilon,
+            "{}: expected {}, got {} (diff {})",
+            label, expected, actual, (actual - expected).abs()
+        );
+    }
+
+    // ---- Issue 1: ES calc - int bonus is percentage, not flat ---------------
+
+    #[test]
+    fn es_int_bonus_is_percentage_not_flat() {
+        // Witch level 90, base_int=32, gear_es=200, no ES mods.
+        // intelligence = 32, int_bonus = floor(32/5) = 6 (% increased ES)
+        // ES = (200 + 0) * (1 + (0 + 6)/100) * 1.0 = 200 * 1.06 = 212
+        // If int were wrongly treated as flat: ES = (200 + 6) * 1.0 = 206
+        let mut input = witch(90);
+        input.gear_es = 200.0;
+        let out = evaluate_build(input);
+        assert_near(out.energy_shield, 212.0, 1.0, "ES with int-as-percentage");
+        // Must NOT be 206 (the flat-int-bonus mistake)
+        assert!(
+            (out.energy_shield - 206.0).abs() > 3.0,
+            "ES {} is too close to 206 (flat-int bug)",
+            out.energy_shield
+        );
+    }
+
+    #[test]
+    fn es_with_int_mods_and_gear() {
+        // Witch level 90, base_int=32, +150 int, gear_es=400, +100% inc ES
+        // intelligence = 32 + 150 = 182
+        // int_bonus = floor(182/5) = 36
+        // ES = (400 + 0) * (1 + (100 + 36)/100) * 1.0 = 400 * 2.36 = 944
+        let mut input = witch(90);
+        input.gear_es = 400.0;
+        input.modifiers = vec![
+            m("Int", 150.0, "flat"),
+            m("EnergyShield", 100.0, "increased"),
+        ];
+        let out = evaluate_build(input);
+        assert_near(out.energy_shield, 944.0, 1.0, "ES with int+inc");
+    }
+
+    #[test]
+    fn es_with_flat_and_more() {
+        // Witch level 90, base_int=32, gear_es=300, +100 flat ES, +50% inc ES, 30% more ES
+        // intelligence = 32, int_bonus = floor(32/5) = 6
+        // ES = (300 + 100) * (1 + (50 + 6)/100) * (1 + 30/100) = 400 * 1.56 * 1.3 = 811.2 -> 811
+        let mut input = witch(90);
+        input.gear_es = 300.0;
+        input.modifiers = vec![
+            m("EnergyShield", 100.0, "flat"),
+            m("EnergyShield", 50.0, "increased"),
+            m("EnergyShield", 30.0, "more"),
+        ];
+        let out = evaluate_build(input);
+        assert_near(out.energy_shield, 811.0, 1.0, "ES with flat+inc+more");
+    }
+
+    // ---- Issue 2: Attribute calculation order --------------------------------
+
+    #[test]
+    fn attributes_computed_before_life() {
+        // Marauder level 90, +200 flat str
+        // strength = 32 + 200 = 232
+        // life base = 38 + 89*12 + floor(232/2) = 38 + 1068 + 116 = 1222
+        let mut input = marauder(90);
+        input.modifiers = vec![m("Str", 200.0, "flat")];
+        let out = evaluate_build(input);
+        assert_near(out.strength, 232.0, 0.1, "strength with +200 flat");
+        assert_near(out.life, 1222.0, 1.0, "life with str bonus");
+    }
+
+    #[test]
+    fn attributes_computed_before_mana() {
+        // Witch level 90, +100 flat int
+        // intelligence = 32 + 100 = 132
+        // mana base = 34 + 89*6 + floor(132/2) = 34 + 534 + 66 = 634
+        let mut input = witch(90);
+        input.modifiers = vec![m("Int", 100.0, "flat")];
+        let out = evaluate_build(input);
+        assert_near(out.intelligence, 132.0, 0.1, "int with +100 flat");
+        assert_near(out.mana, 634.0, 1.0, "mana with int bonus");
+    }
+
+    #[test]
+    fn attributes_computed_before_es() {
+        // Witch level 90, +200 int, gear_es=500
+        // intelligence = 32 + 200 = 232
+        // int_bonus = floor(232/5) = 46
+        // ES = (500 + 0) * (1 + (0 + 46)/100) * 1.0 = 500 * 1.46 = 730
+        let mut input = witch(90);
+        input.gear_es = 500.0;
+        input.modifiers = vec![m("Int", 200.0, "flat")];
+        let out = evaluate_build(input);
+        assert_near(out.intelligence, 232.0, 0.1, "int");
+        assert_near(out.energy_shield, 730.0, 1.0, "ES scales with computed int");
+    }
+
+    // ---- Issue 3: Resistance calc with Kitava penalty -----------------------
+
+    #[test]
+    fn resistance_kitava_penalty_exact() {
+        // No res mods: fire_res = 0 - 60 = -60
+        let out = evaluate_build(marauder(90));
+        assert_near(out.fire_res, -60.0, 0.1, "fire_res default");
+        assert_near(out.cold_res, -60.0, 0.1, "cold_res default");
+        assert_near(out.lightning_res, -60.0, 0.1, "lightning_res default");
+        assert_near(out.chaos_res, -60.0, 0.1, "chaos_res default");
+    }
+
+    #[test]
+    fn resistance_partial_cap() {
+        // +75 fire res: 75 - 60 = 15
+        let mut input = marauder(90);
+        input.modifiers = vec![m("FireRes", 75.0, "flat")];
+        let out = evaluate_build(input);
+        assert_near(out.fire_res, 15.0, 0.1, "fire_res +75 after kitava");
+    }
+
+    #[test]
+    fn resistance_exactly_capped() {
+        // +135 fire res: 135 - 60 = 75 = max cap
+        let mut input = marauder(90);
+        input.modifiers = vec![m("FireRes", 135.0, "flat")];
+        let out = evaluate_build(input);
+        assert_near(out.fire_res, 75.0, 0.1, "fire_res capped at 75");
+    }
+
+    #[test]
+    fn resistance_overcapped_stays_at_max() {
+        // +200 fire res: 200 - 60 = 140, capped to max 75
+        let mut input = marauder(90);
+        input.modifiers = vec![m("FireRes", 200.0, "flat")];
+        let out = evaluate_build(input);
+        assert_near(out.fire_res, 75.0, 0.1, "fire_res overcapped");
+    }
+
+    #[test]
+    fn resistance_with_raised_max() {
+        // +5 max fire res, +200 fire res: max=80, res = min(140, 80) = 80
+        let mut input = marauder(90);
+        input.modifiers = vec![
+            m("FireRes", 200.0, "flat"),
+            m("FireResMax", 5.0, "flat"),
+        ];
+        let out = evaluate_build(input);
+        assert_near(out.fire_res, 80.0, 0.1, "fire_res with raised max");
+    }
+
+    // ---- Issue 4: gear_block feeds into block_chance ------------------------
+
+    #[test]
+    fn gear_block_plus_mod_block() {
+        // gear_block=30, +20 flat block: 30 + 20 = 50
+        let mut input = marauder(90);
+        input.gear_block = 30.0;
+        input.modifiers = vec![m("BlockChance", 20.0, "flat")];
+        let out = evaluate_build(input);
+        assert_near(out.block_chance, 50.0, 0.1, "block from gear+mod");
+    }
+
+    #[test]
+    fn gear_block_alone() {
+        // gear_block=25, no mods: block = 25
+        let mut input = marauder(90);
+        input.gear_block = 25.0;
+        let out = evaluate_build(input);
+        assert_near(out.block_chance, 25.0, 0.1, "block from gear alone");
+    }
+
+    #[test]
+    fn block_clamped_at_75_from_gear_and_mods() {
+        // gear_block=50, +40 flat block: 50 + 40 = 90, clamped to 75
+        let mut input = marauder(90);
+        input.gear_block = 50.0;
+        input.modifiers = vec![m("BlockChance", 40.0, "flat")];
+        let out = evaluate_build(input);
+        assert_near(out.block_chance, 75.0, 0.1, "block clamped at 75");
+    }
+
+    // ---- Issue 5: Mana regen = mana * 1.75% base per second -----------------
+
+    #[test]
+    fn mana_regen_base_rate() {
+        // Marauder 90: mana = 34 + 89*6 + floor(14/2) = 575
+        // base_mana_regen = 575 * 0.0175 = 10.0625
+        let out = evaluate_build(marauder(90));
+        assert_near(out.mana, 575.0, 1.0, "mana");
+        assert_near(out.mana_regen, 575.0 * 0.0175, 0.01, "mana_regen base");
+    }
+
+    #[test]
+    fn mana_regen_with_flat_and_increased() {
+        // Marauder 90: mana = 575
+        // base_regen = 575 * 0.0175 = 10.0625
+        // +5 flat mana regen, +100% inc mana regen
+        // regen = (10.0625 + 5) * (1 + 100/100) = 15.0625 * 2.0 = 30.125
+        let mut input = marauder(90);
+        input.modifiers = vec![
+            m("ManaRegen", 5.0, "flat"),
+            m("ManaRegen", 100.0, "increased"),
+        ];
+        let out = evaluate_build(input);
+        assert_near(out.mana_regen, 30.125, 0.01, "mana_regen with flat+inc");
+    }
+
+    // ---- Precise life calculations ------------------------------------------
+
+    #[test]
+    fn bare_marauder_exact_life() {
+        // Marauder 90: life = 38 + 89*12 + floor(32/2) = 38 + 1068 + 16 = 1122
+        let out = evaluate_build(marauder(90));
+        assert_near(out.life, 1122.0, 0.1, "bare marauder life");
+    }
+
+    #[test]
+    fn life_with_flat_and_increased() {
+        // Marauder 90: base life = 1122
+        // +50 flat, +80% inc: (1122 + 50) * 1.8 = 1172 * 1.8 = 2109.6 -> 2110
+        let mut input = marauder(90);
+        input.modifiers = vec![
+            m("Life", 50.0, "flat"),
+            m("Life", 80.0, "increased"),
+        ];
+        let out = evaluate_build(input);
+        assert_near(out.life, 2110.0, 1.0, "life with flat+inc");
+    }
+
+    #[test]
+    fn life_with_flat_inc_more() {
+        // Marauder 90: base life = 1122
+        // +50 flat, +100% inc, +30% more:
+        // (1122 + 50) * (1 + 100/100) * (1 + 30/100) = 1172 * 2.0 * 1.3 = 3047.2 -> 3047
+        let mut input = marauder(90);
+        input.modifiers = vec![
+            m("Life", 50.0, "flat"),
+            m("Life", 100.0, "increased"),
+            m("Life", 30.0, "more"),
+        ];
+        let out = evaluate_build(input);
+        assert_near(out.life, 3047.0, 1.0, "life with flat+inc+more");
+    }
+
+    // ---- Precise accuracy calculation ----------------------------------------
+
+    #[test]
+    fn accuracy_exact_base() {
+        // Marauder 90, dex=14: accuracy base = (90-1)*2 + 14*2 = 178 + 28 = 206
+        let out = evaluate_build(marauder(90));
+        assert_near(out.accuracy, 206.0, 0.1, "accuracy base");
+    }
+
+    #[test]
+    fn accuracy_scales_with_dex() {
+        // Marauder 90, +100 dex: dex = 114
+        // accuracy base = 89*2 + 114*2 = 178 + 228 = 406
+        let mut input = marauder(90);
+        input.modifiers = vec![m("Dex", 100.0, "flat")];
+        let out = evaluate_build(input);
+        assert_near(out.dexterity, 114.0, 0.1, "dex with +100 flat");
+        assert_near(out.accuracy, 406.0, 0.1, "accuracy with dex");
+    }
+
+    // ---- Full known build: pin all key stats --------------------------------
+
+    #[test]
+    fn full_known_build_marauder() {
+        // Marauder level 90:
+        // +100 str, +50 dex, +30 int
+        // str=132, dex=64, int=44
+        // life base = 38 + 1068 + floor(132/2) = 1172
+        // mana base = 34 + 534 + floor(44/2) = 590
+        // +50 flat life, +80% inc life -> (1172+50)*1.8 = 2199.6 -> 2200
+        // gear_es=100 -> int_bonus = floor(44/5) = 8 -> ES = 100 * 1.08 = 108
+        // +135 fire res -> 135-60 = 75 (capped)
+        // +100 cold res -> 100-60 = 40
+        // gear_block=20, +15 block -> 35
+        let mut input = marauder(90);
+        input.gear_es = 100.0;
+        input.gear_block = 20.0;
+        input.modifiers = vec![
+            m("Str", 100.0, "flat"),
+            m("Dex", 50.0, "flat"),
+            m("Int", 30.0, "flat"),
+            m("Life", 50.0, "flat"),
+            m("Life", 80.0, "increased"),
+            m("FireRes", 135.0, "flat"),
+            m("ColdRes", 100.0, "flat"),
+            m("BlockChance", 15.0, "flat"),
+        ];
+        let out = evaluate_build(input);
+
+        assert_near(out.strength, 132.0, 0.1, "str");
+        assert_near(out.dexterity, 64.0, 0.1, "dex");
+        assert_near(out.intelligence, 44.0, 0.1, "int");
+        assert_near(out.life, 2200.0, 1.0, "life");
+        assert_near(out.mana, 590.0, 1.0, "mana");
+        assert_near(out.energy_shield, 108.0, 1.0, "ES");
+        assert_near(out.fire_res, 75.0, 0.1, "fire_res capped");
+        assert_near(out.cold_res, 40.0, 0.1, "cold_res");
+        assert_near(out.lightning_res, -60.0, 0.1, "lightning_res default");
+        assert_near(out.chaos_res, -60.0, 0.1, "chaos_res default");
+        assert_near(out.block_chance, 35.0, 0.1, "block_chance");
+        // mana_regen = 590 * 0.0175 = 10.325
+        assert_near(out.mana_regen, 590.0 * 0.0175, 0.01, "mana_regen");
+        // accuracy base = 89*2 + 64*2 = 178 + 128 = 306
+        assert_near(out.accuracy, 306.0, 0.1, "accuracy");
+    }
+
+    #[test]
+    fn full_known_build_witch_es() {
+        // Witch level 95:
+        // +200 int: int = 32 + 200 = 232
+        // gear_es = 600, +150 flat ES, +120% inc ES
+        // int_bonus = floor(232/5) = 46
+        // ES = (600 + 150) * (1 + (120 + 46)/100) * 1.0 = 750 * 2.66 = 1995.0
+        // mana base = 34 + 94*6 + floor(232/2) = 34 + 564 + 116 = 714
+        let mut input = witch(95);
+        input.gear_es = 600.0;
+        input.modifiers = vec![
+            m("Int", 200.0, "flat"),
+            m("EnergyShield", 150.0, "flat"),
+            m("EnergyShield", 120.0, "increased"),
+        ];
+        let out = evaluate_build(input);
+
+        assert_near(out.intelligence, 232.0, 0.1, "int");
+        assert_near(out.energy_shield, 1995.0, 1.0, "ES");
+        assert_near(out.mana, 714.0, 1.0, "mana");
+    }
 }

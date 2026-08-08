@@ -1,5 +1,31 @@
 /* tslint:disable */
 /* eslint-disable */
+/**
+ * A socket group links an active skill with its support gems.
+ */
+export interface SocketGroup {
+    active_skill: string;
+    support_gems: string[];
+}
+
+/**
+ * Describes what happens to a passive node when affected by a timeless jewel.
+ */
+export interface TimelessTransform {
+    /**
+     * Node is a keystone that gets fully replaced
+     */
+    replaced_keystone: string | undefined;
+    /**
+     * Stat lines added to the node (for small passives and notables)
+     */
+    added_stats: string[];
+    /**
+     * Machine-readable stat keys (parallel to added_stats)
+     */
+    stat_keys: string[];
+}
+
 export interface BuildInput {
     level?: number;
     class_id?: number;
@@ -9,6 +35,7 @@ export interface BuildInput {
     modifiers?: Modifier[];
     allocated_keystones?: string[];
     main_skill_id?: string;
+    main_skill_level?: number;
     ascendancy_name?: string;
     enemy_level?: number;
     enemy_fire_res?: number;
@@ -48,11 +75,22 @@ export interface BuildInput {
     weapon2_aps?: number;
     weapon2_crit?: number;
     is_dual_wield?: boolean;
+    socket_groups?: SocketGroup[];
     stat_lines?: string[];
     gear_armour?: number;
     gear_evasion?: number;
     gear_es?: number;
     gear_block?: number;
+    on_consecrated_ground?: boolean;
+    enemy_intimidated?: boolean;
+    enemy_unnerved?: boolean;
+    have_phasing?: boolean;
+    have_elusive?: boolean;
+    enemy_hindered?: boolean;
+    crit_in_past_8_seconds?: boolean;
+    hit_recently_by_enemy?: boolean;
+    used_skill_recently?: boolean;
+    nearby_rare_or_unique?: boolean;
 }
 
 export interface BuildStats {
@@ -167,6 +205,43 @@ export function evaluate_build_xml(xml: string): BuildStats;
  */
 export function parse_single_stat(line: string): any;
 
+/**
+ * List all conqueror keystones for a given jewel type.
+ * Returns a JSON array of { conqueror, keystone_name, stat_lines }.
+ */
+export function timeless_keystones(jewel_type: string): any;
+
+/**
+ * Get the valid seed range for a jewel type.
+ * Returns [min, max] as a two-element array.
+ */
+export function timeless_seed_range(jewel_type: string): Uint32Array;
+
+/**
+ * Transform a passive node given a timeless jewel type, seed, and node ID.
+ *
+ * Returns a list of stat description lines that the node gains.
+ * For keystones, returns the replacement keystone's stats.
+ * For small passives and notables, returns the added stat lines.
+ *
+ * `jewel_type`: one of "Lethal Pride", "Brutal Restraint", "Militant Faith",
+ *               "Elegant Hubris", "Glorious Vanity"
+ * `seed`: the jewel's seed number
+ * `node_id`: the passive tree node ID
+ *
+ * Defaults to treating the node as a small passive. For keystones and notables,
+ * use `transform_node_full` instead.
+ */
+export function transform_node(jewel_type: string, seed: number, node_id: number): string[];
+
+/**
+ * Full transformation including keystone/notable handling.
+ *
+ * `node_type`: "small", "notable", or "keystone"
+ * `conqueror`: required for keystones (e.g. "Kaom", "Rakiata")
+ */
+export function transform_node_full(jewel_type: string, seed: number, node_id: number, node_type: string, conqueror: string): any;
+
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
@@ -178,12 +253,18 @@ export interface InitOutput {
     readonly wasmevaluator_evaluate: (a: number, b: number, c: number) => [number, number, number];
     readonly wasmevaluator_evaluate_delta: (a: number, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly wasmevaluator_new: (a: number, b: number) => [number, number, number];
+    readonly timeless_keystones: (a: number, b: number) => any;
+    readonly timeless_seed_range: (a: number, b: number) => [number, number];
+    readonly transform_node: (a: number, b: number, c: number, d: number) => [number, number];
+    readonly transform_node_full: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => any;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_exn_store: (a: number) => void;
     readonly __externref_table_alloc: () => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __externref_table_dealloc: (a: number) => void;
+    readonly __wbindgen_free: (a: number, b: number, c: number) => void;
+    readonly __externref_drop_slice: (a: number, b: number) => void;
     readonly __wbindgen_start: () => void;
 }
 
