@@ -1,288 +1,524 @@
 
-import { useState, useMemo } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useBuildStore } from "@/stores/build-store";
 import { useTreeStore } from "@/stores/tree-store";
 
-interface TimelessResult {
-  jewel: string;
-  conqueror: string;
-  keystone: string;
-  keystoneEffect: string;
-  nearbyNotables: number;
-  estimatedBenefit: string;
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+interface TreeNode {
+  skill: number;
+  name: string;
+  isNotable?: boolean;
+  isKeystone?: boolean;
+  isJewelSocket?: boolean;
+  isMastery?: boolean;
+  isAscendancyStart?: boolean;
+  ascendancyName?: string;
+  classStartIndex?: number;
+  stats?: string[];
+  out?: string[];
+  in?: string[];
+  expansionJewel?: {
+    size: number;
+    index: number;
+    proxy?: string;
+  };
 }
 
-const TIMELESS_JEWELS = [
-  {
-    name: "Lethal Pride",
-    type: "Karui",
-    conquerors: ["Kaom", "Rakiata", "Kiloava", "Akoya"],
-    keystones: {
-      Kaom: { name: "Strength of Blood", effect: "Life recovery from flasks also recovers ES" },
-      Rakiata: { name: "Tempered by War", effect: "50% of cold/lightning damage taken as fire, -50% cold/lightning res" },
-      Kiloava: { name: "Glancing Blows", effect: "Double block chance, take 65% of damage on block" },
-      Akoya: { name: "Chainbreaker", effect: "Gain rage on hit, rage degenerates, rage scales attack damage" },
-    },
-    smallMods: [
-      "5% increased Strength",
-      "+20 to Strength",
-      "4% increased maximum Life",
-      "2% increased Fire Damage",
-      "5% increased Melee Damage",
-      "10% increased Armour",
-      "4% increased Physical Damage",
-    ],
-  },
-  {
-    name: "Brutal Restraint",
-    type: "Maraketh",
-    conquerors: ["Deshret", "Balbala", "Asenath", "Nasima"],
-    keystones: {
-      Deshret: { name: "Wind Dancer", effect: "40% less attack damage taken if hit recently, 20% more if not" },
-      Balbala: { name: "The Traitor", effect: "Flasks gain charges every 5s, no charges on kill" },
-      Asenath: { name: "Dance with Death", effect: "Can't use helmets, crits deal triple damage" },
-      Nasima: { name: "Second Sight", effect: "Blind while not blinded, 25% more damage while blinded" },
-    },
-    smallMods: [
-      "5% increased Dexterity",
-      "+20 to Dexterity",
-      "4% increased Evasion Rating",
-      "15% increased Critical Strike Chance",
-      "5% increased Movement Speed",
-      "4% increased Attack Speed",
-    ],
-  },
-  {
-    name: "Militant Faith",
-    type: "Templar",
-    conquerors: ["Avarius", "Dominus", "Maxarius", "Venarius"],
-    keystones: {
-      Avarius: { name: "Power of Purpose", effect: "Mana provides armour instead of being spent" },
-      Dominus: { name: "Inner Conviction", effect: "+3% more spell damage per power charge, no frenzy charges" },
-      Maxarius: { name: "Transcendence", effect: "Armour applies to elemental damage, not physical" },
-      Venarius: { name: "Battlemage", effect: "Weapon damage added to spells" },
-    },
-    smallMods: [
-      "+10 to Devotion",
-      "4% increased effect of non-damaging ailments",
-      "5% increased Area of Effect",
-      "4% increased elemental damage",
-    ],
-  },
-  {
-    name: "Elegant Hubris",
-    type: "Eternal Empire",
-    conquerors: ["Cadiro", "Victario", "Caspiro", "Chitus"],
-    keystones: {
-      Cadiro: { name: "Supreme Decadence", effect: "Life flasks also apply to ES" },
-      Victario: { name: "Supreme Grandstanding", effect: "Enemies taunted by you deal less damage" },
-      Caspiro: { name: "Supreme Ego", effect: "50% more effect of non-curse auras, can only affect you" },
-      Chitus: { name: "Supreme Ostentation", effect: "Ignore attribute requirements" },
-    },
-    smallMods: [
-      "80% increased Effect",
-      "Replaces all passives in radius",
-    ],
-  },
-  {
-    name: "Glorious Vanity",
-    type: "Vaal",
-    conquerors: ["Xibaqua", "Zerphi", "Ahuana", "Doryani"],
-    keystones: {
-      Xibaqua: { name: "Divine Flesh", effect: "50% of elemental damage taken as chaos, +10% max chaos res" },
-      Zerphi: { name: "Corrupted Soul", effect: "50% of non-chaos damage bypasses ES, gain 20% of max life as ES" },
-      Ahuana: { name: "Immortal Ambition", effect: "ES recharge applies to life, cannot recharge ES" },
-      Doryani: { name: "Coruscating Elixir", effect: "Chaos damage bypasses ES, life flasks remove all but 1 life" },
-    },
-    smallMods: [
-      "Transforms nearby passives to Vaal-themed",
-      "Replaces with chaos/life/ES modifiers",
-    ],
-  },
-];
+interface TransformedNode {
+  nodeId: string;
+  name: string;
+  nodeType: "small" | "notable" | "keystone";
+  originalStats: string[];
+  addedStats: string[];
+  replacedKeystone: string | undefined;
+  isAllocated: boolean;
+}
+
+interface KeystoneEntry {
+  conqueror: string;
+  keystone_name: string;
+  stat_lines: string[];
+}
+
+const JEWEL_NAMES = [
+  "Lethal Pride",
+  "Brutal Restraint",
+  "Militant Faith",
+  "Elegant Hubris",
+  "Glorious Vanity",
+] as const;
+
+// Conquerors per jewel, used as fallback when WASM is unavailable
+const CONQUERORS: Record<string, string[]> = {
+  "Lethal Pride": ["Kaom", "Rakiata", "Kiloava", "Akoya"],
+  "Brutal Restraint": ["Deshret", "Balbala", "Asenath", "Nasima"],
+  "Militant Faith": ["Avarius", "Dominus", "Maxarius", "Venarius"],
+  "Elegant Hubris": ["Cadiro", "Victario", "Caspiro", "Chitus"],
+  "Glorious Vanity": ["Xibaqua", "Zerphi", "Ahuana", "Doryani"],
+};
+
+// Fallback seed ranges when WASM is unavailable
+const FALLBACK_RANGES: Record<string, [number, number]> = {
+  "Lethal Pride": [10000, 18000],
+  "Brutal Restraint": [500, 8000],
+  "Militant Faith": [2000, 10000],
+  "Elegant Hubris": [2000, 160000],
+  "Glorious Vanity": [100, 8000],
+};
+
+// Node IDs that skip ascendancy/mastery/start nodes when computing radius
+function isTransformableNode(n: TreeNode): boolean {
+  if (n.ascendancyName) return false;
+  if (n.isMastery) return false;
+  if (n.classStartIndex !== undefined) return false;
+  if (n.isJewelSocket) return false;
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// Tree data cache (loaded once, shared across renders)
+// ---------------------------------------------------------------------------
+
+let treeCache: {
+  nodes: Record<string, TreeNode>;
+  adj: Map<string, string[]>;
+  jewelSockets: { id: string; node: TreeNode }[];
+} | null = null;
+
+async function loadTree(): Promise<typeof treeCache> {
+  if (treeCache) return treeCache;
+
+  const resp = await fetch("/data/tree/tree-3_29.json");
+  const data = await resp.json();
+  const nodes = data.nodes as Record<string, TreeNode>;
+
+  // Build adjacency map
+  const adj = new Map<string, string[]>();
+  for (const [nid, n] of Object.entries(nodes)) {
+    if (nid === "root") continue;
+    const outs = (n.out || []).map(String);
+    const ins = (n.in || []).map(String);
+    const all = [...new Set([...outs, ...ins])];
+    adj.set(nid, [...new Set([...(adj.get(nid) || []), ...all])]);
+    for (const nb of all) {
+      const ex = adj.get(nb) || [];
+      if (!ex.includes(nid)) adj.set(nb, [...ex, nid]);
+    }
+  }
+
+  // Large jewel sockets (size 2) are where timeless jewels go
+  const jewelSockets = Object.entries(nodes)
+    .filter(([, n]) => n.isJewelSocket && n.expansionJewel?.size === 2)
+    .map(([id, node]) => ({ id, node }));
+
+  treeCache = { nodes, adj, jewelSockets };
+  return treeCache;
+}
+
+/** BFS: find all node IDs within `depth` hops of `startId`. */
+function nodesInRadius(
+  adj: Map<string, string[]>,
+  startId: string,
+  depth: number,
+): Set<string> {
+  const visited = new Set<string>();
+  const queue: [string, number][] = [[startId, 0]];
+  visited.add(startId);
+  while (queue.length > 0) {
+    const [cur, d] = queue.shift()!;
+    if (d >= depth) continue;
+    for (const nb of adj.get(cur) || []) {
+      if (!visited.has(nb)) {
+        visited.add(nb);
+        queue.push([nb, d + 1]);
+      }
+    }
+  }
+  return visited;
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 export function TimelessSearch() {
   const stats = useBuildStore((s) => s.stats);
   const allocatedNodes = useTreeStore((s) => s.allocatedNodes);
-  const [selectedJewel, setSelectedJewel] = useState(0);
-  const [results, setResults] = useState<TimelessResult[]>([]);
+
+  const [jewelName, setJewelName] = useState<string>(JEWEL_NAMES[0]);
+  const [conqueror, setConqueror] = useState<string>(CONQUERORS[JEWEL_NAMES[0]][0]);
+  const [seed, setSeed] = useState<number>(10000);
+  const [socketId, setSocketId] = useState<string>("");
+  const [seedRange, setSeedRange] = useState<[number, number]>(FALLBACK_RANGES[JEWEL_NAMES[0]]);
+
+  const [wasmReady, setWasmReady] = useState(false);
+  const [keystones, setKeystones] = useState<KeystoneEntry[]>([]);
+  const [transformedNodes, setTransformedNodes] = useState<TransformedNode[]>([]);
   const [searching, setSearching] = useState(false);
+  const [sockets, setSockets] = useState<{ id: string; node: TreeNode }[]>([]);
+  const [error, setError] = useState<string>("");
 
-  const jewel = TIMELESS_JEWELS[selectedJewel];
+  // Load WASM + tree data on mount
+  useEffect(() => {
+    let cancelled = false;
 
-  const search = async () => {
-    if (!stats || !jewel) return;
+    (async () => {
+      // Load tree data (needed for socket list)
+      try {
+        const tree = await loadTree();
+        if (cancelled) return;
+        setSockets(tree!.jewelSockets);
+        if (tree!.jewelSockets.length > 0 && !socketId) {
+          setSocketId(tree!.jewelSockets[0].id);
+        }
+      } catch {
+        // tree will load on simulate click
+      }
+
+      // Init WASM
+      try {
+        const { initRustEngine, isRustEngineReady } = await import(
+          "@/engine/rust-bridge"
+        );
+        await initRustEngine();
+        if (cancelled) return;
+        setWasmReady(isRustEngineReady());
+      } catch {
+        // WASM not available
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // When jewel type changes, update conqueror list, seed range, and keystones from WASM
+  useEffect(() => {
+    const conqs = CONQUERORS[jewelName] || [];
+    setConqueror(conqs[0] || "");
+
+    if (wasmReady) {
+      import("@/engine/rust-bridge").then((bridge) => {
+        const range = bridge.timelessSeedRange(jewelName);
+        if (range) {
+          setSeedRange(range);
+          setSeed(range[0]);
+        }
+        const ks = bridge.timelessKeystones(jewelName);
+        setKeystones(ks);
+      }).catch(() => {});
+    } else {
+      const range = FALLBACK_RANGES[jewelName];
+      if (range) {
+        setSeedRange(range);
+        setSeed(range[0]);
+      }
+      setKeystones([]);
+    }
+  }, [jewelName, wasmReady]);
+
+  const selectedKeystone = keystones.find(
+    (k) => k.conqueror.toLowerCase() === conqueror.toLowerCase(),
+  );
+
+  // Run the simulation
+  const simulate = useCallback(async () => {
     setSearching(true);
+    setError("");
+    setTransformedNodes([]);
 
     try {
-      const treeResp = await fetch("/data/pob/TreeData/3_29/tree.json");
-      const treeData = await treeResp.json();
-      const nodes = treeData.nodes as Record<string, Record<string, unknown>>;
+      const tree = await loadTree();
+      if (!tree) throw new Error("Could not load tree data");
 
-      // Build adjacency map for graph-distance radius
-      const adj = new Map<string, string[]>();
-      for (const [nid, n] of Object.entries(nodes)) {
-        if (nid === "root") continue;
-        const outs = ((n.out || []) as (string | number)[]).map(String);
-        const ins = ((n.in || []) as (string | number)[]).map(String);
-        const all = [...new Set([...outs, ...ins])];
-        adj.set(nid, [...new Set([...(adj.get(nid) || []), ...all])]);
-        for (const nb of all) {
-          const ex = adj.get(nb) || [];
-          if (!ex.includes(nid)) adj.set(nb, [...ex, nid]);
+      const targetSocket = socketId || tree.jewelSockets[0]?.id;
+      if (!targetSocket) {
+        setError("No jewel socket selected");
+        return;
+      }
+
+      // Radius: timeless jewels affect ~40 nodes; BFS depth 15 is generous
+      const RADIUS_DEPTH = 15;
+      const radiusNodeIds = nodesInRadius(tree.adj, targetSocket, RADIUS_DEPTH);
+      radiusNodeIds.delete(targetSocket); // socket itself is not transformed
+
+      // Attempt WASM transforms
+      let bridge: Awaited<ReturnType<typeof import("@/engine/rust-bridge")>> | null = null;
+      if (wasmReady) {
+        try {
+          bridge = await import("@/engine/rust-bridge");
+        } catch {
+          // fall through
         }
       }
 
-      // BFS to find nodes within N hops of a jewel socket (timeless radius ~40 nodes)
-      const JEWEL_RADIUS = 15;
-      function nodesInRadius(socketId: string): Set<string> {
-        const visited = new Set<string>();
-        const queue: [string, number][] = [[socketId, 0]];
-        visited.add(socketId);
-        while (queue.length > 0) {
-          const [cur, depth] = queue.shift()!;
-          if (depth >= JEWEL_RADIUS) continue;
-          for (const nb of adj.get(cur) || []) {
-            if (!visited.has(nb)) {
-              visited.add(nb);
-              queue.push([nb, depth + 1]);
-            }
+      const results: TransformedNode[] = [];
+
+      for (const nid of radiusNodeIds) {
+        const node = tree.nodes[nid];
+        if (!node || !isTransformableNode(node)) continue;
+
+        const nodeType: "small" | "notable" | "keystone" = node.isKeystone
+          ? "keystone"
+          : node.isNotable
+            ? "notable"
+            : "small";
+
+        const nodeIdNum = node.skill ?? parseInt(nid, 10);
+        if (isNaN(nodeIdNum)) continue;
+
+        let addedStats: string[] = [];
+        let replacedKeystone: string | undefined;
+
+        if (bridge) {
+          const result = bridge.transformNodeFull(
+            jewelName,
+            seed,
+            nodeIdNum,
+            nodeType,
+            conqueror,
+          );
+          if (result) {
+            addedStats = result.added_stats;
+            replacedKeystone = result.replaced_keystone;
           }
         }
-        return visited;
-      }
 
-      // Find jewel sockets in the tree
-      const jewelSockets = Object.entries(nodes)
-        .filter(([, n]) => n.isJewelSocket)
-        .map(([id]) => id);
+        // Only include nodes where the jewel actually changes something
+        if (addedStats.length === 0 && !replacedKeystone) continue;
 
-      // For each conqueror, show the keystone it grants
-      const r: TimelessResult[] = [];
-      for (const conqueror of jewel.conquerors) {
-        const ks = (jewel.keystones as unknown as Record<string, { name: string; effect: string }>)[conqueror];
-
-        // Count allocated notables within graph-distance radius of each jewel socket
-        let bestSocket = 0;
-        for (const socketId of jewelSockets) {
-          if (!allocatedNodes.has(socketId)) continue;
-          const radius = nodesInRadius(socketId);
-          let nearby = 0;
-          for (const nodeId of allocatedNodes) {
-            if (!radius.has(nodeId)) continue;
-            const n = nodes[nodeId];
-            if (n && (n.isNotable || n.isKeystone)) nearby++;
-          }
-          bestSocket = Math.max(bestSocket, nearby);
-        }
-
-        r.push({
-          jewel: jewel.name,
-          conqueror,
-          keystone: ks?.name || "Unknown",
-          keystoneEffect: ks?.effect || "",
-          nearbyNotables: bestSocket,
-          estimatedBenefit: bestSocket > 3
-            ? "High - many notables in radius"
-            : bestSocket > 1
-              ? "Medium - some notables transformed"
-              : "Low - few allocated nodes nearby",
+        results.push({
+          nodeId: nid,
+          name: node.name || `Node ${nid}`,
+          nodeType,
+          originalStats: node.stats || [],
+          addedStats,
+          replacedKeystone,
+          isAllocated: allocatedNodes.has(nid),
         });
       }
 
-      setResults(r);
+      // Sort: allocated first, then keystones > notables > small
+      const typeOrder = { keystone: 0, notable: 1, small: 2 };
+      results.sort((a, b) => {
+        if (a.isAllocated !== b.isAllocated) return a.isAllocated ? -1 : 1;
+        return typeOrder[a.nodeType] - typeOrder[b.nodeType];
+      });
+
+      setTransformedNodes(results);
     } catch (e) {
       console.warn("Timeless search error:", e);
+      setError(e instanceof Error ? e.message : "Simulation failed");
     } finally {
       setSearching(false);
     }
-  };
+  }, [jewelName, conqueror, seed, socketId, wasmReady, allocatedNodes]);
 
   if (!stats) return null;
 
+  const conquerors = CONQUERORS[jewelName] || [];
+  const allocatedCount = transformedNodes.filter((n) => n.isAllocated).length;
+  const notableCount = transformedNodes.filter((n) => n.nodeType === "notable").length;
+  const keystoneCount = transformedNodes.filter((n) => n.nodeType === "keystone").length;
+
   return (
     <div className="p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-xs font-mono uppercase tracking-widest text-text-dim">
-          Timeless Jewel Search
-        </h2>
-        <div className="flex items-center gap-1.5">
+      {/* Header */}
+      <h2 className="text-xs font-mono uppercase tracking-widest text-text-dim mb-3">
+        Timeless Jewel Simulator
+      </h2>
+
+      {/* Controls */}
+      <div className="grid grid-cols-2 gap-2 max-w-2xl mb-3">
+        {/* Jewel type */}
+        <label className="text-[9px] font-mono text-text-dim/60">
+          Jewel
           <select
-            value={selectedJewel}
+            value={jewelName}
             onChange={(e) => {
-              setSelectedJewel(parseInt(e.target.value));
-              setResults([]);
+              setJewelName(e.target.value);
+              setTransformedNodes([]);
             }}
-            className="bg-bg-inset border border-border-subtle rounded px-1.5 py-0.5 text-[10px] font-mono text-text-primary"
+            className="block w-full mt-0.5 bg-bg-inset border border-border-subtle rounded px-1.5 py-1 text-[10px] font-mono text-text-primary"
           >
-            {TIMELESS_JEWELS.map((j, i) => (
-              <option key={i} value={i}>
-                {j.name} ({j.type})
+            {JEWEL_NAMES.map((name) => (
+              <option key={name} value={name}>
+                {name}
               </option>
             ))}
           </select>
-          <button
-            onClick={search}
-            disabled={searching}
-            className="text-[10px] font-mono px-3 py-0.5 rounded bg-accent/20 text-accent border border-accent/30 hover:bg-accent/30 disabled:opacity-40"
+        </label>
+
+        {/* Conqueror */}
+        <label className="text-[9px] font-mono text-text-dim/60">
+          Conqueror
+          <select
+            value={conqueror}
+            onChange={(e) => {
+              setConqueror(e.target.value);
+              setTransformedNodes([]);
+            }}
+            className="block w-full mt-0.5 bg-bg-inset border border-border-subtle rounded px-1.5 py-1 text-[10px] font-mono text-text-primary"
           >
-            {searching ? "..." : "Analyze"}
-          </button>
-        </div>
+            {conquerors.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {/* Seed */}
+        <label className="text-[9px] font-mono text-text-dim/60">
+          Seed ({seedRange[0]}-{seedRange[1]})
+          <input
+            type="number"
+            min={seedRange[0]}
+            max={seedRange[1]}
+            value={seed}
+            onChange={(e) => {
+              setSeed(parseInt(e.target.value) || seedRange[0]);
+              setTransformedNodes([]);
+            }}
+            className="block w-full mt-0.5 bg-bg-inset border border-border-subtle rounded px-1.5 py-1 text-[10px] font-mono text-text-primary"
+          />
+        </label>
+
+        {/* Socket */}
+        <label className="text-[9px] font-mono text-text-dim/60">
+          Jewel Socket
+          <select
+            value={socketId}
+            onChange={(e) => {
+              setSocketId(e.target.value);
+              setTransformedNodes([]);
+            }}
+            className="block w-full mt-0.5 bg-bg-inset border border-border-subtle rounded px-1.5 py-1 text-[10px] font-mono text-text-primary"
+          >
+            {sockets.map((s, i) => (
+              <option key={s.id} value={s.id}>
+                Socket {i + 1} (#{s.id})
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
-      {results.length > 0 && (
-        <div className="space-y-2 max-w-2xl">
-          {results.map((r, i) => (
-            <div
-              key={i}
-              className="px-3 py-2 bg-bg-card border border-border-card rounded text-[10px] font-mono"
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-text-primary font-bold">
-                  {r.conqueror}
-                </span>
-                <span
-                  className={`text-[9px] px-1.5 py-0.5 rounded ${
-                    r.nearbyNotables > 3
-                      ? "bg-green-400/10 text-green-400"
-                      : r.nearbyNotables > 1
-                        ? "bg-amber-400/10 text-amber-400"
-                        : "bg-text-dim/10 text-text-dim"
-                  }`}
-                >
-                  {r.estimatedBenefit}
-                </span>
-              </div>
-              <div className="text-accent mb-0.5">
-                Keystone: {r.keystone}
-              </div>
-              <div className="text-text-dim/70 text-[9px] leading-tight">
-                {r.keystoneEffect}
-              </div>
-              <div className="text-text-dim/40 text-[9px] mt-1">
-                {r.nearbyNotables} allocated notables in radius
-              </div>
-            </div>
-          ))}
+      {/* Simulate button */}
+      <div className="flex items-center gap-2 mb-3">
+        <button
+          onClick={simulate}
+          disabled={searching}
+          className="text-[10px] font-mono px-4 py-1 rounded bg-accent/20 text-accent border border-accent/30 hover:bg-accent/30 disabled:opacity-40"
+        >
+          {searching ? "Simulating..." : "Simulate"}
+        </button>
+        {!wasmReady && (
+          <span className="text-[9px] font-mono text-amber-400/70">
+            WASM engine not loaded; results will be empty
+          </span>
+        )}
+      </div>
 
-          <div className="mt-3">
-            <h4 className="text-[9px] font-mono font-bold uppercase tracking-widest text-text-dim/60 mb-1">
-              Small Passive Bonuses ({jewel.type})
-            </h4>
-            <div className="text-[9px] font-mono text-text-dim/50 space-y-0.5">
-              {jewel.smallMods.map((m, i) => (
-                <div key={i}>{m}</div>
-              ))}
-            </div>
+      {/* Keystone preview from WASM data */}
+      {selectedKeystone && (
+        <div className="px-3 py-2 mb-3 bg-accent/5 border border-accent/20 rounded max-w-2xl">
+          <div className="text-[10px] font-mono text-accent font-bold mb-0.5">
+            Keystone: {selectedKeystone.keystone_name}
+          </div>
+          <div className="text-[9px] font-mono text-text-dim/70 space-y-0.5">
+            {selectedKeystone.stat_lines.map((line, i) => (
+              <div key={i}>{line}</div>
+            ))}
           </div>
         </div>
       )}
 
-      {results.length === 0 && !searching && (
+      {/* Error */}
+      {error && (
+        <p className="text-[10px] font-mono text-red-400 mb-3">{error}</p>
+      )}
+
+      {/* Results summary */}
+      {transformedNodes.length > 0 && (
+        <div className="text-[9px] font-mono text-text-dim/60 mb-2">
+          {transformedNodes.length} nodes affected
+          {allocatedCount > 0 && ` (${allocatedCount} allocated)`}
+          {notableCount > 0 && ` / ${notableCount} notables`}
+          {keystoneCount > 0 && ` / ${keystoneCount} keystones`}
+        </div>
+      )}
+
+      {/* Transformed nodes */}
+      {transformedNodes.length > 0 && (
+        <div className="space-y-1.5 max-w-2xl max-h-[60vh] overflow-y-auto">
+          {transformedNodes.map((tn) => (
+            <div
+              key={tn.nodeId}
+              className={`px-3 py-2 rounded text-[10px] font-mono border ${
+                tn.isAllocated
+                  ? "bg-accent/8 border-accent/25"
+                  : "bg-bg-card border-border-card"
+              }`}
+            >
+              <div className="flex items-center gap-1.5 mb-1">
+                <span
+                  className={`text-[8px] uppercase px-1 py-px rounded ${
+                    tn.nodeType === "keystone"
+                      ? "bg-purple-400/15 text-purple-400"
+                      : tn.nodeType === "notable"
+                        ? "bg-amber-400/15 text-amber-400"
+                        : "bg-text-dim/10 text-text-dim/60"
+                  }`}
+                >
+                  {tn.nodeType}
+                </span>
+                <span className="text-text-primary font-bold">{tn.name}</span>
+                {tn.isAllocated && (
+                  <span className="text-[8px] text-accent/60">allocated</span>
+                )}
+              </div>
+
+              {/* Keystone replacement */}
+              {tn.replacedKeystone && (
+                <div className="text-purple-300 text-[9px] mb-0.5">
+                  Replaced by: {tn.replacedKeystone}
+                </div>
+              )}
+
+              {/* Added/replacement stats */}
+              {tn.addedStats.length > 0 && (
+                <div className="space-y-0.5">
+                  {tn.addedStats.map((stat, i) => (
+                    <div key={i} className="text-green-400/80 text-[9px]">
+                      + {stat}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Original stats (collapsed for small passives) */}
+              {tn.originalStats.length > 0 && tn.nodeType !== "small" && (
+                <div className="mt-1 pt-1 border-t border-border-subtle/30">
+                  <div className="text-text-dim/40 text-[8px] space-y-0.5">
+                    {tn.originalStats.map((stat, i) => (
+                      <div key={i}>{stat}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {transformedNodes.length === 0 && !searching && !error && (
         <p className="text-xs font-mono text-text-dim/60 text-center py-6">
-          Analyzes timeless jewel conqueror keystones and counts allocated
-          notables in radius for each jewel socket. Select a jewel type and click Analyze.
+          Select a jewel type, conqueror, and seed, then click Simulate to
+          preview how every passive node in the jewel radius gets transformed.
         </p>
       )}
     </div>

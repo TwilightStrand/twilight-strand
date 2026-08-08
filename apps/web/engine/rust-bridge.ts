@@ -87,6 +87,24 @@ export interface RustBuildInput {
   gear_evasion: number;
   gear_es: number;
   gear_block: number;
+  main_skill_level: number;
+  support_gem_levels: number[];
+  socket_groups: RustSocketGroup[];
+  on_consecrated_ground: boolean;
+  enemy_intimidated: boolean;
+  enemy_unnerved: boolean;
+  have_phasing: boolean;
+  have_elusive: boolean;
+  enemy_hindered: boolean;
+  crit_in_past_8_seconds: boolean;
+  hit_recently_by_enemy: boolean;
+  used_skill_recently: boolean;
+  nearby_rare_or_unique: boolean;
+}
+
+export interface RustSocketGroup {
+  active_skill: string;
+  support_gems: string[];
 }
 
 export interface RustCalcOutput {
@@ -158,6 +176,19 @@ export function defaultRustInput(overrides?: Partial<RustBuildInput>): RustBuild
     gear_evasion: 0,
     gear_es: 0,
     gear_block: 0,
+    main_skill_level: 20,
+    support_gem_levels: [],
+    socket_groups: [],
+    on_consecrated_ground: false,
+    enemy_intimidated: false,
+    enemy_unnerved: false,
+    have_phasing: false,
+    have_elusive: false,
+    enemy_hindered: false,
+    crit_in_past_8_seconds: false,
+    hit_recently_by_enemy: false,
+    used_skill_recently: false,
+    nearby_rare_or_unique: false,
     ...overrides,
   };
 }
@@ -179,5 +210,59 @@ export function parseStatLine(line: string): Array<{ stat: string; value: number
     return result ? JSON.parse(result) : [];
   } catch {
     return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Timeless jewel functions
+// ---------------------------------------------------------------------------
+
+export interface TimelessTransformResult {
+  replaced_keystone: string | undefined;
+  added_stats: string[];
+  stat_keys: string[];
+}
+
+export interface TimelessKeystoneEntry {
+  conqueror: string;
+  keystone_name: string;
+  stat_lines: string[];
+}
+
+/** Get [min, max] seed range for a jewel type. */
+export function timelessSeedRange(jewelType: string): [number, number] | null {
+  if (!wasmModule) return null;
+  try {
+    const arr: Uint32Array = wasmModule.timeless_seed_range(jewelType);
+    if (!arr || arr.length < 2) return null;
+    return [arr[0], arr[1]];
+  } catch {
+    return null;
+  }
+}
+
+/** List conqueror keystones for a jewel type. */
+export function timelessKeystones(jewelType: string): TimelessKeystoneEntry[] {
+  if (!wasmModule) return [];
+  try {
+    return wasmModule.timeless_keystones(jewelType) ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** Transform a single node (full version with node type and conqueror). */
+export function transformNodeFull(
+  jewelType: string,
+  seed: number,
+  nodeId: number,
+  nodeType: "small" | "notable" | "keystone",
+  conqueror: string,
+): TimelessTransformResult | null {
+  if (!wasmModule) return null;
+  try {
+    return wasmModule.transform_node_full(jewelType, seed, nodeId, nodeType, conqueror) ?? null;
+  } catch {
+    return null;
   }
 }

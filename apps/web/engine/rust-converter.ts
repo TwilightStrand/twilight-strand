@@ -1,5 +1,5 @@
 import type { BuildStats, ItemData, SkillGroup } from "./types";
-import type { RustBuildInput, RustCalcOutput } from "./rust-bridge";
+import type { RustBuildInput, RustCalcOutput, RustSocketGroup } from "./rust-bridge";
 import type { TreeNode } from "@/components/tree/tree-data";
 import { parseClusterJewel } from "./cluster-jewel";
 import { CLUSTER_NOTABLES } from "@/data/cluster-data.generated";
@@ -103,6 +103,7 @@ export function convertToRustInput(
   items: ItemData[],
   skills: SkillGroup[],
   treeNodes: Map<string, TreeNode>,
+  config?: Record<string, string | boolean | number>,
 ): RustBuildInput {
   const statLines: string[] = [];
   const keystones: string[] = [];
@@ -177,16 +178,39 @@ export function convertToRustInput(
   const mainIndex = Math.max(0, stats.main_socket_group - 1);
   const mainGroup = skills[mainIndex];
   let mainSkillId = "";
+  let mainSkillLevel = 20;
   const supportGems: string[] = [];
+  const supportGemLevels: number[] = [];
 
   if (mainGroup) {
     for (const gem of mainGroup.gems) {
       if (!gem.enabled) continue;
       if (gem.isSupport) {
         supportGems.push(gem.name);
+        supportGemLevels.push(gem.level || 20);
       } else if (!mainSkillId) {
         mainSkillId = gem.skillId;
+        mainSkillLevel = gem.level || 20;
       }
+    }
+  }
+
+  // Build socket_groups from all enabled skill groups
+  const socketGroups: RustSocketGroup[] = [];
+  for (const group of skills) {
+    if (!group.enabled) continue;
+    let activeSkill = "";
+    const groupSupports: string[] = [];
+    for (const gem of group.gems) {
+      if (!gem.enabled) continue;
+      if (gem.isSupport) {
+        groupSupports.push(gem.name);
+      } else if (!activeSkill) {
+        activeSkill = gem.skillId;
+      }
+    }
+    if (activeSkill) {
+      socketGroups.push({ active_skill: activeSkill, support_gems: groupSupports });
     }
   }
 
@@ -216,6 +240,10 @@ export function convertToRustInput(
   const weapon2 = extractWeaponStats(items, WEAPON2_SLOTS);
   const isDualWield = weapon.aps > 0 && weapon2.aps > 0;
 
+  // Map config overrides to Rust engine boolean fields
+  const cfg = config ?? {};
+  const cfgBool = (key: string): boolean => cfg[key] === true;
+
   return {
     level: stats.level,
     class_id: CLASS_IDS[stats.class_name] ?? 0,
@@ -225,6 +253,7 @@ export function convertToRustInput(
     modifiers: [],
     allocated_keystones: keystones,
     main_skill_id: mainSkillId,
+    main_skill_level: mainSkillLevel,
     ascendancy_name: stats.ascendancy,
     enemy_level: 83,
     enemy_fire_res: 0,
@@ -233,6 +262,7 @@ export function convertToRustInput(
     enemy_chaos_res: 0,
     enemy_is_boss: false,
     support_gems: supportGems,
+    support_gem_levels: supportGemLevels,
     equipped_uniques: equippedUniques,
     active_flasks: activeFlasks,
     weapon_base_type: weapon.base,
@@ -243,11 +273,11 @@ export function convertToRustInput(
     power_charges: 0,
     frenzy_charges: 0,
     endurance_charges: 0,
-    on_full_life: true,
-    on_low_life: false,
-    is_leeching: false,
-    have_fortify: false,
-    have_killed_recently: false,
+    on_full_life: cfgBool("conditionFullLife") || !cfgBool("conditionLowLife"),
+    on_low_life: cfgBool("conditionLowLife"),
+    is_leeching: cfgBool("conditionLeeching"),
+    have_fortify: cfgBool("buffFortification"),
+    have_killed_recently: cfgBool("conditionKilledRecently"),
     conversion_phys_to_fire: 0,
     conversion_phys_to_cold: 0,
     conversion_phys_to_lightning: 0,
@@ -256,19 +286,30 @@ export function convertToRustInput(
     mana_reserved_pct: stats.mana_reserved_percent ?? 0,
     life_reserved_pct: 0,
     impale_chance: 0,
-    have_onslaught: false,
-    have_tailwind: false,
-    have_arcane_surge: false,
+    have_onslaught: cfgBool("buffOnslaught"),
+    have_tailwind: cfgBool("buffTailwind"),
+    have_arcane_surge: cfgBool("buffArcaneSurge"),
     weapon2_phys_min: weapon2.physMin,
     weapon2_phys_max: weapon2.physMax,
     weapon2_aps: weapon2.aps,
     weapon2_crit: weapon2.crit,
     is_dual_wield: isDualWield,
+    socket_groups: socketGroups,
     stat_lines: statLines,
     gear_armour: gearArmour,
     gear_evasion: gearEvasion,
     gear_es: gearES,
     gear_block: gearBlock,
+    on_consecrated_ground: cfgBool("conditionOnConsecratedGround"),
+    enemy_intimidated: cfgBool("conditionEnemyIntimidated") || cfgBool("conditionChampionIntimidate"),
+    enemy_unnerved: cfgBool("conditionEnemyUnnerved"),
+    have_phasing: cfgBool("buffPhasing"),
+    have_elusive: cfgBool("buffElusive"),
+    enemy_hindered: cfgBool("conditionEnemyHindered"),
+    crit_in_past_8_seconds: false,
+    hit_recently_by_enemy: cfgBool("conditionBeenHitRecently"),
+    used_skill_recently: cfgBool("conditionUsedSkillRecently"),
+    nearby_rare_or_unique: false,
   };
 }
 
