@@ -16,6 +16,8 @@ export function SettingsPanel() {
   const setNumberFormat = useUiStore((s) => s.setNumberFormat);
   const performanceMode = useUiStore((s) => s.performanceMode);
   const setPerformanceMode = useUiStore((s) => s.setPerformanceMode);
+  const treeBackground = useUiStore((s) => s.treeBackground);
+  const setTreeBackground = useUiStore((s) => s.setTreeBackground);
   const history = useBuildStore((s) => s.history);
   const engineInitTime = useBuildStore((s) => s.engineInitTime);
   const engineEvalTime = useBuildStore((s) => s.engineEvalTime);
@@ -109,6 +111,32 @@ export function SettingsPanel() {
                 {performanceMode ? "On" : "Off"}
               </button>
             </div>
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-xs font-mono font-bold uppercase tracking-widest text-text-dim mb-2">Tree Background</h3>
+          <div className="bg-bg-card border border-border-card rounded-lg p-3 space-y-3">
+            {([
+              { key: "tileOpacity" as const, label: "Background Texture" },
+              { key: "classArtOpacity" as const, label: "Class Illustrations" },
+              { key: "groupBgOpacity" as const, label: "Group Orbit Rings" },
+            ]).map(({ key, label }) => (
+              <div key={key} className="flex items-center justify-between gap-3 text-xs font-mono">
+                <span className="text-text-primary shrink-0">{label}</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={treeBackground[key]}
+                    onChange={(e) => setTreeBackground(key, Number(e.target.value))}
+                    className="w-24 accent-accent"
+                  />
+                  <span className="text-text-dim w-8 text-right tabular-nums">{treeBackground[key]}%</span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 

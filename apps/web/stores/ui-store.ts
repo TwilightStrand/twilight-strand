@@ -13,6 +13,12 @@ export const TAB_LABELS: Record<TabId, string> = {
   settings: "Settings",
 };
 
+interface TreeBackgroundSettings {
+  tileOpacity: number;
+  classArtOpacity: number;
+  groupBgOpacity: number;
+}
+
 interface UiState {
   activeTab: TabId;
   sidebarOpen: boolean;
@@ -24,6 +30,7 @@ interface UiState {
   pinnedStats: string[];
   sidebarCompact: boolean;
   sidebarMode: "list" | "bars";
+  treeBackground: TreeBackgroundSettings;
   setActiveTab: (tab: TabId) => void;
   toggleSidebar: () => void;
   setImportOpen: (open: boolean) => void;
@@ -34,6 +41,7 @@ interface UiState {
   togglePinnedStat: (stat: string) => void;
   toggleSidebarCompact: () => void;
   toggleSidebarMode: () => void;
+  setTreeBackground: (key: keyof TreeBackgroundSettings, value: number) => void;
 }
 
 export const useUiStore = create<UiState>((set) => ({
@@ -111,4 +119,21 @@ export const useUiStore = create<UiState>((set) => ({
     }),
   sidebarMode: "list" as "list" | "bars",
   toggleSidebarMode: () => set((s) => ({ sidebarMode: s.sidebarMode === "list" ? "bars" : "list" })),
+  treeBackground: (() => {
+    const defaults: TreeBackgroundSettings = { tileOpacity: 100, classArtOpacity: 100, groupBgOpacity: 100 };
+    try {
+      const s = typeof localStorage !== "undefined" && localStorage.getItem("tsc-tree-bg");
+      return s ? { ...defaults, ...JSON.parse(s) } : defaults;
+    } catch {
+      return defaults;
+    }
+  })(),
+  setTreeBackground: (key, value) =>
+    set((s) => {
+      const treeBackground = { ...s.treeBackground, [key]: value };
+      try {
+        localStorage.setItem("tsc-tree-bg", JSON.stringify(treeBackground));
+      } catch {}
+      return { treeBackground };
+    }),
 }));

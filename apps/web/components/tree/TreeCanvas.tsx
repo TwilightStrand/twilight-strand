@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useBuildStore } from "@/stores/build-store";
 import { useTreeStore } from "@/stores/tree-store";
+import { useUiStore } from "@/stores/ui-store";
 import { NodePowerControls, useNodePowerStore } from "./NodePowerControls";
 import { TreeMinimap } from "./TreeMinimap";
 import { TreeOptimizer } from "./TreeOptimizer";
@@ -135,6 +136,7 @@ export function TreeCanvas() {
   const { allocatedNodes, toggleNode, setHoveredNode } = useTreeStore();
   const hoveredNode = useTreeStore((s) => s.hoveredNode);
   const searchResults = useTreeStore((s) => s.searchResults);
+  const treeBackground = useUiStore((s) => s.treeBackground);
   const { mode: npMode, depth: npDepth } = useNodePowerStore();
   const nodePowerMode = useNodePowerStore((s) => s.mode);
   const _nodePowerDepth = useNodePowerStore((s) => s.depth);
@@ -195,6 +197,7 @@ export function TreeCanvas() {
     renderer.setAllocatedNodes(allocatedNodes);
     renderer.setSearchResults(searchResults);
     renderer.setHoveredNode(hoveredNode);
+    renderer.setBackgroundOpacity(treeBackground.tileOpacity, treeBackground.classArtOpacity, treeBackground.groupBgOpacity);
     renderer.render(camera);
 
     // Throttle React state updates to max 30fps to avoid re-render churn
@@ -208,7 +211,7 @@ export function TreeCanvas() {
         setCanvasDims({ w: rect.width, h: rect.height });
       }
     }
-  }, [allocatedNodes, searchResults, hoveredNode]);
+  }, [allocatedNodes, searchResults, hoveredNode, treeBackground]);
 
   const animateCameraTo = useCallback(
     (target: Camera) => {
