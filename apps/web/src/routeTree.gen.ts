@@ -10,33 +10,219 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CommunityRouteImport } from './routes/community'
+import { Route as ApiBuildsRouteImport } from './routes/api/builds'
+import { Route as ApiCharacterRouteImport } from './routes/api/character'
+import { Route as ApiImportRouteImport } from './routes/api/import'
+import { Route as ApiNinjaRouteImport } from './routes/api/ninja'
+import { Route as ApiOgRouteImport } from './routes/api/og'
+import { Route as ApiTradeRouteImport } from './routes/api/trade'
+import { Route as BuildIdRouteImport } from './routes/build.$id'
+import { Route as RobotsTxtRouteImport } from './routes/robots.txt'
+import { Route as SitemapXmlRouteImport } from './routes/sitemap.xml'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
+import { Route as ApiBuildsLeaderboardRouteImport } from './routes/api/builds_.leaderboard'
+import { Route as ApiBuildsSharedRouteImport } from './routes/api/builds_.shared'
+import { Route as ApiBuildsIdShareRouteImport } from './routes/api/builds_.$id.share'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CommunityRoute = CommunityRouteImport.update({
+  id: '/community',
+  path: '/community',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiBuildsRoute = ApiBuildsRouteImport.update({
+  id: '/api/builds',
+  path: '/api/builds',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCharacterRoute = ApiCharacterRouteImport.update({
+  id: '/api/character',
+  path: '/api/character',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiImportRoute = ApiImportRouteImport.update({
+  id: '/api/import',
+  path: '/api/import',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiNinjaRoute = ApiNinjaRouteImport.update({
+  id: '/api/ninja',
+  path: '/api/ninja',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiOgRoute = ApiOgRouteImport.update({
+  id: '/api/og',
+  path: '/api/og',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTradeRoute = ApiTradeRouteImport.update({
+  id: '/api/trade',
+  path: '/api/trade',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BuildIdRoute = BuildIdRouteImport.update({
+  id: '/build/$id',
+  path: '/build/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RobotsTxtRoute = RobotsTxtRouteImport.update({
+  id: '/robots/txt',
+  path: '/robots/txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapXmlRoute = SitemapXmlRouteImport.update({
+  id: '/sitemap/xml',
+  path: '/sitemap/xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiBuildsLeaderboardRoute = ApiBuildsLeaderboardRouteImport.update({
+  id: '/api/builds_/leaderboard',
+  path: '/api/builds/leaderboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiBuildsSharedRoute = ApiBuildsSharedRouteImport.update({
+  id: '/api/builds_/shared',
+  path: '/api/builds/shared',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiBuildsIdShareRoute = ApiBuildsIdShareRouteImport.update({
+  id: '/api/builds_/$id/share',
+  path: '/api/builds/$id/share',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/community': typeof CommunityRoute
+  '/api/builds': typeof ApiBuildsRoute
+  '/api/character': typeof ApiCharacterRoute
+  '/api/import': typeof ApiImportRoute
+  '/api/ninja': typeof ApiNinjaRoute
+  '/api/og': typeof ApiOgRoute
+  '/api/trade': typeof ApiTradeRoute
+  '/build/$id': typeof BuildIdRoute
+  '/robots/txt': typeof RobotsTxtRoute
+  '/sitemap/xml': typeof SitemapXmlRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/builds/leaderboard': typeof ApiBuildsLeaderboardRoute
+  '/api/builds/shared': typeof ApiBuildsSharedRoute
+  '/api/builds/$id/share': typeof ApiBuildsIdShareRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/community': typeof CommunityRoute
+  '/api/builds': typeof ApiBuildsRoute
+  '/api/character': typeof ApiCharacterRoute
+  '/api/import': typeof ApiImportRoute
+  '/api/ninja': typeof ApiNinjaRoute
+  '/api/og': typeof ApiOgRoute
+  '/api/trade': typeof ApiTradeRoute
+  '/build/$id': typeof BuildIdRoute
+  '/robots/txt': typeof RobotsTxtRoute
+  '/sitemap/xml': typeof SitemapXmlRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/builds/leaderboard': typeof ApiBuildsLeaderboardRoute
+  '/api/builds/shared': typeof ApiBuildsSharedRoute
+  '/api/builds/$id/share': typeof ApiBuildsIdShareRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/community': typeof CommunityRoute
+  '/api/builds': typeof ApiBuildsRoute
+  '/api/character': typeof ApiCharacterRoute
+  '/api/import': typeof ApiImportRoute
+  '/api/ninja': typeof ApiNinjaRoute
+  '/api/og': typeof ApiOgRoute
+  '/api/trade': typeof ApiTradeRoute
+  '/build/$id': typeof BuildIdRoute
+  '/robots/txt': typeof RobotsTxtRoute
+  '/sitemap/xml': typeof SitemapXmlRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/builds_/leaderboard': typeof ApiBuildsLeaderboardRoute
+  '/api/builds_/shared': typeof ApiBuildsSharedRoute
+  '/api/builds_/$id/share': typeof ApiBuildsIdShareRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/community'
+    | '/api/builds'
+    | '/api/character'
+    | '/api/import'
+    | '/api/ninja'
+    | '/api/og'
+    | '/api/trade'
+    | '/build/$id'
+    | '/robots/txt'
+    | '/sitemap/xml'
+    | '/api/auth/$'
+    | '/api/builds/leaderboard'
+    | '/api/builds/shared'
+    | '/api/builds/$id/share'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/community'
+    | '/api/builds'
+    | '/api/character'
+    | '/api/import'
+    | '/api/ninja'
+    | '/api/og'
+    | '/api/trade'
+    | '/build/$id'
+    | '/robots/txt'
+    | '/sitemap/xml'
+    | '/api/auth/$'
+    | '/api/builds/leaderboard'
+    | '/api/builds/shared'
+    | '/api/builds/$id/share'
+  id:
+    | '__root__'
+    | '/'
+    | '/community'
+    | '/api/builds'
+    | '/api/character'
+    | '/api/import'
+    | '/api/ninja'
+    | '/api/og'
+    | '/api/trade'
+    | '/build/$id'
+    | '/robots/txt'
+    | '/sitemap/xml'
+    | '/api/auth/$'
+    | '/api/builds_/leaderboard'
+    | '/api/builds_/shared'
+    | '/api/builds_/$id/share'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CommunityRoute: typeof CommunityRoute
+  ApiBuildsRoute: typeof ApiBuildsRoute
+  ApiCharacterRoute: typeof ApiCharacterRoute
+  ApiImportRoute: typeof ApiImportRoute
+  ApiNinjaRoute: typeof ApiNinjaRoute
+  ApiOgRoute: typeof ApiOgRoute
+  ApiTradeRoute: typeof ApiTradeRoute
+  BuildIdRoute: typeof BuildIdRoute
+  RobotsTxtRoute: typeof RobotsTxtRoute
+  SitemapXmlRoute: typeof SitemapXmlRoute
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiBuildsLeaderboardRoute: typeof ApiBuildsLeaderboardRoute
+  ApiBuildsSharedRoute: typeof ApiBuildsSharedRoute
+  ApiBuildsIdShareRoute: typeof ApiBuildsIdShareRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +234,123 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/community': {
+      id: '/community'
+      path: '/community'
+      fullPath: '/community'
+      preLoaderRoute: typeof CommunityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/builds': {
+      id: '/api/builds'
+      path: '/api/builds'
+      fullPath: '/api/builds'
+      preLoaderRoute: typeof ApiBuildsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/character': {
+      id: '/api/character'
+      path: '/api/character'
+      fullPath: '/api/character'
+      preLoaderRoute: typeof ApiCharacterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/import': {
+      id: '/api/import'
+      path: '/api/import'
+      fullPath: '/api/import'
+      preLoaderRoute: typeof ApiImportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ninja': {
+      id: '/api/ninja'
+      path: '/api/ninja'
+      fullPath: '/api/ninja'
+      preLoaderRoute: typeof ApiNinjaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/og': {
+      id: '/api/og'
+      path: '/api/og'
+      fullPath: '/api/og'
+      preLoaderRoute: typeof ApiOgRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/trade': {
+      id: '/api/trade'
+      path: '/api/trade'
+      fullPath: '/api/trade'
+      preLoaderRoute: typeof ApiTradeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/build/$id': {
+      id: '/build/$id'
+      path: '/build/$id'
+      fullPath: '/build/$id'
+      preLoaderRoute: typeof BuildIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/robots/txt': {
+      id: '/robots/txt'
+      path: '/robots/txt'
+      fullPath: '/robots/txt'
+      preLoaderRoute: typeof RobotsTxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap/xml': {
+      id: '/sitemap/xml'
+      path: '/sitemap/xml'
+      fullPath: '/sitemap/xml'
+      preLoaderRoute: typeof SitemapXmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/builds_/leaderboard': {
+      id: '/api/builds_/leaderboard'
+      path: '/api/builds/leaderboard'
+      fullPath: '/api/builds/leaderboard'
+      preLoaderRoute: typeof ApiBuildsLeaderboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/builds_/shared': {
+      id: '/api/builds_/shared'
+      path: '/api/builds/shared'
+      fullPath: '/api/builds/shared'
+      preLoaderRoute: typeof ApiBuildsSharedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/builds_/$id/share': {
+      id: '/api/builds_/$id/share'
+      path: '/api/builds/$id/share'
+      fullPath: '/api/builds/$id/share'
+      preLoaderRoute: typeof ApiBuildsIdShareRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CommunityRoute: CommunityRoute,
+  ApiBuildsRoute: ApiBuildsRoute,
+  ApiCharacterRoute: ApiCharacterRoute,
+  ApiImportRoute: ApiImportRoute,
+  ApiNinjaRoute: ApiNinjaRoute,
+  ApiOgRoute: ApiOgRoute,
+  ApiTradeRoute: ApiTradeRoute,
+  BuildIdRoute: BuildIdRoute,
+  RobotsTxtRoute: RobotsTxtRoute,
+  SitemapXmlRoute: SitemapXmlRoute,
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiBuildsLeaderboardRoute: ApiBuildsLeaderboardRoute,
+  ApiBuildsSharedRoute: ApiBuildsSharedRoute,
+  ApiBuildsIdShareRoute: ApiBuildsIdShareRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

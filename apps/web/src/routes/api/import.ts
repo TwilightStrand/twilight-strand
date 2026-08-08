@@ -1,6 +1,8 @@
-import { createAPIFileRoute } from "@tanstack/react-start/api";
+import { createFileRoute } from "@tanstack/react-router";
 
-export const APIRoute = createAPIFileRoute("/api/import")({
+export const Route = createFileRoute("/api/import")({
+  server: {
+    handlers: {
   GET: async ({ request }) => {
     const url = new URL(request.url);
     const importUrl = url.searchParams.get("url");
@@ -45,5 +47,7 @@ export const APIRoute = createAPIFileRoute("/api/import")({
         { status: 500 },
       );
     }
+  },
+    },
   },
 });

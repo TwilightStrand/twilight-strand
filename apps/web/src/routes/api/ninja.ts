@@ -1,6 +1,8 @@
-import { createAPIFileRoute } from "@tanstack/react-start/api";
+import { createFileRoute } from "@tanstack/react-router";
 
-export const APIRoute = createAPIFileRoute("/api/ninja")({
+export const Route = createFileRoute("/api/ninja")({
+  server: {
+    handlers: {
   GET: async ({ request }) => {
     const url = new URL(request.url);
     const type = url.searchParams.get("type") || "builds";
@@ -52,5 +54,7 @@ export const APIRoute = createAPIFileRoute("/api/ninja")({
         { status: 500 },
       );
     }
+  },
+    },
   },
 });

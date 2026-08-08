@@ -1,6 +1,8 @@
-import { createAPIFileRoute } from "@tanstack/react-start/api";
+import { createFileRoute } from "@tanstack/react-router";
 
-export const APIRoute = createAPIFileRoute("/api/auth/$")({
+export const Route = createFileRoute("/api/auth/$")({
+  server: {
+    handlers: {
   GET: async ({ request }) => {
     try {
       const { handlers } = await import("@/lib/auth");
@@ -19,5 +21,7 @@ export const APIRoute = createAPIFileRoute("/api/auth/$")({
     } catch {
       return Response.json({ error: "Auth not configured." }, { status: 503 });
     }
+  },
+    },
   },
 });

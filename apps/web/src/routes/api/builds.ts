@@ -1,11 +1,13 @@
-import { createAPIFileRoute } from "@tanstack/react-start/api";
+import { createFileRoute } from "@tanstack/react-router";
 
 const DB_ERROR = Response.json(
   { error: "Database not configured. Set DATABASE_URL in .env" },
   { status: 503 },
 );
 
-export const APIRoute = createAPIFileRoute("/api/builds")({
+export const Route = createFileRoute("/api/builds")({
+  server: {
+    handlers: {
   GET: async () => {
     try {
       const { auth } = await import("@/lib/auth");
@@ -68,5 +70,7 @@ export const APIRoute = createAPIFileRoute("/api/builds")({
     } catch {
       return DB_ERROR;
     }
+  },
+    },
   },
 });

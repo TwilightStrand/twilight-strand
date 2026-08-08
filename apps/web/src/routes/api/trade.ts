@@ -1,8 +1,10 @@
-import { createAPIFileRoute } from "@tanstack/react-start/api";
+import { createFileRoute } from "@tanstack/react-router";
 
 const POE_TRADE_API = "https://www.pathofexile.com/api/trade";
 
-export const APIRoute = createAPIFileRoute("/api/trade")({
+export const Route = createFileRoute("/api/trade")({
+  server: {
+    handlers: {
   POST: async ({ request }) => {
     try {
       const body = await request.json();
@@ -71,5 +73,7 @@ export const APIRoute = createAPIFileRoute("/api/trade")({
         { status: 500 },
       );
     }
+  },
+    },
   },
 });
