@@ -1,4 +1,3 @@
-"use client";
 
 export function SkeletonLine({ width = "100%" }: { width?: string }) {
   return (

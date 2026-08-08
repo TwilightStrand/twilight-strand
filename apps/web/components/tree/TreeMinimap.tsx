@@ -1,4 +1,3 @@
-"use client";
 
 import { useRef, useEffect, useCallback } from "react";
 import { useTreeStore } from "@/stores/tree-store";

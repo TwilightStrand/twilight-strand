@@ -1,4 +1,3 @@
-"use client";
 
 import { useUiStore } from "@/stores/ui-store";
 import type { TabId } from "@/stores/ui-store";

@@ -1,4 +1,3 @@
-"use client";
 
 function fmtNum(n: number): string {
   if (Math.abs(n) >= 1e6) return `${(n / 1e6).toFixed(1)}M`;

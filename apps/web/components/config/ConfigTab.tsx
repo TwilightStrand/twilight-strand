@@ -1,4 +1,3 @@
-"use client";
 
 import { memo, useCallback, useMemo, useState } from "react";
 import { CONFIG_OPTIONS, CONFIG_SECTIONS, type ConfigOptionDef } from "@/data/config-options.generated";

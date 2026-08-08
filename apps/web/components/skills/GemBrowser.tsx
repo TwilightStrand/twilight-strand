@@ -1,4 +1,3 @@
-"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import type { GemData as GeneratedGem } from "@/data/gem-data.generated";
