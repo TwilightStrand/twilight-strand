@@ -71,6 +71,9 @@ async function handleInit(id: number, _gameId: string): Promise<void> {
     try { zenfs.fs.mkdirSync("/user/Path of Building", { recursive: true }); } catch {}
     try { zenfs.fs.mkdirSync("/user/Path of Building/Builds", { recursive: true }); } catch {}
 
+    // The compiled WASM driver tries to open .image.tsv on startup
+    try { zenfs.fs.writeFileSync("/root/.image.tsv", ""); } catch {}
+
     progress(id, "Loading WASM driver...");
     const driverFactory = (await import("/data/pob/driver/driver.mjs")).default as (
       opts: Record<string, unknown>
