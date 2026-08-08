@@ -20,4 +20,10 @@ export default defineConfig({
     wasm(),
     topLevelAwait(),
   ],
+  optimizeDeps: {
+    exclude: ["@resvg/resvg-js"],
+  },
+  ssr: {
+    external: ["@resvg/resvg-js"],
+  },
 });
