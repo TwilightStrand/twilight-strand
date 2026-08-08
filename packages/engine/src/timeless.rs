@@ -320,8 +320,160 @@ const TEMPLAR_SMALL_ADDITIONS: &[AdditionMod] = &[
 ];
 
 /// Templar (Militant Faith) notable additions.
+/// Notables can either get flat devotion or be replaced by devotion-themed mods.
+/// The replacement mods are gated behind "at least 150 Devotion" thresholds.
 const TEMPLAR_NOTABLE_ADDITIONS: &[AdditionMod] = &[
-    AdditionMod { id: "templar_notable_devotion", display: "+5 to Devotion", stat_key: "base_devotion" },
+    AdditionMod { id: "templar_notable_devotion",                       display: "+5 to Devotion",                                                                            stat_key: "base_devotion" },
+    AdditionMod { id: "templar_notable_fire_conversion",                display: "15% of Physical Damage Converted to Fire Damage while you have at least 150 Devotion",       stat_key: "physical_damage_%_to_convert_to_fire_at_devotion_threshold" },
+    AdditionMod { id: "templar_notable_cold_conversion",                display: "15% of Physical Damage Converted to Cold Damage while you have at least 150 Devotion",       stat_key: "physical_damage_%_to_convert_to_cold_at_devotion_threshold" },
+    AdditionMod { id: "templar_notable_lightning_conversion",           display: "15% of Physical Damage Converted to Lightning Damage while you have at least 150 Devotion",  stat_key: "physical_damage_%_to_convert_to_lightning_at_devotion_threshold" },
+    AdditionMod { id: "templar_notable_mana_added_as_energy_shield",    display: "Gain 5% of Maximum Mana as Extra Maximum Energy Shield while you have at least 150 Devotion", stat_key: "mana_%_to_add_as_energy_shield_at_devotion_threshold" },
+    AdditionMod { id: "templar_notable_arcane_surge",                   display: "Gain Arcane Surge on Hit with Spells if you have at least 150 Devotion",                     stat_key: "gain_arcane_surge_on_hit_at_devotion_threshold" },
+    AdditionMod { id: "templar_notable_minimum_endurance_charge",       display: "+1 to Minimum Endurance Charges while you have at least 150 Devotion",                       stat_key: "minimum_endurance_charges_at_devotion_threshold" },
+    AdditionMod { id: "templar_notable_minimum_power_charge",           display: "+1 to Minimum Power Charges while you have at least 150 Devotion",                           stat_key: "minimum_power_charges_at_devotion_threshold" },
+    AdditionMod { id: "templar_notable_minimum_frenzy_charge",          display: "+1 to Minimum Frenzy Charges while you have at least 150 Devotion",                          stat_key: "minimum_frenzy_charges_at_devotion_threshold" },
+    AdditionMod { id: "templar_notable_consecrated_ground_ailments",    display: "Immune to Elemental Ailments while on Consecrated Ground if you have at least 150 Devotion", stat_key: "immune_to_elemental_ailments_while_on_consecrated_ground_at_devotion_threshold" },
+    AdditionMod { id: "templar_notable_additional_physical_reduction",  display: "5% additional Physical Damage Reduction while you have at least 150 Devotion",               stat_key: "physical_damage_reduction_%_at_devotion_threshold" },
+    AdditionMod { id: "templar_notable_max_resistances",                display: "+1% to all maximum Resistances if you have at least 150 Devotion",                           stat_key: "additional_maximum_all_resistances_%_at_devotion_threshold" },
+    AdditionMod { id: "templar_notable_fire_exposure",                  display: "10% chance to inflict Fire Exposure on Hit if you have at least 150 Devotion",               stat_key: "inflict_fire_exposure_on_hit_%_chance_at_devotion_threshold" },
+    AdditionMod { id: "templar_notable_cold_exposure",                  display: "10% chance to inflict Cold Exposure on Hit if you have at least 150 Devotion",               stat_key: "inflict_cold_exposure_on_hit_%_chance_at_devotion_threshold" },
+    AdditionMod { id: "templar_notable_lightning_exposure",             display: "10% chance to inflict Lightning Exposure on Hit if you have at least 150 Devotion",           stat_key: "inflict_lightning_exposure_on_hit_%_chance_at_devotion_threshold" },
+];
+
+/// Eternal Empire (Elegant Hubris) notable replacement mods.
+/// Notables in radius are fully replaced with one of these themed mods.
+/// In the game, the LUT determines which mod; we use hash-based selection.
+const ETERNAL_NOTABLE_REPLACEMENTS: &[AdditionMod] = &[
+    AdditionMod { id: "eternal_notable_crit_1",                     display: "80% increased Critical Strike Chance",                  stat_key: "critical_strike_chance_+%" },
+    AdditionMod { id: "eternal_notable_crit_2",                     display: "+40% to Critical Strike Multiplier",                    stat_key: "base_critical_strike_multiplier_+" },
+    AdditionMod { id: "eternal_notable_endurance_1",                display: "Gain 1 Endurance Charge every second if you've been Hit Recently", stat_key: "gain_endurance_charge_per_second_if_have_been_hit_recently" },
+    AdditionMod { id: "eternal_notable_endurance_2",                display: "8% increased Armour per Endurance Charge",              stat_key: "physical_damage_reduction_rating_+%_per_endurance_charge" },
+    AdditionMod { id: "eternal_notable_endurance_3",                display: "10% increased Damage per Endurance Charge",             stat_key: "damage_+%_per_endurance_charge" },
+    AdditionMod { id: "eternal_notable_frenzy_1",                   display: "10% chance to gain a Frenzy Charge on Hit",             stat_key: "add_frenzy_charge_on_skill_hit_%" },
+    AdditionMod { id: "eternal_notable_frenzy_2",                   display: "8% increased Evasion Rating per Frenzy Charge",         stat_key: "evasion_rating_+%_per_frenzy_charge" },
+    AdditionMod { id: "eternal_notable_frenzy_3",                   display: "10% increased Damage per Frenzy Charge",               stat_key: "damage_+%_per_frenzy_charge" },
+    AdditionMod { id: "eternal_notable_power_1",                    display: "15% chance to gain a Power Charge on Critical Strike",  stat_key: "add_power_charge_on_critical_strike_%" },
+    AdditionMod { id: "eternal_notable_power_2",                    display: "4% increased Energy Shield per Power Charge",           stat_key: "energy_shield_+%_per_power_charge" },
+    AdditionMod { id: "eternal_notable_power_3",                    display: "10% increased Damage per Power Charge",                stat_key: "damage_+%_per_power_charge" },
+    AdditionMod { id: "eternal_notable_chill_1",                    display: "30% increased Effect of Chill",                         stat_key: "chill_effect_+%" },
+    AdditionMod { id: "eternal_notable_chill_2",                    display: "80% chance to Avoid being Chilled",                     stat_key: "base_avoid_chill_%" },
+    AdditionMod { id: "eternal_notable_shock_1",                    display: "30% increased Effect of Shock",                         stat_key: "shock_effect_+%" },
+    AdditionMod { id: "eternal_notable_shock_2",                    display: "80% chance to Avoid being Shocked",                     stat_key: "base_avoid_shock_%" },
+    AdditionMod { id: "eternal_notable_block_1",                    display: "+12% Chance to Block Attack Damage",                    stat_key: "additional_block_%" },
+    AdditionMod { id: "eternal_notable_block_2",                    display: "12% Chance to Block Spell Damage",                      stat_key: "base_spell_block_%" },
+    AdditionMod { id: "eternal_notable_dodge_1",                    display: "20% chance to Avoid Elemental Ailments",                stat_key: "avoid_all_elemental_status_%" },
+    AdditionMod { id: "eternal_notable_dodge_2",                    display: "+12% chance to Suppress Spell Damage",                  stat_key: "base_spell_suppression_chance_%" },
+    AdditionMod { id: "eternal_notable_aura_1",                     display: "12% increased effect of Non-Curse Auras from your Skills", stat_key: "non_curse_aura_effect_+%" },
+    AdditionMod { id: "eternal_notable_minion_1",                   display: "Minions deal 80% increased Damage",                    stat_key: "minion_damage_+%" },
+    AdditionMod { id: "eternal_notable_minion_2",                   display: "Minions have 80% increased maximum Life",              stat_key: "minion_maximum_life_+%" },
+    AdditionMod { id: "eternal_notable_spell_1",                    display: "80% increased Spell Damage",                            stat_key: "spell_damage_+%" },
+    AdditionMod { id: "eternal_notable_spell_2",                    display: "80% increased Spell Critical Strike Chance",            stat_key: "spell_critical_strike_chance_+%" },
+    AdditionMod { id: "eternal_notable_fire_attack_1",              display: "80% increased Fire Damage with Attack Skills",          stat_key: "fire_damage_with_attack_skills_+%" },
+    AdditionMod { id: "eternal_notable_cold_attack_1",              display: "80% increased Cold Damage with Attack Skills",          stat_key: "cold_damage_with_attack_skills_+%" },
+    AdditionMod { id: "eternal_notable_lightning_attack_1",         display: "80% increased Lightning Damage with Attack Skills",     stat_key: "lightning_damage_with_attack_skills_+%" },
+    AdditionMod { id: "eternal_notable_physical_damage_1",          display: "80% increased Physical Damage",                         stat_key: "physical_damage_+%" },
+    AdditionMod { id: "eternal_notable_physical_damage_2",          display: "80% increased Melee Physical Damage",                   stat_key: "melee_physical_damage_+%" },
+    AdditionMod { id: "eternal_notable_bleed_damage_1",             display: "50% increased Damage with Bleeding",                    stat_key: "bleeding_damage_+%" },
+    AdditionMod { id: "eternal_notable_projectile_attack_damage_1", display: "80% increased Projectile Attack Damage",                stat_key: "projectile_attack_damage_+%" },
+    AdditionMod { id: "eternal_notable_attack_speed_1",             display: "15% increased Attack Speed",                            stat_key: "attack_speed_+%" },
+    AdditionMod { id: "eternal_notable_cast_speed_1",               display: "15% increased Cast Speed",                              stat_key: "base_cast_speed_+%" },
+    AdditionMod { id: "eternal_notable_rarity_1",                   display: "12% increased Mana Reservation Efficiency of Skills",   stat_key: "base_mana_reservation_efficiency_+%" },
+    AdditionMod { id: "eternal_notable_armour_1",                   display: "80% increased Armour",                                  stat_key: "physical_damage_reduction_rating_+%" },
+    AdditionMod { id: "eternal_notable_evasion_1",                  display: "80% increased Evasion Rating",                          stat_key: "evasion_rating_+%" },
+    AdditionMod { id: "eternal_notable_fire_resistance_1",          display: "+50% to Fire Resistance",                               stat_key: "base_fire_damage_resistance_%" },
+    AdditionMod { id: "eternal_notable_cold_resistance_1",          display: "+50% to Cold Resistance",                               stat_key: "base_cold_damage_resistance_%" },
+    AdditionMod { id: "eternal_notable_lightning_resistance_1",     display: "+50% to Lightning Resistance",                          stat_key: "base_lightning_damage_resistance_%" },
+    AdditionMod { id: "eternal_notable_chaos_resistance_1",         display: "+37% to Chaos Resistance",                              stat_key: "base_chaos_damage_resistance_%" },
+    AdditionMod { id: "eternal_notable_life_1",                     display: "10% increased maximum Life",                            stat_key: "maximum_life_+%" },
+    AdditionMod { id: "eternal_notable_mana_1",                     display: "30% increased maximum Mana",                            stat_key: "maximum_mana_+%" },
+    AdditionMod { id: "eternal_notable_mana_regen_1",               display: "50% increased Mana Regeneration Rate",                  stat_key: "mana_regeneration_rate_+%" },
+    AdditionMod { id: "eternal_notable_accuracy_1",                 display: "25% increased Accuracy Rating",                         stat_key: "accuracy_rating_+%" },
+    AdditionMod { id: "eternal_notable_flask_duration_1",           display: "20% increased Flask Effect Duration",                   stat_key: "flask_duration_+%" },
+];
+
+/// Vaal (Glorious Vanity) small passive replacement mods.
+/// ALL small passives in radius are replaced with one of these sacrificial mods.
+/// The mid-range values represent a typical roll.
+const VAAL_SMALL_REPLACEMENTS: &[AdditionMod] = &[
+    AdditionMod { id: "vaal_small_fire_damage",              display: "10% increased Fire Damage",                      stat_key: "fire_damage_+%" },
+    AdditionMod { id: "vaal_small_cold_damage",              display: "10% increased Cold Damage",                      stat_key: "cold_damage_+%" },
+    AdditionMod { id: "vaal_small_lightning_damage",          display: "10% increased Lightning Damage",                stat_key: "lightning_damage_+%" },
+    AdditionMod { id: "vaal_small_physical_damage",          display: "10% increased Physical Damage",                  stat_key: "physical_damage_+%" },
+    AdditionMod { id: "vaal_small_chaos_damage",             display: "10% increased Chaos Damage",                     stat_key: "chaos_damage_+%" },
+    AdditionMod { id: "vaal_small_minion_damage",            display: "Minions deal 10% increased Damage",             stat_key: "minion_damage_+%" },
+    AdditionMod { id: "vaal_small_attack_damage",            display: "10% increased Attack Damage",                    stat_key: "attack_damage_+%" },
+    AdditionMod { id: "vaal_small_spell_damage",             display: "10% increased Spell Damage",                     stat_key: "spell_damage_+%" },
+    AdditionMod { id: "vaal_small_area_damage",              display: "10% increased Area Damage",                      stat_key: "area_damage_+%" },
+    AdditionMod { id: "vaal_small_projectile_damage",        display: "10% increased Projectile Damage",                stat_key: "projectile_damage_+%" },
+    AdditionMod { id: "vaal_small_damage_over_time",         display: "10% increased Damage over Time",                 stat_key: "damage_over_time_+%" },
+    AdditionMod { id: "vaal_small_area_of_effect",           display: "5% increased Area of Effect",                    stat_key: "base_skill_area_of_effect_+%" },
+    AdditionMod { id: "vaal_small_projectile_speed",         display: "10% increased Projectile Speed",                 stat_key: "base_projectile_speed_+%" },
+    AdditionMod { id: "vaal_small_critical_strike_chance",   display: "10% increased Critical Strike Chance",           stat_key: "critical_strike_chance_+%" },
+    AdditionMod { id: "vaal_small_critical_strike_multiplier", display: "+8% to Critical Strike Multiplier",            stat_key: "base_critical_strike_multiplier_+" },
+    AdditionMod { id: "vaal_small_attack_speed",             display: "3% increased Attack Speed",                      stat_key: "attack_speed_+%" },
+    AdditionMod { id: "vaal_small_cast_speed",               display: "2% increased Cast Speed",                        stat_key: "base_cast_speed_+%" },
+    AdditionMod { id: "vaal_small_movement_speed",           display: "2% increased Movement Speed",                    stat_key: "base_movement_velocity_+%" },
+    AdditionMod { id: "vaal_small_chance_to_ignite",         display: "5% chance to Ignite",                            stat_key: "base_chance_to_ignite_%" },
+    AdditionMod { id: "vaal_small_chance_to_freeze",         display: "5% chance to Freeze",                            stat_key: "base_chance_to_freeze_%" },
+    AdditionMod { id: "vaal_small_chance_to_shock",          display: "5% chance to Shock",                             stat_key: "base_chance_to_shock_%" },
+    AdditionMod { id: "vaal_small_duration",                 display: "5% increased Skill Effect Duration",             stat_key: "skill_effect_duration_+%" },
+    AdditionMod { id: "vaal_small_life",                     display: "3% increased maximum Life",                      stat_key: "maximum_life_+%" },
+    AdditionMod { id: "vaal_small_mana",                     display: "5% increased maximum Mana",                      stat_key: "maximum_mana_+%" },
+    AdditionMod { id: "vaal_small_mana_regeneration",        display: "15% increased Mana Regeneration Rate",           stat_key: "mana_regeneration_rate_+%" },
+    AdditionMod { id: "vaal_small_armour",                   display: "10% increased Armour",                           stat_key: "physical_damage_reduction_rating_+%" },
+    AdditionMod { id: "vaal_small_evasion",                  display: "10% increased Evasion Rating",                   stat_key: "evasion_rating_+%" },
+    AdditionMod { id: "vaal_small_energy_shield",            display: "4% increased maximum Energy Shield",             stat_key: "maximum_energy_shield_+%" },
+    AdditionMod { id: "vaal_small_attack_block",             display: "+2% Chance to Block Attack Damage",              stat_key: "additional_block_%" },
+    AdditionMod { id: "vaal_small_spell_block",              display: "2% Chance to Block Spell Damage",                stat_key: "base_spell_block_%" },
+    AdditionMod { id: "vaal_small_attack_dodge",             display: "3% chance to Avoid Elemental Ailments",          stat_key: "avoid_all_elemental_status_%" },
+    AdditionMod { id: "vaal_small_spell_dodge",              display: "+4% chance to Suppress Spell Damage",            stat_key: "base_spell_suppression_chance_%" },
+    AdditionMod { id: "vaal_small_aura_effect",              display: "3% increased effect of Non-Curse Auras from your Skills", stat_key: "non_curse_aura_effect_+%" },
+    AdditionMod { id: "vaal_small_curse_effect",             display: "2% increased Effect of your Curses",             stat_key: "curse_effect_+%" },
+    AdditionMod { id: "vaal_small_fire_resistance",          display: "+12% to Fire Resistance",                        stat_key: "base_fire_damage_resistance_%" },
+    AdditionMod { id: "vaal_small_cold_resistance",          display: "+12% to Cold Resistance",                        stat_key: "base_cold_damage_resistance_%" },
+    AdditionMod { id: "vaal_small_lightning_resistance",      display: "+12% to Lightning Resistance",                  stat_key: "base_lightning_damage_resistance_%" },
+    AdditionMod { id: "vaal_small_chaos_resistance",         display: "+8% to Chaos Resistance",                        stat_key: "base_chaos_damage_resistance_%" },
+];
+
+/// Vaal (Glorious Vanity) notable replacement mods.
+/// Notables in radius are completely replaced with Vaal-themed versions.
+/// These are single-stat representations; in the game, some notables have two
+/// stat lines. We use the primary stat for hash-based selection.
+const VAAL_NOTABLE_REPLACEMENTS: &[AdditionMod] = &[
+    AdditionMod { id: "vaal_notable_fire_damage_1",         display: "30% increased Fire Damage",                               stat_key: "fire_damage_+%" },
+    AdditionMod { id: "vaal_notable_fire_damage_2",         display: "30% increased Fire Damage, 0.2% of Fire Damage Leeched as Life", stat_key: "fire_damage_+%" },
+    AdditionMod { id: "vaal_notable_fire_damage_3",         display: "30% increased Fire Damage, 10% of Physical Damage Converted to Fire Damage", stat_key: "fire_damage_+%" },
+    AdditionMod { id: "vaal_notable_cold_damage_1",         display: "30% increased Cold Damage",                               stat_key: "cold_damage_+%" },
+    AdditionMod { id: "vaal_notable_cold_damage_2",         display: "30% increased Cold Damage, 0.2% of Cold Damage Leeched as Life", stat_key: "cold_damage_+%" },
+    AdditionMod { id: "vaal_notable_cold_damage_3",         display: "30% increased Cold Damage, 10% of Physical Damage Converted to Cold Damage", stat_key: "cold_damage_+%" },
+    AdditionMod { id: "vaal_notable_lightning_damage_1",     display: "30% increased Lightning Damage",                         stat_key: "lightning_damage_+%" },
+    AdditionMod { id: "vaal_notable_lightning_damage_2",     display: "30% increased Lightning Damage, 0.2% of Lightning Damage Leeched as Life", stat_key: "lightning_damage_+%" },
+    AdditionMod { id: "vaal_notable_lightning_damage_3",     display: "30% increased Lightning Damage, 10% of Physical Damage Converted to Lightning Damage", stat_key: "lightning_damage_+%" },
+    AdditionMod { id: "vaal_notable_physical_damage_1",     display: "30% increased Physical Damage, 3% chance to deal Double Damage", stat_key: "physical_damage_+%" },
+    AdditionMod { id: "vaal_notable_physical_damage_2",     display: "30% increased Physical Damage, 0.2% of Physical Damage Leeched as Life", stat_key: "physical_damage_+%" },
+    AdditionMod { id: "vaal_notable_physical_damage_3",     display: "30% increased Physical Damage, Bleeding you inflict deals Damage 10% faster", stat_key: "physical_damage_+%" },
+    AdditionMod { id: "vaal_notable_chaos_damage_1",        display: "30% increased Chaos Damage, 25% chance to inflict Withered for 2 seconds on Hit", stat_key: "chaos_damage_+%" },
+    AdditionMod { id: "vaal_notable_chaos_damage_2",        display: "30% increased Chaos Damage, 0.2% of Chaos Damage Leeched as Life", stat_key: "chaos_damage_+%" },
+    AdditionMod { id: "vaal_notable_spell_damage_1",        display: "30% increased Spell Damage, 42% increased Spell Critical Strike Chance", stat_key: "spell_damage_+%" },
+    AdditionMod { id: "vaal_notable_minion_damage_1",       display: "Minions deal 30% increased Damage, Minions have 17% increased maximum Life", stat_key: "minion_damage_+%" },
+    AdditionMod { id: "vaal_notable_damage_over_time_1",    display: "30% increased Damage over Time, 9% increased Skill Effect Duration", stat_key: "damage_over_time_+%" },
+    AdditionMod { id: "vaal_notable_life_1",                display: "8% increased maximum Life, Regenerate 1% of Life per second", stat_key: "maximum_life_+%" },
+    AdditionMod { id: "vaal_notable_life_2",                display: "8% increased maximum Life, 0.4% of Attack Damage Leeched as Life", stat_key: "maximum_life_+%" },
+    AdditionMod { id: "vaal_notable_mana_1",                display: "20% increased maximum Mana, 20% increased Mana Regeneration Rate", stat_key: "maximum_mana_+%" },
+    AdditionMod { id: "vaal_notable_armour_1",              display: "35% increased Armour, 3% additional Physical Damage Reduction", stat_key: "physical_damage_reduction_rating_+%" },
+    AdditionMod { id: "vaal_notable_evasion_1",             display: "35% increased Evasion Rating, 6% chance to Blind Enemies on Hit", stat_key: "evasion_rating_+%" },
+    AdditionMod { id: "vaal_notable_energy_shield_1",       display: "10% increased maximum Energy Shield, 12% increased Energy Shield Recharge Rate", stat_key: "maximum_energy_shield_+%" },
+    AdditionMod { id: "vaal_notable_energy_shield_2",       display: "10% increased maximum Energy Shield, 0.3% of Spell Damage Leeched as Energy Shield", stat_key: "maximum_energy_shield_+%" },
+    AdditionMod { id: "vaal_notable_block_1",               display: "+8% Chance to Block Attack Damage, 8 Life gained when you Block", stat_key: "additional_block_%" },
+    AdditionMod { id: "vaal_notable_block_2",               display: "8% Chance to Block Spell Damage, 25% increased Defences from Equipped Shield", stat_key: "base_spell_block_%" },
+    AdditionMod { id: "vaal_notable_dodge_1",               display: "9% chance to Avoid Elemental Ailments, 9% chance to Avoid being Stunned", stat_key: "avoid_all_elemental_status_%" },
+    AdditionMod { id: "vaal_notable_dodge_2",               display: "+6% chance to Suppress Spell Damage, +9% to all Elemental Resistances", stat_key: "base_spell_suppression_chance_%" },
+    AdditionMod { id: "vaal_notable_aura_1",                display: "20% increased Area of Effect of Aura Skills, 8% increased effect of Non-Curse Auras from your Skills", stat_key: "non_curse_aura_effect_+%" },
+    AdditionMod { id: "vaal_notable_curse_1",               display: "5% increased Effect of your Curses, Curse Skills have 20% increased Skill Effect Duration", stat_key: "curse_effect_+%" },
+    AdditionMod { id: "vaal_notable_fire_resistance_1",     display: "+1% to maximum Fire Resistance, +25% to Fire Resistance", stat_key: "base_fire_damage_resistance_%" },
+    AdditionMod { id: "vaal_notable_cold_resistance_1",     display: "+1% to maximum Cold Resistance, +25% to Cold Resistance", stat_key: "base_cold_damage_resistance_%" },
+    AdditionMod { id: "vaal_notable_lightning_resistance_1", display: "+1% to maximum Lightning Resistance, +25% to Lightning Resistance", stat_key: "base_lightning_damage_resistance_%" },
+    AdditionMod { id: "vaal_notable_chaos_resistance_1",    display: "+1% to maximum Chaos Resistance, +16% to Chaos Resistance", stat_key: "base_chaos_damage_resistance_%" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -421,43 +573,69 @@ pub fn transform_node_typed(
         };
     }
 
-    // Elegant Hubris replaces all passives in radius with "80% increased effect"
-    // (Notables become "nothing" and small passives are blanked).
-    // The actual behavior replaces them with Brutal Decree passives. Model as
-    // a single generic line for now; future work can add the full replacement table.
-    if jewel_type == JewelType::ElegantHubris {
-        return TimelessTransform {
-            replaced_keystone: None,
-            added_stats: vec!["Passives in Radius are Conquered by the Eternal Empire".to_string()],
-            stat_keys: vec![],
-        };
-    }
-
-    // Glorious Vanity replaces all passives with Vaal-themed versions.
-    // The actual replacement depends on a per-node LUT. Return a placeholder
-    // for now; the full GV implementation needs the binary LUT data.
-    if jewel_type == JewelType::GloriousVanity {
-        return TimelessTransform {
-            replaced_keystone: None,
-            added_stats: vec!["Passives in Radius are Conquered by the Vaal".to_string()],
-            stat_keys: vec![],
-        };
-    }
-
-    // For Lethal Pride / Brutal Restraint / Militant Faith:
-    // small passives and notables get stat additions based on hash(seed, node_id)
     let hash = timeless_hash(seed, node_id);
+    let mut added_stats = Vec::new();
+    let mut stat_keys = Vec::new();
 
+    // -----------------------------------------------------------------------
+    // Elegant Hubris (Eternal Empire)
+    //   - Small passives: replaced with blank ("Passive grants nothing")
+    //   - Notables: replaced with a single themed mod selected by hash
+    // -----------------------------------------------------------------------
+    if jewel_type == JewelType::ElegantHubris {
+        if is_notable {
+            let idx = hash as usize % ETERNAL_NOTABLE_REPLACEMENTS.len();
+            let replacement = &ETERNAL_NOTABLE_REPLACEMENTS[idx];
+            added_stats.push(replacement.display.to_string());
+            stat_keys.push(replacement.stat_key.to_string());
+        } else {
+            added_stats.push("Passive grants nothing".to_string());
+            stat_keys.push("eternal_blank".to_string());
+        }
+        return TimelessTransform {
+            replaced_keystone: None,
+            added_stats,
+            stat_keys,
+        };
+    }
+
+    // -----------------------------------------------------------------------
+    // Glorious Vanity (Vaal)
+    //   - Small passives: replaced with a single Vaal-themed mod
+    //   - Notables: replaced with a Vaal-themed notable mod
+    //   Both selected by hash(seed, node_id).
+    // -----------------------------------------------------------------------
+    if jewel_type == JewelType::GloriousVanity {
+        if is_notable {
+            let idx = hash as usize % VAAL_NOTABLE_REPLACEMENTS.len();
+            let replacement = &VAAL_NOTABLE_REPLACEMENTS[idx];
+            added_stats.push(replacement.display.to_string());
+            stat_keys.push(replacement.stat_key.to_string());
+        } else {
+            let idx = hash as usize % VAAL_SMALL_REPLACEMENTS.len();
+            let replacement = &VAAL_SMALL_REPLACEMENTS[idx];
+            added_stats.push(replacement.display.to_string());
+            stat_keys.push(replacement.stat_key.to_string());
+        }
+        return TimelessTransform {
+            replaced_keystone: None,
+            added_stats,
+            stat_keys,
+        };
+    }
+
+    // -----------------------------------------------------------------------
+    // Lethal Pride / Brutal Restraint / Militant Faith
+    //   - Small passives: deterministic flat stat addition based on hash
+    //   - Notables: 1-2 stat additions selected by hash from the mod pool
+    // -----------------------------------------------------------------------
     let (small_adds, notable_adds) = match jewel_type {
         JewelType::LethalPride     => (KARUI_SMALL_ADDITIONS, KARUI_NOTABLE_ADDITIONS),
         JewelType::BrutalRestraint => (MARAKETH_SMALL_ADDITIONS, MARAKETH_NOTABLE_ADDITIONS),
         JewelType::MilitantFaith   => (TEMPLAR_SMALL_ADDITIONS, TEMPLAR_NOTABLE_ADDITIONS),
-        // Already handled above
+        // Elegant Hubris and Glorious Vanity handled above
         _ => unreachable!(),
     };
-
-    let mut added_stats = Vec::new();
-    let mut stat_keys = Vec::new();
 
     if is_notable {
         let count = notable_addition_count(hash >> 8);
@@ -692,6 +870,10 @@ mod tests {
         assert!(result.added_stats.is_empty());
     }
 
+    // -------------------------------------------------------------------
+    // Brutal Restraint (Maraketh) tests
+    // -------------------------------------------------------------------
+
     #[test]
     fn test_brutal_restraint_small_passive() {
         let result = transform_node_typed(
@@ -707,12 +889,101 @@ mod tests {
     }
 
     #[test]
+    fn test_brutal_restraint_notable() {
+        let result = transform_node_typed(
+            JewelType::BrutalRestraint, 500, 42, true, false, ""
+        );
+        assert!(!result.added_stats.is_empty(), "notable should get at least 1 addition");
+        assert!(result.added_stats.len() <= 2, "notable should get at most 2 additions");
+        assert!(result.replaced_keystone.is_none());
+    }
+
+    #[test]
+    fn test_brutal_restraint_notable_stat_keys() {
+        let result = transform_node_typed(
+            JewelType::BrutalRestraint, 1500, 77, true, false, ""
+        );
+        assert_eq!(
+            result.added_stats.len(),
+            result.stat_keys.len(),
+            "stat_keys must be parallel to added_stats"
+        );
+        for key in &result.stat_keys {
+            assert!(!key.is_empty(), "stat key must not be empty");
+        }
+    }
+
+    #[test]
     fn test_brutal_restraint_keystone_deshret() {
         let result = transform_node_typed(
             JewelType::BrutalRestraint, 500, 42, false, true, "Deshret"
         );
         assert_eq!(result.replaced_keystone.as_deref(), Some("Wind Dancer"));
     }
+
+    #[test]
+    fn test_brutal_restraint_keystone_balbala() {
+        let result = transform_node_typed(
+            JewelType::BrutalRestraint, 500, 42, false, true, "Balbala"
+        );
+        assert_eq!(result.replaced_keystone.as_deref(), Some("The Traitor"));
+    }
+
+    #[test]
+    fn test_brutal_restraint_keystone_asenath() {
+        let result = transform_node_typed(
+            JewelType::BrutalRestraint, 500, 42, false, true, "Asenath"
+        );
+        assert_eq!(result.replaced_keystone.as_deref(), Some("Dance with Death"));
+    }
+
+    #[test]
+    fn test_brutal_restraint_keystone_nasima() {
+        let result = transform_node_typed(
+            JewelType::BrutalRestraint, 500, 42, false, true, "Nasima"
+        );
+        assert_eq!(result.replaced_keystone.as_deref(), Some("Second Sight"));
+    }
+
+    #[test]
+    fn test_brutal_restraint_all_conqueror_keystones() {
+        for ks in BRUTAL_RESTRAINT_KEYSTONES {
+            let result = transform_node_typed(
+                JewelType::BrutalRestraint, 500, 1, false, true, ks.conqueror
+            );
+            assert_eq!(
+                result.replaced_keystone.as_deref(),
+                Some(ks.keystone_name),
+                "mismatch for conqueror {}",
+                ks.conqueror
+            );
+        }
+    }
+
+    #[test]
+    fn test_brutal_restraint_notable_variety() {
+        // Verify different node IDs produce different notable mods
+        let mut seen = std::collections::HashSet::new();
+        for node_id in 1..100u32 {
+            let r = transform_node_typed(
+                JewelType::BrutalRestraint, 1000, node_id, true, false, ""
+            );
+            seen.insert(r.added_stats);
+        }
+        assert!(seen.len() > 5, "expected notable mod variety, got only {} distinct results", seen.len());
+    }
+
+    #[test]
+    fn test_brutal_restraint_deterministic() {
+        let r1 = transform_node_typed(JewelType::BrutalRestraint, 1234, 55, true, false, "");
+        let r2 = transform_node_typed(JewelType::BrutalRestraint, 1234, 55, true, false, "");
+        assert_eq!(r1.added_stats, r2.added_stats);
+        assert_eq!(r1.stat_keys, r2.stat_keys);
+    }
+
+    // -------------------------------------------------------------------
+    // Militant Faith (Templar) tests
+    // -------------------------------------------------------------------
 
     #[test]
     fn test_militant_faith_small_passive() {
@@ -729,6 +1000,46 @@ mod tests {
     }
 
     #[test]
+    fn test_militant_faith_notable() {
+        let result = transform_node_typed(
+            JewelType::MilitantFaith, 3000, 42, true, false, ""
+        );
+        assert!(!result.added_stats.is_empty(), "notable should get at least 1 addition");
+        assert!(result.added_stats.len() <= 2, "notable should get at most 2 additions");
+        assert!(result.replaced_keystone.is_none());
+    }
+
+    #[test]
+    fn test_militant_faith_notable_devotion_themed() {
+        // Militant Faith notables should include devotion-themed mods
+        let mut has_devotion_theme = false;
+        for node_id in 1..200u32 {
+            let r = transform_node_typed(
+                JewelType::MilitantFaith, 5000, node_id, true, false, ""
+            );
+            for line in &r.added_stats {
+                if line.contains("Devotion") || line.contains("150 Devotion") {
+                    has_devotion_theme = true;
+                }
+            }
+        }
+        assert!(has_devotion_theme, "expected at least some devotion-themed notable mods");
+    }
+
+    #[test]
+    fn test_militant_faith_notable_variety() {
+        // The expanded pool should produce more than 1 distinct notable across nodes
+        let mut seen = std::collections::HashSet::new();
+        for node_id in 1..200u32 {
+            let r = transform_node_typed(
+                JewelType::MilitantFaith, 5000, node_id, true, false, ""
+            );
+            seen.insert(r.added_stats);
+        }
+        assert!(seen.len() > 3, "expected notable mod variety, got only {} distinct results", seen.len());
+    }
+
+    #[test]
     fn test_militant_faith_keystone_dominus() {
         let result = transform_node_typed(
             JewelType::MilitantFaith, 2000, 42, false, true, "Dominus"
@@ -737,11 +1048,88 @@ mod tests {
     }
 
     #[test]
-    fn test_elegant_hubris_replaces_all() {
+    fn test_militant_faith_keystone_avarius() {
+        let result = transform_node_typed(
+            JewelType::MilitantFaith, 2000, 42, false, true, "Avarius"
+        );
+        assert_eq!(result.replaced_keystone.as_deref(), Some("Power of Purpose"));
+    }
+
+    #[test]
+    fn test_militant_faith_keystone_maxarius() {
+        let result = transform_node_typed(
+            JewelType::MilitantFaith, 2000, 42, false, true, "Maxarius"
+        );
+        assert_eq!(result.replaced_keystone.as_deref(), Some("Transcendence"));
+    }
+
+    #[test]
+    fn test_militant_faith_keystone_venarius() {
+        let result = transform_node_typed(
+            JewelType::MilitantFaith, 2000, 42, false, true, "Venarius"
+        );
+        assert_eq!(result.replaced_keystone.as_deref(), Some("Battlemage"));
+    }
+
+    #[test]
+    fn test_militant_faith_all_conqueror_keystones() {
+        for ks in MILITANT_FAITH_KEYSTONES {
+            let result = transform_node_typed(
+                JewelType::MilitantFaith, 2000, 1, false, true, ks.conqueror
+            );
+            assert_eq!(
+                result.replaced_keystone.as_deref(),
+                Some(ks.keystone_name),
+                "mismatch for conqueror {}",
+                ks.conqueror
+            );
+        }
+    }
+
+    // -------------------------------------------------------------------
+    // Elegant Hubris (Eternal Empire) tests
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_elegant_hubris_small_passive_blanked() {
         let result = transform_node_typed(
             JewelType::ElegantHubris, 2000, 42, false, false, ""
         );
-        assert!(result.added_stats[0].contains("Conquered by the Eternal Empire"));
+        assert_eq!(result.added_stats.len(), 1);
+        assert_eq!(result.added_stats[0], "Passive grants nothing");
+        assert_eq!(result.stat_keys[0], "eternal_blank");
+    }
+
+    #[test]
+    fn test_elegant_hubris_notable_gets_replacement() {
+        let result = transform_node_typed(
+            JewelType::ElegantHubris, 2000, 42, true, false, ""
+        );
+        assert_eq!(result.added_stats.len(), 1, "notable should get exactly 1 replacement mod");
+        assert!(!result.added_stats[0].is_empty());
+        assert!(!result.stat_keys[0].is_empty());
+        // Should NOT be "Passive grants nothing"
+        assert_ne!(result.added_stats[0], "Passive grants nothing");
+    }
+
+    #[test]
+    fn test_elegant_hubris_notable_variety() {
+        // Different seeds/nodes should produce different notable replacements
+        let mut seen = std::collections::HashSet::new();
+        for node_id in 1..200u32 {
+            let r = transform_node_typed(
+                JewelType::ElegantHubris, 50000, node_id, true, false, ""
+            );
+            seen.insert(r.added_stats[0].clone());
+        }
+        assert!(seen.len() > 10, "expected variety in notable replacements, got only {} distinct", seen.len());
+    }
+
+    #[test]
+    fn test_elegant_hubris_notable_deterministic() {
+        let r1 = transform_node_typed(JewelType::ElegantHubris, 5000, 77, true, false, "");
+        let r2 = transform_node_typed(JewelType::ElegantHubris, 5000, 77, true, false, "");
+        assert_eq!(r1.added_stats, r2.added_stats);
     }
 
     #[test]
@@ -753,11 +1141,118 @@ mod tests {
     }
 
     #[test]
-    fn test_glorious_vanity_replaces_all() {
+    fn test_elegant_hubris_keystone_victario() {
+        let result = transform_node_typed(
+            JewelType::ElegantHubris, 2000, 42, false, true, "Victario"
+        );
+        assert_eq!(result.replaced_keystone.as_deref(), Some("Supreme Grandstanding"));
+    }
+
+    #[test]
+    fn test_elegant_hubris_keystone_caspiro() {
+        let result = transform_node_typed(
+            JewelType::ElegantHubris, 2000, 42, false, true, "Caspiro"
+        );
+        assert_eq!(result.replaced_keystone.as_deref(), Some("Supreme Ego"));
+    }
+
+    #[test]
+    fn test_elegant_hubris_keystone_chitus() {
+        let result = transform_node_typed(
+            JewelType::ElegantHubris, 2000, 42, false, true, "Chitus"
+        );
+        assert_eq!(result.replaced_keystone.as_deref(), Some("Supreme Ostentation"));
+    }
+
+    #[test]
+    fn test_elegant_hubris_all_conqueror_keystones() {
+        for ks in ELEGANT_HUBRIS_KEYSTONES {
+            let result = transform_node_typed(
+                JewelType::ElegantHubris, 2000, 1, false, true, ks.conqueror
+            );
+            assert_eq!(
+                result.replaced_keystone.as_deref(),
+                Some(ks.keystone_name),
+                "mismatch for conqueror {}",
+                ks.conqueror
+            );
+        }
+    }
+
+    #[test]
+    fn test_elegant_hubris_stat_keys_parallel() {
+        let result = transform_node_typed(
+            JewelType::ElegantHubris, 10000, 42, true, false, ""
+        );
+        assert_eq!(result.added_stats.len(), result.stat_keys.len());
+    }
+
+    // -------------------------------------------------------------------
+    // Glorious Vanity (Vaal) tests
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_glorious_vanity_small_passive_replaced() {
         let result = transform_node_typed(
             JewelType::GloriousVanity, 100, 42, false, false, ""
         );
-        assert!(result.added_stats[0].contains("Conquered by the Vaal"));
+        assert_eq!(result.added_stats.len(), 1, "small passive should get exactly 1 replacement");
+        assert!(!result.added_stats[0].is_empty());
+        assert!(!result.stat_keys[0].is_empty());
+    }
+
+    #[test]
+    fn test_glorious_vanity_notable_replaced() {
+        let result = transform_node_typed(
+            JewelType::GloriousVanity, 100, 42, true, false, ""
+        );
+        assert_eq!(result.added_stats.len(), 1, "notable should get exactly 1 replacement");
+        assert!(!result.added_stats[0].is_empty());
+        assert!(!result.stat_keys[0].is_empty());
+    }
+
+    #[test]
+    fn test_glorious_vanity_small_passive_variety() {
+        let mut seen = std::collections::HashSet::new();
+        for node_id in 1..200u32 {
+            let r = transform_node_typed(
+                JewelType::GloriousVanity, 3000, node_id, false, false, ""
+            );
+            seen.insert(r.added_stats[0].clone());
+        }
+        assert!(seen.len() > 10, "expected variety in small passive replacements, got only {} distinct", seen.len());
+    }
+
+    #[test]
+    fn test_glorious_vanity_notable_variety() {
+        let mut seen = std::collections::HashSet::new();
+        for node_id in 1..200u32 {
+            let r = transform_node_typed(
+                JewelType::GloriousVanity, 3000, node_id, true, false, ""
+            );
+            seen.insert(r.added_stats[0].clone());
+        }
+        assert!(seen.len() > 10, "expected variety in notable replacements, got only {} distinct", seen.len());
+    }
+
+    #[test]
+    fn test_glorious_vanity_deterministic() {
+        let r1 = transform_node_typed(JewelType::GloriousVanity, 500, 77, false, false, "");
+        let r2 = transform_node_typed(JewelType::GloriousVanity, 500, 77, false, false, "");
+        assert_eq!(r1.added_stats, r2.added_stats);
+        assert_eq!(r1.stat_keys, r2.stat_keys);
+    }
+
+    #[test]
+    fn test_glorious_vanity_different_seeds_differ() {
+        let mut seen = std::collections::HashSet::new();
+        for seed in 100..200u32 {
+            let r = transform_node_typed(
+                JewelType::GloriousVanity, seed, 42, false, false, ""
+            );
+            seen.insert(r.added_stats);
+        }
+        assert!(seen.len() > 1, "different seeds should produce different results");
     }
 
     #[test]
@@ -767,6 +1262,43 @@ mod tests {
         );
         assert_eq!(result.replaced_keystone.as_deref(), Some("Divine Flesh"));
         assert!(result.added_stats.iter().any(|s| s.contains("Chaos Damage")));
+    }
+
+    #[test]
+    fn test_glorious_vanity_keystone_zerphi() {
+        let result = transform_node_typed(
+            JewelType::GloriousVanity, 100, 42, false, true, "Zerphi"
+        );
+        assert_eq!(result.replaced_keystone.as_deref(), Some("Corrupted Soul"));
+    }
+
+    #[test]
+    fn test_glorious_vanity_keystone_ahuana() {
+        let result = transform_node_typed(
+            JewelType::GloriousVanity, 100, 42, false, true, "Ahuana"
+        );
+        assert_eq!(result.replaced_keystone.as_deref(), Some("Immortal Ambition"));
+    }
+
+    #[test]
+    fn test_glorious_vanity_keystone_doryani() {
+        let result = transform_node_typed(
+            JewelType::GloriousVanity, 100, 42, false, true, "Doryani"
+        );
+        assert_eq!(result.replaced_keystone.as_deref(), Some("Coruscating Elixir"));
+    }
+
+    #[test]
+    fn test_glorious_vanity_stat_keys_parallel() {
+        let r_small = transform_node_typed(
+            JewelType::GloriousVanity, 200, 42, false, false, ""
+        );
+        assert_eq!(r_small.added_stats.len(), r_small.stat_keys.len());
+
+        let r_notable = transform_node_typed(
+            JewelType::GloriousVanity, 200, 42, true, false, ""
+        );
+        assert_eq!(r_notable.added_stats.len(), r_notable.stat_keys.len());
     }
 
     #[test]

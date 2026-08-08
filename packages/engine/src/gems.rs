@@ -59,254 +59,65 @@ pub struct GemData {
 }
 
 // ---------------------------------------------------------------------------
-// Level-indexed scaling data
+// JSON data types (deserialized from PoB-extracted gems.json)
 // ---------------------------------------------------------------------------
 
-/// Damage scale factors at gem levels 1, 10, 15, 20, 21.
-/// The factor at level 20 is always 1.0; other levels multiply the level-20
-/// base damages (and dot_base for DoT gems) to approximate that level's output.
-///
-/// Scale factors for attack gems come from PoB Lua `baseMultiplier` ratios.
-/// Scale factors for spell gems come from the PoE effectiveness formula:
-///   f(r) = (3.885209 + 0.360246*(r-1)) * (1 + incEff)^(r-1)
-/// where r = levelRequirement at each gem level.
-struct GemLevelScaling {
-    /// (gem_level, damage_scale_relative_to_level_20)
-    data_points: [(u32, f64); 5],
+#[derive(Deserialize)]
+struct GemJsonEntry {
+    #[allow(dead_code)]
+    skill_id: String,
+    cast_time: f64,
+    #[allow(dead_code)]
+    base_effectiveness: f64,
+    #[allow(dead_code)]
+    incremental_effectiveness: f64,
+    is_attack: bool,
+    #[serde(default)]
+    is_dot: bool,
+    #[serde(default)]
+    is_minion: bool,
+    #[allow(dead_code)]
+    damage_types: Vec<String>,
+    levels: HashMap<String, GemJsonLevel>,
 }
 
-impl GemLevelScaling {
-    fn interpolate(&self, level: u32) -> f64 {
-        let level = level.clamp(1, 30);
-        for i in 0..4 {
-            let (l_a, s_a) = self.data_points[i];
-            let (l_b, s_b) = self.data_points[i + 1];
-            if level <= l_a {
-                return s_a;
-            }
-            if level <= l_b {
-                let t = (level - l_a) as f64 / (l_b - l_a) as f64;
-                return s_a + t * (s_b - s_a);
-            }
-        }
-        // Beyond the last data point, extrapolate from the last segment
-        let (l_a, s_a) = self.data_points[3];
-        let (l_b, s_b) = self.data_points[4];
-        let t = (level - l_a) as f64 / (l_b - l_a) as f64;
-        s_a + t * (s_b - s_a)
-    }
+#[derive(Deserialize)]
+struct GemJsonLevel {
+    #[allow(dead_code)]
+    level: u32,
+    #[allow(dead_code)]
+    level_requirement: u32,
+    crit_chance: f64,
+    damage_effectiveness: f64,
+    damages: Vec<GemJsonDamage>,
+    #[serde(default)]
+    base_multiplier: f64,
+    #[serde(default)]
+    attack_speed_multiplier: f64,
+    #[serde(default)]
+    spell_damage_more_pct: f64,
+    #[serde(default)]
+    #[allow(dead_code)]
+    minion_level: f64,
 }
 
-static GEM_LEVEL_SCALES: LazyLock<HashMap<&'static str, GemLevelScaling>> = LazyLock::new(|| {
-    let mut m = HashMap::new();
+#[derive(Deserialize)]
+struct GemJsonDamage {
+    damage_type: String,
+    min: f64,
+    max: f64,
+}
 
-    // Attack gems: scale from Lua baseMultiplier at [L1, L10, L15, L20, L21] / L20
-    m.insert("GroundSlam", GemLevelScaling {
-        // baseMultiplier: 1.323, 2.114, 2.753, 3.569, 3.749
-        data_points: [(1, 0.371), (10, 0.592), (15, 0.771), (20, 1.0), (21, 1.050)],
-    });
-    m.insert("LightningArrow", GemLevelScaling {
-        // baseMultiplier: 1.495, 1.626, 1.699, 1.771, 1.786
-        data_points: [(1, 0.844), (10, 0.918), (15, 0.959), (20, 1.0), (21, 1.008)],
-    });
-    m.insert("Cyclone", GemLevelScaling {
-        // baseMultiplier: 0.816, 1.140, 1.320, 1.500, 1.536
-        data_points: [(1, 0.544), (10, 0.760), (15, 0.880), (20, 1.0), (21, 1.024)],
-    });
+// Embed the generated JSON at compile time
+static GEM_JSON_RAW: &str = include_str!("../data/gems.json");
 
-    // Spell gems: scale from effectiveness formula ratio f(levelReq_L) / f(levelReq_20)
-    m.insert("Arc", GemLevelScaling {
-        // incEff=0.0395, levelReqs: 12, 44, 59, 70, 72
-        data_points: [(1, 0.029), (10, 0.246), (15, 0.563), (20, 1.0), (21, 1.108)],
-    });
-    m.insert("Fireball", GemLevelScaling {
-        // incEff=0.0495, levelReqs: 1, 32, 52, 70, 72
-        data_points: [(1, 0.005), (10, 0.084), (15, 0.324), (20, 1.0), (21, 1.129)],
-    });
-    m.insert("WinterOrb", GemLevelScaling {
-        // incEff=0.0355, levelReqs: 28, 50, 60, 70, 72
-        data_points: [(1, 0.109), (10, 0.373), (15, 0.617), (20, 1.0), (21, 1.098)],
-    });
-    m.insert("BladeVortex", GemLevelScaling {
-        // incEff=0.0429, levelReqs: 12, 44, 59, 70, 72
-        data_points: [(1, 0.024), (10, 0.226), (15, 0.542), (20, 1.0), (21, 1.113)],
-    });
-    m.insert("Spark", GemLevelScaling {
-        // incEff=0.0331, levelReqs: 1, 32, 52, 70, 72
-        data_points: [(1, 0.014), (10, 0.152), (15, 0.431), (20, 1.0), (21, 1.094)],
-    });
-    m.insert("IceNova", GemLevelScaling {
-        // incEff=0.0440, levelReqs: 12, 44, 59, 70, 72
-        data_points: [(1, 0.022), (10, 0.220), (15, 0.537), (20, 1.0), (21, 1.117)],
-    });
-
-    // Totem gems
-    m.insert("AncestralWarchief", GemLevelScaling {
-        data_points: [(1, 0.400), (10, 0.620), (15, 0.800), (20, 1.0), (21, 1.040)],
-    });
-    m.insert("HolyFlameTotem", GemLevelScaling {
-        data_points: [(1, 0.030), (10, 0.250), (15, 0.560), (20, 1.0), (21, 1.100)],
-    });
-    // Trap gems
-    m.insert("LightningTrap", GemLevelScaling {
-        data_points: [(1, 0.025), (10, 0.230), (15, 0.550), (20, 1.0), (21, 1.105)],
-    });
-    // Mine gems
-    m.insert("IceMine", GemLevelScaling {
-        data_points: [(1, 0.030), (10, 0.240), (15, 0.560), (20, 1.0), (21, 1.098)],
-    });
-    // Brand gems
-    m.insert("StormBrand", GemLevelScaling {
-        data_points: [(1, 0.020), (10, 0.210), (15, 0.530), (20, 1.0), (21, 1.105)],
-    });
-    // Channelling gems
-    m.insert("Incinerate", GemLevelScaling {
-        data_points: [(1, 0.025), (10, 0.220), (15, 0.540), (20, 1.0), (21, 1.110)],
-    });
-    m.insert("BladeFlurry", GemLevelScaling {
-        data_points: [(1, 0.500), (10, 0.700), (15, 0.850), (20, 1.0), (21, 1.030)],
-    });
-
-    // Minion gem: approximate with moderate spell-like scaling
-    m.insert("SummonRagingSpirit", GemLevelScaling {
-        data_points: [(1, 0.050), (10, 0.200), (15, 0.500), (20, 1.0), (21, 1.100)],
-    });
-
-    // DoT gem: RF spell damage MORE bonus scales 20->39->40 across levels
-    m.insert("RighteousFire", GemLevelScaling {
-        // spell_damage_+%: 20, 29, 34, 39, 40 => ratios to L20
-        data_points: [(1, 0.513), (10, 0.744), (15, 0.872), (20, 1.0), (21, 1.026)],
-    });
-
-    m
+static GEM_JSON: LazyLock<HashMap<String, GemJsonEntry>> = LazyLock::new(|| {
+    serde_json::from_str(GEM_JSON_RAW).expect("gems.json should be valid")
 });
 
 // ---------------------------------------------------------------------------
-// Static damage arrays (level-20 values, used as baseline)
+// Static tag arrays
 // ---------------------------------------------------------------------------
-
-const GROUND_SLAM_DAMAGES: &[DamageRange] = &[DamageRange {
-    min: 200.0,
-    max: 300.0,
-    damage_type: DamageType::Physical,
-}];
-
-const LIGHTNING_ARROW_DAMAGES: &[DamageRange] = &[
-    DamageRange {
-        min: 150.0,
-        max: 250.0,
-        damage_type: DamageType::Physical,
-    },
-    DamageRange {
-        min: 50.0,
-        max: 100.0,
-        damage_type: DamageType::Lightning,
-    },
-];
-
-const WINTER_ORB_DAMAGES: &[DamageRange] = &[DamageRange {
-    min: 100.0,
-    max: 150.0,
-    damage_type: DamageType::Cold,
-}];
-
-const ARC_DAMAGES: &[DamageRange] = &[DamageRange {
-    min: 80.0,
-    max: 400.0,
-    damage_type: DamageType::Lightning,
-}];
-
-const FIREBALL_DAMAGES: &[DamageRange] = &[DamageRange {
-    min: 500.0,
-    max: 750.0,
-    damage_type: DamageType::Fire,
-}];
-
-const BLADE_VORTEX_DAMAGES: &[DamageRange] = &[DamageRange {
-    min: 80.0,
-    max: 120.0,
-    damage_type: DamageType::Physical,
-}];
-
-const SRS_DAMAGES: &[DamageRange] = &[
-    DamageRange {
-        min: 60.0,
-        max: 90.0,
-        damage_type: DamageType::Physical,
-    },
-    DamageRange {
-        min: 80.0,
-        max: 120.0,
-        damage_type: DamageType::Fire,
-    },
-];
-
-const CYCLONE_DAMAGES: &[DamageRange] = &[DamageRange {
-    min: 50.0,
-    max: 75.0,
-    damage_type: DamageType::Physical,
-}];
-
-const SPARK_DAMAGES: &[DamageRange] = &[DamageRange {
-    min: 30.0,
-    max: 560.0,
-    damage_type: DamageType::Lightning,
-}];
-
-const ICE_NOVA_DAMAGES: &[DamageRange] = &[DamageRange {
-    min: 250.0,
-    max: 370.0,
-    damage_type: DamageType::Cold,
-}];
-
-// Totem gems
-const ANCESTRAL_WARCHIEF_DAMAGES: &[DamageRange] = &[DamageRange {
-    min: 180.0,
-    max: 270.0,
-    damage_type: DamageType::Physical,
-}];
-
-const HOLY_FLAME_TOTEM_DAMAGES: &[DamageRange] = &[DamageRange {
-    min: 200.0,
-    max: 300.0,
-    damage_type: DamageType::Fire,
-}];
-
-// Trap gems
-const LIGHTNING_TRAP_DAMAGES: &[DamageRange] = &[DamageRange {
-    min: 60.0,
-    max: 300.0,
-    damage_type: DamageType::Lightning,
-}];
-
-// Mine gems
-const ICE_MINE_DAMAGES: &[DamageRange] = &[DamageRange {
-    min: 180.0,
-    max: 270.0,
-    damage_type: DamageType::Cold,
-}];
-
-// Brand gems
-const STORM_BRAND_DAMAGES: &[DamageRange] = &[DamageRange {
-    min: 40.0,
-    max: 420.0,
-    damage_type: DamageType::Lightning,
-}];
-
-// Channelling gems
-const INCINERATE_DAMAGES: &[DamageRange] = &[DamageRange {
-    min: 30.0,
-    max: 45.0,
-    damage_type: DamageType::Fire,
-}];
-
-const BLADE_FLURRY_DAMAGES: &[DamageRange] = &[DamageRange {
-    min: 40.0,
-    max: 60.0,
-    damage_type: DamageType::Physical,
-}];
-
-const EMPTY_RANGES: &[DamageRange] = &[];
 
 const TAGS_ATTACK_MELEE_AOE: &[GemTag] = &[GemTag::Attack, GemTag::Melee, GemTag::AoE];
 const TAGS_ATTACK_PROJ: &[GemTag] = &[GemTag::Attack, GemTag::Projectile];
@@ -328,308 +139,538 @@ const TAGS_SPELL_PROJ_BRAND: &[GemTag] = &[GemTag::Spell, GemTag::Projectile, Ge
 const TAGS_SPELL_CHANNEL: &[GemTag] = &[GemTag::Spell, GemTag::AoE, GemTag::Channelling];
 
 // ---------------------------------------------------------------------------
-// Level-20 gem template table
+// Gem metadata template (tags, stages, totem count - things not in the JSON)
 // ---------------------------------------------------------------------------
 
-struct GemTemplate {
+struct GemMeta {
     skill_id: &'static str,
     name: &'static str,
-    base_damages: &'static [DamageRange],
-    base_crit_chance: f64,
-    base_cast_time: f64,
-    damage_effectiveness: f64,
     tags: &'static [GemTag],
     is_dot: bool,
-    dot_base: f64,
     stages: u32,
     base_totem_count: u32,
+    /// Fallback crit chance for attack gems (which don't store crit in their level data)
+    default_crit: f64,
+    /// Fallback damage ranges for attack gems (weapon damage approximation)
+    fallback_damages: &'static [DamageRange],
 }
 
-impl GemTemplate {
-    fn to_gem_data(&self, scale: f64) -> GemData {
-        let damages = self.base_damages.iter().map(|d| DamageRange {
-            min: d.min * scale,
-            max: d.max * scale,
-            damage_type: d.damage_type,
-        }).collect();
-        GemData {
-            skill_id: self.skill_id,
-            name: self.name,
-            base_damages: damages,
-            base_crit_chance: self.base_crit_chance,
-            base_cast_time: self.base_cast_time,
-            damage_effectiveness: self.damage_effectiveness,
-            tags: self.tags,
-            is_dot: self.is_dot,
-            dot_base: self.dot_base * scale,
-            stages: self.stages,
-            base_totem_count: self.base_totem_count,
-        }
-    }
-}
+// Fallback damage arrays for attack gems (approximate weapon-based values).
+// Attack gems don't provide flat damage; these represent "typical weapon" estimates.
+const GROUND_SLAM_FALLBACK: &[DamageRange] = &[DamageRange {
+    min: 200.0,
+    max: 300.0,
+    damage_type: DamageType::Physical,
+}];
 
-static GEM_TEMPLATES: LazyLock<HashMap<&'static str, GemTemplate>> = LazyLock::new(|| {
-    let templates: Vec<GemTemplate> = vec![
-        GemTemplate {
-            skill_id: "GroundSlam",
-            name: "Ground Slam",
-            base_damages: GROUND_SLAM_DAMAGES,
-            base_crit_chance: 5.0,
-            base_cast_time: 1.0,
-            damage_effectiveness: 1.1,
-            tags: TAGS_ATTACK_MELEE_AOE,
-            is_dot: false,
-            dot_base: 0.0,
-            stages: 0,
-            base_totem_count: 0,
-        },
-        GemTemplate {
-            skill_id: "LightningArrow",
-            name: "Lightning Arrow",
-            base_damages: LIGHTNING_ARROW_DAMAGES,
-            base_crit_chance: 5.0,
-            base_cast_time: 1.0,
-            damage_effectiveness: 1.04,
-            tags: TAGS_ATTACK_PROJ,
-            is_dot: false,
-            dot_base: 0.0,
-            stages: 0,
-            base_totem_count: 0,
-        },
-        GemTemplate {
-            skill_id: "WinterOrb",
-            name: "Winter Orb",
-            base_damages: WINTER_ORB_DAMAGES,
-            base_crit_chance: 6.0,
-            base_cast_time: 0.72,
-            damage_effectiveness: 0.5,
-            tags: TAGS_SPELL_PROJ_CHANNEL,
-            is_dot: false,
-            dot_base: 0.0,
-            stages: 10,
-            base_totem_count: 0,
-        },
-        GemTemplate {
-            skill_id: "RighteousFire",
-            name: "Righteous Fire",
-            base_damages: EMPTY_RANGES,
-            base_crit_chance: 0.0,
-            base_cast_time: 0.0,
-            damage_effectiveness: 0.0,
-            tags: TAGS_SPELL_DOT,
-            is_dot: true,
-            dot_base: 100.0,
-            stages: 0,
-            base_totem_count: 0,
-        },
-        GemTemplate {
+const LIGHTNING_ARROW_FALLBACK: &[DamageRange] = &[
+    DamageRange {
+        min: 150.0,
+        max: 250.0,
+        damage_type: DamageType::Physical,
+    },
+    DamageRange {
+        min: 50.0,
+        max: 100.0,
+        damage_type: DamageType::Lightning,
+    },
+];
+
+const CYCLONE_FALLBACK: &[DamageRange] = &[DamageRange {
+    min: 50.0,
+    max: 75.0,
+    damage_type: DamageType::Physical,
+}];
+
+const BLADE_FLURRY_FALLBACK: &[DamageRange] = &[DamageRange {
+    min: 40.0,
+    max: 60.0,
+    damage_type: DamageType::Physical,
+}];
+
+// Totem attack fallback
+const ANCESTRAL_WARCHIEF_FALLBACK: &[DamageRange] = &[DamageRange {
+    min: 180.0,
+    max: 270.0,
+    damage_type: DamageType::Physical,
+}];
+
+// SRS fallback (minion damage)
+const SRS_FALLBACK: &[DamageRange] = &[
+    DamageRange {
+        min: 60.0,
+        max: 90.0,
+        damage_type: DamageType::Physical,
+    },
+    DamageRange {
+        min: 80.0,
+        max: 120.0,
+        damage_type: DamageType::Fire,
+    },
+];
+
+const EMPTY_RANGES: &[DamageRange] = &[];
+
+static GEM_META: LazyLock<HashMap<&'static str, GemMeta>> = LazyLock::new(|| {
+    let metas: Vec<GemMeta> = vec![
+        // Spell gems
+        GemMeta {
             skill_id: "Arc",
             name: "Arc",
-            base_damages: ARC_DAMAGES,
-            base_crit_chance: 5.0,
-            base_cast_time: 0.7,
-            damage_effectiveness: 0.8,
             tags: TAGS_SPELL_CHAIN,
             is_dot: false,
-            dot_base: 0.0,
             stages: 0,
             base_totem_count: 0,
+            default_crit: 6.0,
+            fallback_damages: EMPTY_RANGES,
         },
-        GemTemplate {
+        GemMeta {
             skill_id: "Fireball",
             name: "Fireball",
-            base_damages: FIREBALL_DAMAGES,
-            base_crit_chance: 6.0,
-            base_cast_time: 0.75,
-            damage_effectiveness: 2.4,
             tags: TAGS_SPELL_PROJ,
             is_dot: false,
-            dot_base: 0.0,
             stages: 0,
             base_totem_count: 0,
+            default_crit: 5.0,
+            fallback_damages: EMPTY_RANGES,
         },
-        GemTemplate {
-            skill_id: "SummonRagingSpirit",
-            name: "Summon Raging Spirit",
-            base_damages: SRS_DAMAGES,
-            base_crit_chance: 5.0,
-            base_cast_time: 0.5,
-            damage_effectiveness: 1.0,
-            tags: TAGS_MINION,
-            is_dot: false,
-            dot_base: 0.0,
-            stages: 0,
-            base_totem_count: 0,
-        },
-        GemTemplate {
-            skill_id: "BladeVortex",
-            name: "Blade Vortex",
-            base_damages: BLADE_VORTEX_DAMAGES,
-            base_crit_chance: 6.0,
-            base_cast_time: 0.5,
-            damage_effectiveness: 0.45,
-            tags: TAGS_SPELL_AOE,
-            is_dot: false,
-            dot_base: 0.0,
-            stages: 0,
-            base_totem_count: 0,
-        },
-        GemTemplate {
-            skill_id: "Cyclone",
-            name: "Cyclone",
-            base_damages: CYCLONE_DAMAGES,
-            base_crit_chance: 5.0,
-            base_cast_time: 1.0,
-            damage_effectiveness: 0.56,
-            tags: TAGS_ATTACK_MELEE_CHANNEL,
-            is_dot: false,
-            dot_base: 0.0,
-            stages: 0,
-            base_totem_count: 0,
-        },
-        GemTemplate {
+        GemMeta {
             skill_id: "Spark",
             name: "Spark",
-            base_damages: SPARK_DAMAGES,
-            base_crit_chance: 5.0,
-            base_cast_time: 0.65,
-            damage_effectiveness: 0.75,
             tags: TAGS_SPELL_PROJ,
             is_dot: false,
-            dot_base: 0.0,
             stages: 0,
             base_totem_count: 0,
+            default_crit: 5.0,
+            fallback_damages: EMPTY_RANGES,
         },
-        GemTemplate {
+        GemMeta {
             skill_id: "IceNova",
             name: "Ice Nova",
-            base_damages: ICE_NOVA_DAMAGES,
-            base_crit_chance: 6.0,
-            base_cast_time: 0.7,
-            damage_effectiveness: 1.3,
             tags: TAGS_SPELL_AOE,
             is_dot: false,
-            dot_base: 0.0,
             stages: 0,
             base_totem_count: 0,
+            default_crit: 6.0,
+            fallback_damages: EMPTY_RANGES,
         },
-        // ---- Totem skills ----
-        GemTemplate {
-            skill_id: "AncestralWarchief",
-            name: "Ancestral Warchief",
-            base_damages: ANCESTRAL_WARCHIEF_DAMAGES,
-            base_crit_chance: 5.0,
-            base_cast_time: 0.6,  // placement time
-            damage_effectiveness: 1.1,
-            tags: TAGS_ATTACK_MELEE_TOTEM,
+        GemMeta {
+            skill_id: "WinterOrb",
+            name: "Winter Orb",
+            tags: TAGS_SPELL_PROJ_CHANNEL,
             is_dot: false,
-            dot_base: 0.0,
-            stages: 0,
-            base_totem_count: 1,
+            stages: 10,
+            base_totem_count: 0,
+            default_crit: 7.5,
+            fallback_damages: EMPTY_RANGES,
         },
-        GemTemplate {
+        GemMeta {
+            skill_id: "BladeVortex",
+            name: "Blade Vortex",
+            tags: TAGS_SPELL_AOE,
+            is_dot: false,
+            stages: 0,
+            base_totem_count: 0,
+            default_crit: 6.0,
+            fallback_damages: EMPTY_RANGES,
+        },
+        GemMeta {
             skill_id: "HolyFlameTotem",
             name: "Holy Flame Totem",
-            base_damages: HOLY_FLAME_TOTEM_DAMAGES,
-            base_crit_chance: 5.0,
-            base_cast_time: 0.25,  // placement time
-            damage_effectiveness: 0.7,
             tags: TAGS_SPELL_AOE_TOTEM,
             is_dot: false,
-            dot_base: 0.0,
             stages: 0,
             base_totem_count: 1,
+            default_crit: 5.0,
+            fallback_damages: EMPTY_RANGES,
         },
-        // ---- Trap skills ----
-        GemTemplate {
+        GemMeta {
             skill_id: "LightningTrap",
             name: "Lightning Trap",
-            base_damages: LIGHTNING_TRAP_DAMAGES,
-            base_crit_chance: 6.0,
-            base_cast_time: 0.5,  // throwing speed base
-            damage_effectiveness: 0.85,
             tags: TAGS_SPELL_PROJ_TRAP,
             is_dot: false,
-            dot_base: 0.0,
             stages: 0,
             base_totem_count: 0,
+            default_crit: 6.0,
+            fallback_damages: EMPTY_RANGES,
         },
-        // ---- Mine skills ----
-        GemTemplate {
-            skill_id: "IceMine",
+        GemMeta {
+            skill_id: "IcicleMine",
             name: "Icicle Mine",
-            base_damages: ICE_MINE_DAMAGES,
-            base_crit_chance: 6.0,
-            base_cast_time: 0.25,  // throwing speed base
-            damage_effectiveness: 0.7,
             tags: TAGS_SPELL_AOE_MINE,
             is_dot: false,
-            dot_base: 0.0,
             stages: 0,
             base_totem_count: 0,
+            default_crit: 6.0,
+            fallback_damages: EMPTY_RANGES,
         },
-        // ---- Brand skills ----
-        GemTemplate {
+        GemMeta {
             skill_id: "StormBrand",
             name: "Storm Brand",
-            base_damages: STORM_BRAND_DAMAGES,
-            base_crit_chance: 6.0,
-            base_cast_time: 0.75,  // activation frequency base
-            damage_effectiveness: 0.3,
             tags: TAGS_SPELL_PROJ_BRAND,
             is_dot: false,
-            dot_base: 0.0,
             stages: 0,
             base_totem_count: 0,
+            default_crit: 6.0,
+            fallback_damages: EMPTY_RANGES,
         },
-        // ---- Channelling skills (with stages) ----
-        GemTemplate {
+        GemMeta {
             skill_id: "Incinerate",
             name: "Incinerate",
-            base_damages: INCINERATE_DAMAGES,
-            base_crit_chance: 5.0,
-            base_cast_time: 0.2,
-            damage_effectiveness: 0.3,
             tags: TAGS_SPELL_CHANNEL,
             is_dot: false,
-            dot_base: 0.0,
             stages: 8,
             base_totem_count: 0,
+            default_crit: 5.0,
+            fallback_damages: EMPTY_RANGES,
         },
-        GemTemplate {
+        // Attack gems
+        GemMeta {
+            skill_id: "GroundSlam",
+            name: "Ground Slam",
+            tags: TAGS_ATTACK_MELEE_AOE,
+            is_dot: false,
+            stages: 0,
+            base_totem_count: 0,
+            default_crit: 5.0,
+            fallback_damages: GROUND_SLAM_FALLBACK,
+        },
+        GemMeta {
+            skill_id: "LightningArrow",
+            name: "Lightning Arrow",
+            tags: TAGS_ATTACK_PROJ,
+            is_dot: false,
+            stages: 0,
+            base_totem_count: 0,
+            default_crit: 5.0,
+            fallback_damages: LIGHTNING_ARROW_FALLBACK,
+        },
+        GemMeta {
+            skill_id: "Cyclone",
+            name: "Cyclone",
+            tags: TAGS_ATTACK_MELEE_CHANNEL,
+            is_dot: false,
+            stages: 0,
+            base_totem_count: 0,
+            default_crit: 5.0,
+            fallback_damages: CYCLONE_FALLBACK,
+        },
+        GemMeta {
             skill_id: "BladeFlurry",
             name: "Blade Flurry",
-            base_damages: BLADE_FLURRY_DAMAGES,
-            base_crit_chance: 6.0,
-            base_cast_time: 0.65,
-            damage_effectiveness: 0.56,
             tags: &[GemTag::Attack, GemTag::Melee, GemTag::AoE, GemTag::Channelling],
             is_dot: false,
-            dot_base: 0.0,
             stages: 6,
             base_totem_count: 0,
+            default_crit: 6.0,
+            fallback_damages: BLADE_FLURRY_FALLBACK,
+        },
+        // Special: AncestralWarchief (not in PoB skill files, keep hardcoded)
+        GemMeta {
+            skill_id: "AncestralWarchief",
+            name: "Ancestral Warchief",
+            tags: TAGS_ATTACK_MELEE_TOTEM,
+            is_dot: false,
+            stages: 0,
+            base_totem_count: 1,
+            default_crit: 5.0,
+            fallback_damages: ANCESTRAL_WARCHIEF_FALLBACK,
+        },
+        // Special: DoT
+        GemMeta {
+            skill_id: "RighteousFire",
+            name: "Righteous Fire",
+            tags: TAGS_SPELL_DOT,
+            is_dot: true,
+            stages: 0,
+            base_totem_count: 0,
+            default_crit: 0.0,
+            fallback_damages: EMPTY_RANGES,
+        },
+        // Special: Minion
+        GemMeta {
+            skill_id: "SummonRagingSpirit",
+            name: "Summon Raging Spirit",
+            tags: TAGS_MINION,
+            is_dot: false,
+            stages: 0,
+            base_totem_count: 0,
+            default_crit: 5.0,
+            fallback_damages: SRS_FALLBACK,
         },
     ];
 
-    templates.into_iter().map(|t| (t.skill_id, t)).collect()
+    metas.into_iter().map(|m| (m.skill_id, m)).collect()
 });
 
-// Keep a pre-built level-20 table for the common case
-static GEM_TABLE_L20: LazyLock<HashMap<&'static str, GemData>> = LazyLock::new(|| {
-    GEM_TEMPLATES.iter().map(|(&id, tmpl)| {
-        (id, tmpl.to_gem_data(1.0))
-    }).collect()
+// ---------------------------------------------------------------------------
+// Hardcoded scaling for gems not in the PoB skill data
+// ---------------------------------------------------------------------------
+
+struct FallbackScaling {
+    data_points: [(u32, f64); 5],
+}
+
+impl FallbackScaling {
+    fn interpolate(&self, level: u32) -> f64 {
+        let level = level.clamp(1, 30);
+        for i in 0..4 {
+            let (l_a, s_a) = self.data_points[i];
+            let (l_b, s_b) = self.data_points[i + 1];
+            if level <= l_a {
+                return s_a;
+            }
+            if level <= l_b {
+                let t = (level - l_a) as f64 / (l_b - l_a) as f64;
+                return s_a + t * (s_b - s_a);
+            }
+        }
+        let (l_a, s_a) = self.data_points[3];
+        let (l_b, s_b) = self.data_points[4];
+        let t = (level - l_a) as f64 / (l_b - l_a) as f64;
+        s_a + t * (s_b - s_a)
+    }
+}
+
+static FALLBACK_SCALES: LazyLock<HashMap<&'static str, FallbackScaling>> = LazyLock::new(|| {
+    let mut m = HashMap::new();
+    // AncestralWarchief is not in PoB skill files - use hand-tuned curve
+    m.insert("AncestralWarchief", FallbackScaling {
+        data_points: [(1, 0.400), (10, 0.620), (15, 0.800), (20, 1.0), (21, 1.040)],
+    });
+    // SRS minion damage scales roughly with minion level
+    m.insert("SummonRagingSpirit", FallbackScaling {
+        data_points: [(1, 0.050), (10, 0.200), (15, 0.500), (20, 1.0), (21, 1.100)],
+    });
+    m
 });
 
-/// Look up a gem at a specific gem level (1-21+).
-/// Returns an owned GemData with damage values scaled for that level.
-/// Crit chance, cast time, and damage effectiveness stay constant across levels.
+// ---------------------------------------------------------------------------
+// Lookup helpers
+// ---------------------------------------------------------------------------
+
+fn parse_damage_type(s: &str) -> DamageType {
+    match s {
+        "Physical" => DamageType::Physical,
+        "Fire" => DamageType::Fire,
+        "Cold" => DamageType::Cold,
+        "Lightning" => DamageType::Lightning,
+        "Chaos" => DamageType::Chaos,
+        _ => DamageType::Physical,
+    }
+}
+
+/// Find the level entry for the requested gem level. If no exact match,
+/// interpolate between the two nearest levels.
+fn get_json_level_data(entry: &GemJsonEntry, level: u32) -> Option<InterpolatedLevel> {
+    let key = level.to_string();
+    if let Some(exact) = entry.levels.get(&key) {
+        return Some(InterpolatedLevel {
+            crit_chance: exact.crit_chance,
+            damage_effectiveness: exact.damage_effectiveness,
+            base_multiplier: exact.base_multiplier,
+            attack_speed_multiplier: exact.attack_speed_multiplier,
+            spell_damage_more_pct: exact.spell_damage_more_pct,
+            damages: exact.damages.iter().map(|d| DamageRange {
+                min: d.min,
+                max: d.max,
+                damage_type: parse_damage_type(&d.damage_type),
+            }).collect(),
+        });
+    }
+
+    // Interpolate between two nearest levels
+    let mut levels: Vec<u32> = entry.levels.keys()
+        .filter_map(|k| k.parse::<u32>().ok())
+        .collect();
+    levels.sort();
+
+    if levels.is_empty() {
+        return None;
+    }
+
+    // Clamp to available range
+    let clamped = level.clamp(*levels.first().unwrap(), *levels.last().unwrap());
+
+    // Find bounding levels
+    let mut lower = levels[0];
+    let mut upper = levels[0];
+    for &l in &levels {
+        if l <= clamped {
+            lower = l;
+        }
+        if l >= clamped {
+            upper = l;
+            break;
+        }
+    }
+
+    let lo = entry.levels.get(&lower.to_string())?;
+    let hi = entry.levels.get(&upper.to_string())?;
+
+    if lower == upper {
+        return Some(InterpolatedLevel {
+            crit_chance: lo.crit_chance,
+            damage_effectiveness: lo.damage_effectiveness,
+            base_multiplier: lo.base_multiplier,
+            attack_speed_multiplier: lo.attack_speed_multiplier,
+            spell_damage_more_pct: lo.spell_damage_more_pct,
+            damages: lo.damages.iter().map(|d| DamageRange {
+                min: d.min,
+                max: d.max,
+                damage_type: parse_damage_type(&d.damage_type),
+            }).collect(),
+        });
+    }
+
+    let t = (clamped - lower) as f64 / (upper - lower) as f64;
+    let lerp = |a: f64, b: f64| a + t * (b - a);
+
+    let damages: Vec<DamageRange> = if !lo.damages.is_empty() {
+        lo.damages.iter().zip(hi.damages.iter()).map(|(d_lo, d_hi)| {
+            DamageRange {
+                min: lerp(d_lo.min, d_hi.min).round(),
+                max: lerp(d_lo.max, d_hi.max).round(),
+                damage_type: parse_damage_type(&d_lo.damage_type),
+            }
+        }).collect()
+    } else {
+        vec![]
+    };
+
+    Some(InterpolatedLevel {
+        crit_chance: lerp(lo.crit_chance, hi.crit_chance),
+        damage_effectiveness: lerp(lo.damage_effectiveness, hi.damage_effectiveness),
+        base_multiplier: lerp(lo.base_multiplier, hi.base_multiplier),
+        attack_speed_multiplier: lerp(lo.attack_speed_multiplier, hi.attack_speed_multiplier),
+        spell_damage_more_pct: lerp(lo.spell_damage_more_pct, hi.spell_damage_more_pct),
+        damages,
+    })
+}
+
+struct InterpolatedLevel {
+    crit_chance: f64,
+    damage_effectiveness: f64,
+    base_multiplier: f64,
+    attack_speed_multiplier: f64,
+    spell_damage_more_pct: f64,
+    damages: Vec<DamageRange>,
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+/// Look up a gem at a specific gem level (1-40).
+/// Returns an owned GemData with damage values for that level.
+/// Spell gems return real PoB-computed damage; attack gems return fallback
+/// weapon estimates scaled by baseMultiplier.
 pub fn lookup_gem_at_level(skill_id: &str, level: u32) -> Option<GemData> {
-    let tmpl = GEM_TEMPLATES.get(skill_id)?;
-    let scale = GEM_LEVEL_SCALES.get(skill_id)
+    // Normalize legacy aliases
+    let canonical = match skill_id {
+        "IceMine" => "IcicleMine",
+        _ => skill_id,
+    };
+
+    let meta = GEM_META.get(canonical)?;
+    let json_key = canonical;
+
+    if let Some(json_entry) = GEM_JSON.get(json_key) {
+        if let Some(lvl) = get_json_level_data(json_entry, level) {
+            let (base_damages, damage_effectiveness) = if json_entry.is_attack {
+                // Attack gem: use fallback damages scaled by baseMultiplier ratio
+                let l20_mult = json_entry.levels.get("20")
+                    .map(|l| l.base_multiplier)
+                    .unwrap_or(1.0);
+                let scale = if l20_mult > 0.0 { lvl.base_multiplier / l20_mult } else { 1.0 };
+                let damages = meta.fallback_damages.iter().map(|d| DamageRange {
+                    min: d.min * scale,
+                    max: d.max * scale,
+                    damage_type: d.damage_type,
+                }).collect();
+                (damages, lvl.damage_effectiveness)
+            } else if json_entry.is_dot {
+                // DoT gem (RF): no flat damage, use spell_damage_more_pct for dot_base scaling
+                (vec![], 0.0)
+            } else if json_entry.is_minion {
+                // Minion gem: use fallback damages scaled roughly
+                let scale = FALLBACK_SCALES.get(skill_id)
+                    .map(|s| s.interpolate(level))
+                    .unwrap_or(1.0);
+                let damages = meta.fallback_damages.iter().map(|d| DamageRange {
+                    min: d.min * scale,
+                    max: d.max * scale,
+                    damage_type: d.damage_type,
+                }).collect();
+                (damages, 1.0)
+            } else {
+                // Spell gem: use the real computed damage from JSON
+                (lvl.damages, lvl.damage_effectiveness)
+            };
+
+            let crit_chance = if lvl.crit_chance > 0.0 {
+                lvl.crit_chance
+            } else {
+                meta.default_crit
+            };
+
+            let cast_time = if json_entry.cast_time > 0.0 {
+                json_entry.cast_time
+            } else {
+                0.0
+            };
+
+            // RF dot_base: scale by spell_damage_more_pct ratio to level 20
+            let dot_base = if meta.is_dot && json_entry.is_dot {
+                let l20_pct = json_entry.levels.get("20")
+                    .map(|l| l.spell_damage_more_pct)
+                    .unwrap_or(39.0);
+                let scale = if l20_pct > 0.0 { lvl.spell_damage_more_pct / l20_pct } else { 1.0 };
+                100.0 * scale
+            } else {
+                0.0
+            };
+
+            return Some(GemData {
+                skill_id: meta.skill_id,
+                name: meta.name,
+                base_damages,
+                base_crit_chance: crit_chance,
+                base_cast_time: cast_time,
+                damage_effectiveness,
+                tags: meta.tags,
+                is_dot: meta.is_dot,
+                dot_base,
+                stages: meta.stages,
+                base_totem_count: meta.base_totem_count,
+            });
+        }
+    }
+
+    // Fallback for gems not in JSON (e.g. AncestralWarchief)
+    let scale = FALLBACK_SCALES.get(skill_id)
         .map(|s| s.interpolate(level))
         .unwrap_or(1.0);
-    Some(tmpl.to_gem_data(scale))
+
+    let base_damages = meta.fallback_damages.iter().map(|d| DamageRange {
+        min: d.min * scale,
+        max: d.max * scale,
+        damage_type: d.damage_type,
+    }).collect();
+
+    Some(GemData {
+        skill_id: meta.skill_id,
+        name: meta.name,
+        base_damages,
+        base_crit_chance: meta.default_crit,
+        base_cast_time: 0.6, // default placement time
+        damage_effectiveness: 1.1,
+        tags: meta.tags,
+        is_dot: meta.is_dot,
+        dot_base: if meta.is_dot { 100.0 * scale } else { 0.0 },
+        stages: meta.stages,
+        base_totem_count: meta.base_totem_count,
+    })
 }
 
 /// Look up a gem at level 20 (backward-compatible default).
@@ -697,7 +738,10 @@ mod tests {
     fn test_lookup_winter_orb() {
         let gem = lookup_gem("WinterOrb").expect("WinterOrb should exist");
         assert_eq!(gem.name, "Winter Orb");
-        assert_eq!(gem.base_cast_time, 0.72);
+        // PoB data: castTime = 0.25, critChance = 7.5, damageEffectiveness = 0.8
+        assert_eq!(gem.base_cast_time, 0.25);
+        assert_eq!(gem.base_crit_chance, 7.5);
+        assert_eq!(gem.damage_effectiveness, 0.8);
         assert_eq!(gem.base_damages.len(), 1);
         assert_eq!(gem.base_damages[0].damage_type, DamageType::Cold);
     }
@@ -706,7 +750,8 @@ mod tests {
     fn test_lookup_righteous_fire() {
         let gem = lookup_gem("RighteousFire").expect("RF should exist");
         assert!(gem.is_dot);
-        assert_eq!(gem.dot_base, 100.0);
+        // RF L20 spell_damage_more_pct = 39 => dot_base = 100.0 * 39/39 = 100.0
+        assert!((gem.dot_base - 100.0).abs() < 0.01);
         assert!(gem.base_damages.is_empty());
     }
 
@@ -716,9 +761,11 @@ mod tests {
     }
 
     #[test]
-    fn test_avg_base_damage() {
+    fn test_avg_base_damage_ground_slam() {
         let gem = lookup_gem("GroundSlam").unwrap();
         let avg = avg_base_damage(&gem);
+        // L20 baseMultiplier = 3.569, L20 scale = 3.569/3.569 = 1.0
+        // fallback: (200+300)/2 = 250
         assert!((avg - 250.0).abs() < 0.01, "expected ~250, got {avg}");
     }
 
@@ -726,16 +773,17 @@ mod tests {
     fn test_multi_element_damage() {
         let gem = lookup_gem("LightningArrow").unwrap();
         let avg = avg_base_damage(&gem);
-        // phys (150+250)/2 + light (50+100)/2 = 200 + 75 = 275
+        // L20: fallback (150+250)/2 + (50+100)/2 = 200 + 75 = 275, scale=1.0
         assert!((avg - 275.0).abs() < 0.01, "expected ~275, got {avg}");
     }
 
     #[test]
     fn test_gem_count() {
-        assert!(GEM_TEMPLATES.len() >= 10, "expected at least 10 gems");
+        // We have 18 gem metadata entries
+        assert!(GEM_META.len() >= 17, "expected at least 17 gems, got {}", GEM_META.len());
     }
 
-    // ---- Level scaling tests -----------------------------------------------
+    // ---- Level scaling tests (using real PoB data) ----------------------------
 
     #[test]
     fn test_level_20_is_baseline() {
@@ -792,7 +840,7 @@ mod tests {
         let rf1 = lookup_gem_at_level("RighteousFire", 1).unwrap();
         let rf20 = lookup_gem_at_level("RighteousFire", 20).unwrap();
         assert!(rf1.dot_base < rf20.dot_base, "RF L1 dot_base ({}) should be less than L20 ({})", rf1.dot_base, rf20.dot_base);
-        assert_eq!(rf20.dot_base, 100.0);
+        assert!((rf20.dot_base - 100.0).abs() < 0.01);
     }
 
     #[test]
@@ -801,7 +849,6 @@ mod tests {
         let l20 = lookup_gem_at_level("Arc", 20).unwrap();
         assert_eq!(l1.base_crit_chance, l20.base_crit_chance);
         assert_eq!(l1.base_cast_time, l20.base_cast_time);
-        assert_eq!(l1.damage_effectiveness, l20.damage_effectiveness);
     }
 
     #[test]
@@ -809,6 +856,34 @@ mod tests {
         let via_default = lookup_gem("Arc").unwrap();
         let via_explicit = lookup_gem_at_level("Arc", 20).unwrap();
         assert_eq!(avg_base_damage(&via_default), avg_base_damage(&via_explicit));
+    }
+
+    // ---- Spell damage accuracy tests (real PoB values) -------------------------
+
+    #[test]
+    fn test_arc_l20_damage() {
+        let gem = lookup_gem("Arc").unwrap();
+        // From PoB: Arc L20 = 198-1122 Lightning
+        assert_eq!(gem.base_damages.len(), 1);
+        assert_eq!(gem.base_damages[0].damage_type, DamageType::Lightning);
+        assert!((gem.base_damages[0].min - 198.0).abs() < 1.0, "Arc L20 min: {}", gem.base_damages[0].min);
+        assert!((gem.base_damages[0].max - 1122.0).abs() < 1.0, "Arc L20 max: {}", gem.base_damages[0].max);
+    }
+
+    #[test]
+    fn test_fireball_l20_damage() {
+        let gem = lookup_gem("Fireball").unwrap();
+        // From PoB: Fireball L20 = 1883-2825 Fire
+        assert_eq!(gem.base_damages[0].damage_type, DamageType::Fire);
+        assert!((gem.base_damages[0].min - 1883.0).abs() < 1.0, "Fireball L20 min: {}", gem.base_damages[0].min);
+        assert!((gem.base_damages[0].max - 2825.0).abs() < 1.0, "Fireball L20 max: {}", gem.base_damages[0].max);
+    }
+
+    #[test]
+    fn test_spark_l1_damage() {
+        let gem = lookup_gem_at_level("Spark", 1).unwrap();
+        // From PoB JSON: Spark L1 (levelReq=1) should be small
+        assert!(gem.base_damages[0].min < 10.0, "Spark L1 min should be small: {}", gem.base_damages[0].min);
     }
 
     // ---- Archetype detection tests -------------------------------------------
@@ -849,8 +924,12 @@ mod tests {
 
     #[test]
     fn test_archetype_mine() {
-        let im = lookup_gem("IceMine").unwrap();
+        let im = lookup_gem("IcicleMine").unwrap();
         assert_eq!(im.archetype(), SkillArchetype::Mine);
+
+        // Legacy alias should also work
+        let im2 = lookup_gem("IceMine").unwrap();
+        assert_eq!(im2.archetype(), SkillArchetype::Mine);
     }
 
     #[test]
@@ -870,7 +949,45 @@ mod tests {
 
     #[test]
     fn test_gem_count_with_archetypes() {
-        // Original 10 + 7 new = 17
-        assert!(GEM_TEMPLATES.len() >= 17, "expected at least 17 gems, got {}", GEM_TEMPLATES.len());
+        assert!(GEM_META.len() >= 17, "expected at least 17 gems, got {}", GEM_META.len());
+    }
+
+    // ---- Real PoB data accuracy tests ----------------------------------------
+
+    #[test]
+    fn test_attack_gem_damage_effectiveness_from_pob() {
+        // GroundSlam L20 has damageEffectiveness = 3.569 from PoB
+        let gs = lookup_gem("GroundSlam").unwrap();
+        assert!((gs.damage_effectiveness - 3.569).abs() < 0.001,
+            "GS damage_effectiveness should be 3.569, got {}", gs.damage_effectiveness);
+    }
+
+    #[test]
+    fn test_spell_gem_damage_effectiveness_from_pob() {
+        // Arc L20 damageEffectiveness = 1.2
+        let arc = lookup_gem("Arc").unwrap();
+        assert!((arc.damage_effectiveness - 1.2).abs() < 0.001,
+            "Arc damage_effectiveness should be 1.2, got {}", arc.damage_effectiveness);
+    }
+
+    #[test]
+    fn test_winter_orb_real_crit() {
+        // WinterOrb has critChance=7.5 in PoB data (not 6.0 as was hardcoded)
+        let wo = lookup_gem("WinterOrb").unwrap();
+        assert!((wo.base_crit_chance - 7.5).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_all_levels_monotonic_increase_for_spells() {
+        // Fireball damage should increase at every level
+        let mut prev_avg = 0.0;
+        for lvl in 1..=21 {
+            let gem = lookup_gem_at_level("Fireball", lvl).unwrap();
+            let avg = avg_base_damage(&gem);
+            assert!(avg >= prev_avg,
+                "Fireball L{lvl} avg ({avg}) should be >= L{} avg ({prev_avg})",
+                lvl - 1);
+            prev_avg = avg;
+        }
     }
 }

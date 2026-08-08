@@ -32,7 +32,7 @@ pub mod timeless;
 pub use flasks::{get_flask_mods, charge_mods};
 pub use weapons::{calc_weapon_dps, find_weapon_base, WeaponDps};
 pub use stat_parser::{parse_stat_line, parse_stats};
-pub use supports::get_support_modifiers;
+pub use supports::{get_support_modifiers, get_support_modifiers_at_level};
 
 // ---------------------------------------------------------------------------
 // Public types shared with TypeScript via tsify
@@ -125,6 +125,10 @@ pub struct BuildInput {
     pub enemy_is_boss: bool,
     #[serde(default)]
     pub support_gems: Vec<String>,
+    /// Gem levels for each support gem, parallel to `support_gems`.
+    /// When shorter than support_gems, missing entries default to 20.
+    #[serde(default)]
+    pub support_gem_levels: Vec<u32>,
     #[serde(default)]
     pub equipped_uniques: Vec<String>,
     #[serde(default)]
@@ -381,8 +385,11 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     } else {
         input.support_gems.iter().collect()
     };
-    for gem_name in &effective_supports {
-        for m in supports::get_support_modifiers(gem_name) {
+    for (i, gem_name) in effective_supports.iter().enumerate() {
+        // Use per-gem level from support_gem_levels when available, default to 20
+        let sup_level = input.support_gem_levels.get(i).copied().unwrap_or(20);
+        let sup_level = if sup_level == 0 { 20 } else { sup_level };
+        for m in supports::get_support_modifiers_at_level(gem_name, sup_level) {
             db.add_legacy(&m.stat, m.value, &m.mod_type);
         }
     }
