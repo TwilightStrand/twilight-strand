@@ -242,39 +242,7 @@ pub fn get_unique_effects(item_name: &str) -> Vec<Modifier> {
         mods.push(Modifier { stat: "Damage".into(), value: 40.0, mod_type: "more".into() });
     }
 
-    // === FLASKS ===
-    if name.contains("bottled faith") {
-        mods.push(Modifier { stat: "CritChance".into(), value: 100.0, mod_type: "increased".into() });
-        mods.push(Modifier { stat: "Damage".into(), value: 10.0, mod_type: "increased".into() });
-    }
-    if name.contains("dying sun") {
-        mods.push(Modifier { stat: "FireDamage".into(), value: 20.0, mod_type: "increased".into() });
-    }
-    if name.contains("taste of hate") {
-        mods.push(Modifier { stat: "ColdRes".into(), value: 20.0, mod_type: "flat".into() });
-    }
-    if name.contains("the wise oak") {
-        mods.push(Modifier { stat: "FirePenetration".into(), value: 10.0, mod_type: "flat".into() });
-        mods.push(Modifier { stat: "ColdPenetration".into(), value: 10.0, mod_type: "flat".into() });
-        mods.push(Modifier { stat: "LightningPenetration".into(), value: 10.0, mod_type: "flat".into() });
-    }
-    if name.contains("atziri's promise") {
-        mods.push(Modifier { stat: "ChaosDamage".into(), value: 15.0, mod_type: "increased".into() });
-        mods.push(Modifier { stat: "ChaosRes".into(), value: 35.0, mod_type: "flat".into() });
-    }
-    if name.contains("lion's roar") {
-        mods.push(Modifier { stat: "Damage".into(), value: 25.0, mod_type: "more".into() });
-        mods.push(Modifier { stat: "Armour".into(), value: 3000.0, mod_type: "flat".into() });
-    }
-    if name.contains("cinderswallow") {
-        mods.push(Modifier { stat: "Damage".into(), value: 10.0, mod_type: "increased".into() });
-    }
-    if name.contains("divine flesh") || name.contains("divination distillate") {
-        mods.push(Modifier { stat: "FireRes".into(), value: 6.0, mod_type: "flat".into() });
-        mods.push(Modifier { stat: "ColdRes".into(), value: 6.0, mod_type: "flat".into() });
-        mods.push(Modifier { stat: "LightningRes".into(), value: 6.0, mod_type: "flat".into() });
-        mods.push(Modifier { stat: "ChaosRes".into(), value: 6.0, mod_type: "flat".into() });
-    }
+    // Unique flasks are handled in flasks.rs via active_flasks; not duplicated here.
 
     // === BODY ARMOUR (additional) ===
     if name.contains("hyrri's ire") {

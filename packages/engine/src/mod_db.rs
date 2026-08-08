@@ -687,6 +687,8 @@ define_stats! {
     (CURSE_IMMUNE, "CurseImmune") = 431,
     // No reservation (skill-specific)
     (NO_RESERVATION, "NoReservation") = 432,
+    // Warcry count (exerted attacks)
+    (WARCRY_COUNT, "WarcryCount") = 433,
     // Jewel radius effects
     (JEWEL_RADIUS_EFFECT, "JewelRadiusEffect") = 434,
     // Enchantment capacity
@@ -933,6 +935,16 @@ pub enum ConditionId {
     EnemyColdExposure = 23,
     EnemyFireExposure = 24,
     EnemyLightningExposure = 25,
+    OnConsecratedGround = 26,
+    EnemyIntimidated = 27,
+    EnemyUnnerved = 28,
+    HavePhasing = 29,
+    HaveElusive = 30,
+    EnemyHindered = 31,
+    CritInPast8Seconds = 32,
+    HitRecentlyByEnemy = 33,
+    UsedSkillRecently = 34,
+    NearbyRareOrUnique = 35,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]

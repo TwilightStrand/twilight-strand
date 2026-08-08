@@ -29,3 +29,7 @@ Thumbs.db
 
 # Research artifacts (keep in docs but not built assets)
 docs/research/*.json
+
+# Local research backups
+.local-research-backup/
+docs/research/screenshots/solvedexile-*
