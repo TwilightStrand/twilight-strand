@@ -25,12 +25,19 @@ export interface TreeGroup {
   y: number;
   orbits: number[];
   nodes: string[];
+  isProxy?: boolean;
   background?: {
     image: string;
     isHalfImage?: boolean;
     offsetX?: number;
     offsetY?: number;
   };
+}
+
+export interface ExtraImage {
+  x: number;
+  y: number;
+  image: string;
 }
 
 export interface SpriteCoord {
@@ -57,6 +64,7 @@ export interface TreeData {
   }>;
   classStartNodes: Map<number, string>;
   sprites: Record<string, Record<string, SpriteSheet | SpriteSheet[]>>;
+  extraImages: Map<string, ExtraImage>;
   bounds: { minX: number; maxX: number; minY: number; maxY: number };
   constants: {
     skillsPerOrbit: number[];
@@ -110,6 +118,7 @@ export function parseTreeData(raw: Record<string, unknown>): TreeData {
       y: g.y as number,
       orbits: g.orbits as number[],
       nodes: g.nodes as string[],
+      isProxy: g.isProxy as boolean | undefined,
       background: g.background as TreeGroup["background"],
     });
   }
@@ -167,12 +176,25 @@ export function parseTreeData(raw: Record<string, unknown>): TreeData {
     }
   }
 
+  const extraImages = new Map<string, ExtraImage>();
+  const rawExtra = raw.extraImages as Record<string, Record<string, unknown>> | undefined;
+  if (rawExtra) {
+    for (const [eid, ei] of Object.entries(rawExtra)) {
+      extraImages.set(eid, {
+        x: ei.x as number,
+        y: ei.y as number,
+        image: ei.image as string,
+      });
+    }
+  }
+
   return {
     nodes,
     groups,
     classes: raw.classes as TreeData["classes"],
     classStartNodes,
     sprites: raw.sprites as TreeData["sprites"],
+    extraImages,
     bounds: {
       minX: raw.min_x as number,
       maxX: raw.max_x as number,

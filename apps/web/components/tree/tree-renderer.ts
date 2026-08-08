@@ -1,6 +1,6 @@
 import type { Camera } from "./tree-camera";
 import { worldToScreen } from "./tree-camera";
-import type { SpriteCoord, SpriteSheet, TreeData, TreeNode } from "./tree-data";
+import type { ExtraImage, SpriteCoord, SpriteSheet, TreeData, TreeNode } from "./tree-data";
 
 const spriteImageCache = new Map<string, HTMLImageElement>();
 
@@ -36,7 +36,11 @@ export class TreeRenderer {
   private allocatedNodes: Set<string> = new Set();
   private spriteSheets: Map<string, SpriteSheet> = new Map();
   private groupBgImages: Map<string, HTMLImageElement> = new Map();
+  private bgTileImage: HTMLImageElement | null = null;
+  private bgTilePattern: CanvasPattern | null = null;
+  private classIllustrations: Map<string, HTMLImageElement> = new Map();
   private nodePower: Map<string, number> = new Map();
+  private bgOpacity = { tile: 1, classArt: 1, groupBg: 1 };
   private nodePowerMode: "off" | "dps" | "defence" | "both" = "off";
   private searchResults: Set<string> = new Set();
   private hoveredNode: string | null = null;
@@ -112,8 +116,11 @@ export class TreeRenderer {
       }
     }
 
-    // Load group background images
-    const bgFiles = ["PSGroupBackground1.png", "PSGroupBackground2.png", "PSGroupBackground3.png"];
+    // Load group background images (regular + expansion alt variants)
+    const bgFiles = [
+      "PSGroupBackground1.png", "PSGroupBackground2.png", "PSGroupBackground3.png",
+      "GroupBackgroundSmallAlt.png", "GroupBackgroundMediumAlt.png", "GroupBackgroundLargeHalfAlt.png",
+    ];
     const bgLoads = bgFiles.map(async (name) => {
       const bgUrl = `/data/pob/TreeData/${name}`;
       const cached = spriteImageCache.get(bgUrl);
@@ -136,6 +143,38 @@ export class TreeRenderer {
         this.groupBgImages.set(name, img);
       }
     }
+
+    // Load tiled background texture
+    const tileUrl = `/data/passive-skill/background-3.png`;
+    const tileImg = await this.loadImage(tileUrl);
+    if (tileImg) {
+      this.bgTileImage = tileImg;
+    }
+
+    // Load class area illustrations
+    const classArtNames = ["BackgroundStr", "BackgroundDex", "BackgroundInt", "BackgroundStrDex", "BackgroundStrInt", "BackgroundDexInt"];
+    const classLoads = classArtNames.map(async (name) => {
+      const img = await this.loadImage(`/data/pob/TreeData/${name}.png`);
+      if (img) this.classIllustrations.set(name, img);
+    });
+    await Promise.all(classLoads);
+  }
+
+  private async loadImage(url: string): Promise<HTMLImageElement | null> {
+    const cached = spriteImageCache.get(url);
+    if (cached) return cached;
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = url;
+    await new Promise<void>((resolve) => {
+      img.onload = () => resolve();
+      img.onerror = () => resolve();
+    });
+    if (img.complete && img.naturalWidth > 0) {
+      spriteImageCache.set(url, img);
+      return img;
+    }
+    return null;
   }
 
   private resolveUrl(url: string): string {
@@ -164,6 +203,14 @@ export class TreeRenderer {
     this.nodePower = power;
     this.nodePowerMode = mode;
     this.staticDirty = true;
+  }
+
+  setBackgroundOpacity(tile: number, classArt: number, groupBg: number): void {
+    const newOpacity = { tile: tile / 100, classArt: classArt / 100, groupBg: groupBg / 100 };
+    if (this.bgOpacity.tile !== newOpacity.tile || this.bgOpacity.classArt !== newOpacity.classArt || this.bgOpacity.groupBg !== newOpacity.groupBg) {
+      this.bgOpacity = newOpacity;
+      this.staticDirty = true;
+    }
   }
 
   setHoveredNode(nodeId: string | null): void {
@@ -215,8 +262,7 @@ export class TreeRenderer {
       sctx.save();
       sctx.scale(this.dpr, this.dpr);
 
-      sctx.fillStyle = COLOR_BG;
-      sctx.fillRect(0, 0, cw, ch);
+      this.drawTiledBackground(sctx, camera, cw, ch);
 
       this.drawGroupBackgrounds(sctx, camera, cw, ch);
       this.drawClassStartAreas(sctx, camera, cw, ch);
@@ -257,6 +303,35 @@ export class TreeRenderer {
     ctx.restore();
   }
 
+  private drawTiledBackground(ctx: CanvasRenderingContext2D, cam: Camera, cw: number, ch: number): void {
+    ctx.fillStyle = COLOR_BG;
+    ctx.fillRect(0, 0, cw, ch);
+
+    if (!this.bgTileImage) return;
+
+    if (!this.bgTilePattern) {
+      this.bgTilePattern = ctx.createPattern(this.bgTileImage, "repeat");
+      if (!this.bgTilePattern) return;
+    }
+
+    const tileSize = this.bgTileImage.width * cam.zoom * 2.5;
+    const offsetX = (-cam.x * cam.zoom + cw / 2) % tileSize;
+    const offsetY = (-cam.y * cam.zoom + ch / 2) % tileSize;
+
+    ctx.save();
+    ctx.globalAlpha = this.bgOpacity.tile;
+    ctx.translate(offsetX, offsetY);
+    ctx.scale(cam.zoom * 2.5, cam.zoom * 2.5);
+    ctx.fillStyle = this.bgTilePattern;
+    ctx.fillRect(
+      -offsetX / (cam.zoom * 2.5),
+      -offsetY / (cam.zoom * 2.5),
+      cw / (cam.zoom * 2.5),
+      ch / (cam.zoom * 2.5),
+    );
+    ctx.restore();
+  }
+
   private isVisible(sx: number, sy: number, radius: number, cw: number, ch: number): boolean {
     return sx + radius > 0 && sx - radius < cw && sy + radius > 0 && sy - radius < ch;
   }
@@ -280,13 +355,14 @@ export class TreeRenderer {
       if (screenRadius < 4) continue;
 
       const bgImage = group.background.image;
+      const isExpansion = !!group.isProxy;
       let imgName: string;
       if (bgImage.includes("3") || bgImage.includes("Large")) {
-        imgName = "PSGroupBackground3.png";
+        imgName = isExpansion ? "GroupBackgroundLargeHalfAlt.png" : "PSGroupBackground3.png";
       } else if (bgImage.includes("2") || bgImage.includes("Medium")) {
-        imgName = "PSGroupBackground2.png";
+        imgName = isExpansion ? "GroupBackgroundMediumAlt.png" : "PSGroupBackground2.png";
       } else {
-        imgName = "PSGroupBackground1.png";
+        imgName = isExpansion ? "GroupBackgroundSmallAlt.png" : "PSGroupBackground1.png";
       }
 
       const img = this.groupBgImages.get(imgName);
@@ -296,7 +372,7 @@ export class TreeRenderer {
       const halfImage = group.background.isHalfImage;
 
       ctx.save();
-      ctx.globalAlpha = 0.15;
+      ctx.globalAlpha = this.bgOpacity.groupBg;
       if (halfImage) {
         ctx.drawImage(img, sx - size / 2, sy - size, size, size);
       } else {
@@ -306,7 +382,33 @@ export class TreeRenderer {
     }
   }
 
+  private static readonly CLASS_ART_POSITIONS: Array<{ name: string; x: number; y: number }> = [
+    { name: "BackgroundStr", x: -2750, y: 1600 },
+    { name: "BackgroundDex", x: 2550, y: 1600 },
+    { name: "BackgroundInt", x: -250, y: -2200 },
+    { name: "BackgroundStrDex", x: -150, y: 2350 },
+    { name: "BackgroundStrInt", x: -2100, y: -1500 },
+    { name: "BackgroundDexInt", x: 2350, y: -1950 },
+  ];
+
   private drawClassStartAreas(ctx: CanvasRenderingContext2D, cam: Camera, cw: number, ch: number): void {
+    for (const art of TreeRenderer.CLASS_ART_POSITIONS) {
+      const img = this.classIllustrations.get(art.name);
+      if (!img) continue;
+
+      const { x: sx, y: sy } = worldToScreen(cam, art.x, art.y, cw, ch);
+      const imgW = img.naturalWidth * cam.zoom;
+      const imgH = img.naturalHeight * cam.zoom;
+
+      if (!this.isVisible(sx, sy, Math.max(imgW, imgH) / 2, cw, ch)) continue;
+
+      ctx.save();
+      ctx.globalAlpha = this.bgOpacity.classArt;
+      ctx.drawImage(img, sx - imgW / 2, sy - imgH / 2, imgW, imgH);
+      ctx.restore();
+    }
+
+    // Draw glow at class start nodes
     for (const [, nodeId] of this.tree.classStartNodes) {
       const node = this.tree.nodes.get(nodeId);
       if (!node) continue;
@@ -854,5 +956,6 @@ export class TreeRenderer {
 
   destroy(): void {
     this.atlases.clear();
+    this.bgTilePattern = null;
   }
 }
