@@ -15,7 +15,7 @@
 ### Size and shape
 
 - **15.7K lines** of Rust across 19 source files
-- **420 tests**, all passing
+- **601 tests**, all passing
 - **494KB WASM** output after `wasm-opt -Os`
 - **497 StatIds** (0-496) defined via `define_stats!` macro in `mod_db.rs`
 
@@ -74,7 +74,7 @@ Table-driven parser: `StatRule` structs with suffix matching, extract modes (Val
 | `flasks.rs` | 182 | Flask mod lookup and charge scaling |
 | `watchers_eye.rs` | 143 | Watcher's Eye aura-conditional mod lookup |
 | `bench_harness.rs` | 864 | Benchmark test utilities |
-| `integration_tests.rs` | 708 | Full-pipeline integration tests |
+| `integration_tests.rs` | 1237 | Full-pipeline integration tests + dual-engine comparison |
 | `snapshot_tests.rs` | 202 | Snapshot comparison tests |
 
 ### v2 stat pipeline
@@ -86,13 +86,36 @@ Table-driven parser: `StatRule` structs with suffix matching, extract modes (Val
 
 ### Known divergences from Lua engine
 
-Last validated against CI Occultist (pobb.in/MwTyQN55T8tE):
+Last validated against CI Occultist (pobb.in/MwTyQN55T8tE), 2026-08-08:
 
-- **ES**: gap from incomplete gear base ES flow and possibly incomplete % ES from Int scaling
-- **Int**: potential overcounting from "to all Attributes" mods applied from both tree and items
-- **Armour/Evasion**: base gear values not always flowing correctly
-- **DPS**: gem/skill system uses hardcoded level-20 data; no support for gem level scaling
-- **Crit Multi**: may be missing contributions from items/tree in some paths
+Lua WASM reference: FullDPS 122,500,791 / ES 11,050 / CritMulti 657%
+
+| Stat | Rust (proxy) | Lua WASM | Rust/Lua | Root cause |
+|------|-------------|----------|----------|------------|
+| ES | 3,168 | 11,050 | 28.7% | No gear_es in proxy input; real build has ~1500+ base ES from gear |
+| FullDPS | 0 | 122,500,791 | 0% | Vortex not in gems.rs; cold DoT pipeline not implemented |
+| CritMulti | 210% | 657% | 32.0% | Proxy has only +60 flat crit multi; real build has ~500+ from tree/items |
+| Life | 1 | 1 | MATCH | CI keystone working correctly |
+| Mana | 708 | ~700 | MATCH | Formula correct (34 + 93*6 + 116) |
+| Str | 14 | 14 | MATCH | No str mods in build |
+| Dex | 14 | 14 | MATCH | No dex mods in build |
+| Int | 232 | ~300+ | PARTIAL | Proxy uses +200 flat; real build has more from tree |
+| Resistances | 75/75/75/75 | 75/75/75/75 | MATCH | Kitava penalty and CI chaos res correct |
+| Armour | 2 | ~0 | MATCH | No armour gear on ES build |
+| Evasion | 2 | ~0 | MATCH | No evasion gear on ES build |
+
+Stats that work correctly in the proxy:
+- Life/ES pool selection (CI sets life=1, ES becomes primary)
+- Resistance calculation with Kitava penalty and cap
+- Chaos Inoculation maxing chaos res
+- Attribute calculation (base + flat mods)
+- Int-to-ES percentage bonus (int/5 as % increased)
+- Mana formula (base + level scaling + int/2)
+
+Blocking gaps (largest impact first):
+1. **DPS: 0%** - Vortex (cold DoT) has no gem entry; DoT DPS pipeline missing for cold spells
+2. **ES: 28.7%** - Proxy input has no gear_es; real build needs gear import
+3. **CritMulti: 32%** - Proxy input has minimal crit multi; real build needs tree/item crit multi import
 
 ### What to do next
 
@@ -120,7 +143,7 @@ Routes: `/` (home), `/build/:id` (build viewer), `/community`, API routes, sitem
 ## Build commands
 
 ```bash
-cd packages/engine && cargo test        # 420 tests
+cd packages/engine && cargo test        # 601 tests
 cd packages/engine && bash build.sh     # WASM + copy to public/wasm/ (494KB)
 cd apps/web && node scripts/build-worker.mjs  # Lua worker
 pnpm dev                                 # Full dev server

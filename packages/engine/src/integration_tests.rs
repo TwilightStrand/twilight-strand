@@ -1043,4 +1043,195 @@ mod tests {
         assert_near(out.energy_shield, 1995.0, 1.0, "ES");
         assert_near(out.mana, 714.0, 1.0, "mana");
     }
+
+    // ========================================================================
+    // Dual-engine comparison: CI Occultist (pobb.in/MwTyQN55T8tE)
+    //
+    // Lua WASM reference values (validated against native LuaJIT headless):
+    //   FullDPS: 122,500,791  |  ES: 11,050  |  CritMulti: 657%
+    //
+    // The Rust engine uses simplified/proxy inputs (no real gear import,
+    // hardcoded gem data, no socket group linkage for DoT spells). This
+    // test pins the Rust output for the proxy build so regressions are
+    // caught and improvements are tracked.
+    // ========================================================================
+
+    /// Build a CI Occultist proxy that mirrors the snapshot in builds.json.
+    /// This is the simplified version; the real build has much more gear ES
+    /// and a full skill/support linkage that the Rust engine does not yet
+    /// replicate.
+    fn ci_occultist_proxy() -> BuildInput {
+        BuildInput {
+            level: 94,
+            class_id: 3,
+            base_str: 14,
+            base_dex: 14,
+            base_int: 32,
+            ascendancy_name: "Occultist".into(),
+            main_skill_id: "Vortex".into(),
+            main_skill_level: 20,
+            allocated_keystones: vec!["Chaos Inoculation".into()],
+            support_gems: vec![
+                "Controlled Destruction Support".into(),
+                "Efficacy Support".into(),
+                "Swift Affliction Support".into(),
+                "Elemental Focus Support".into(),
+            ],
+            modifiers: vec![
+                m("EnergyShield", 800.0, "flat"),
+                m("EnergyShield", 250.0, "increased"),
+                m("Int", 200.0, "flat"),
+                m("FireRes", 135.0, "flat"),
+                m("ColdRes", 135.0, "flat"),
+                m("LightningRes", 135.0, "flat"),
+                m("ColdDamage", 100.0, "increased"),
+                m("DamageOverTime", 80.0, "increased"),
+                m("SpellDamage", 60.0, "increased"),
+                m("Damage", 40.0, "increased"),
+                m("CritChance", 80.0, "increased"),
+                m("CritMultiplier", 60.0, "flat"),
+                m("SpellSuppression", 40.0, "flat"),
+            ],
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn dual_engine_ci_occultist_pools() {
+        // Lua reference: ES 11,050 | Life 1 (CI)
+        // Rust gap: ES comes from proxy mods only (no real gear_es import).
+        // Rust ES formula: (0 + 800) * (1 + (250 + 46)/100) = 800 * 3.96 = 3168
+        // (int=232, int_bonus=46)
+        let out = evaluate_build(ci_occultist_proxy());
+
+        assert_eq!(out.life, 1.0, "CI life must be 1");
+        assert_near(out.energy_shield, 3168.0, 2.0, "Rust proxy ES");
+        // Gap: 3168 vs 11050 = 28.7% of Lua value.
+        // Root cause: no gear_es, flat ES mod is a proxy for total gear+tree ES.
+        // Real build has ~1500+ base ES from gear alone.
+
+        assert_near(out.mana, 708.0, 1.0, "mana");
+    }
+
+    #[test]
+    fn dual_engine_ci_occultist_attributes() {
+        let out = evaluate_build(ci_occultist_proxy());
+        // Witch base: str=14, dex=14, int=32. +200 flat int.
+        assert_near(out.strength, 14.0, 0.1, "str");
+        assert_near(out.dexterity, 14.0, 0.1, "dex");
+        assert_near(out.intelligence, 232.0, 0.1, "int");
+    }
+
+    #[test]
+    fn dual_engine_ci_occultist_defences() {
+        let out = evaluate_build(ci_occultist_proxy());
+        // No gear_armour/gear_evasion in proxy; these are base-only values.
+        assert_near(out.armour, 2.0, 1.0, "armour (no gear)");
+        assert_near(out.evasion, 2.0, 1.0, "evasion (no gear)");
+        assert_near(out.block_chance, 0.0, 0.1, "block (no shield)");
+        // Spell suppression from mod
+        assert!(out.suppression >= 40.0, "suppression from mod: {}", out.suppression);
+    }
+
+    #[test]
+    fn dual_engine_ci_occultist_resistances() {
+        let out = evaluate_build(ci_occultist_proxy());
+        // All ele res capped at 75 from 135 - 60 Kitava penalty
+        assert_near(out.fire_res, 75.0, 0.1, "fire res capped");
+        assert_near(out.cold_res, 75.0, 0.1, "cold res capped");
+        assert_near(out.lightning_res, 75.0, 0.1, "lightning res capped");
+        // CI maxes chaos res
+        assert_near(out.chaos_res, 75.0, 0.1, "chaos res (CI)");
+    }
+
+    #[test]
+    fn dual_engine_ci_occultist_dps() {
+        // Lua reference: FullDPS 122,500,791 (Vortex cold DoT)
+        // Rust: DPS=0 because Vortex is not in gems.rs (only BladeVortex is).
+        // The DoT pipeline (cold DoT multiplier, Vortex base damage) is not
+        // implemented for this skill.
+        let out = evaluate_build(ci_occultist_proxy());
+
+        // Pin current Rust value: DPS is 0 for this DoT build
+        assert_near(out.total_dps, 0.0, 1.0, "Rust DPS (Vortex not in gem DB)");
+        assert_near(out.combined_dps, 0.0, 1.0, "Rust combined DPS");
+
+        // Lua FullDPS for reference (the target to close the gap):
+        let lua_full_dps = 122_500_791.0;
+        let _gap_pct = 100.0; // 100% gap: Rust produces 0 for this skill
+        println!(
+            "[dual-engine] DPS gap: Rust={:.0} vs Lua={:.0} ({:.1}% of Lua)",
+            out.total_dps, lua_full_dps,
+            (out.total_dps / lua_full_dps) * 100.0
+        );
+    }
+
+    #[test]
+    fn dual_engine_ci_occultist_crit() {
+        // Lua reference: CritMulti 657%, CritChance ~9%
+        // Rust: crit_multiplier = 150 (base) + 60 (flat mod) = 210%
+        // Gap: 210 vs 657 = missing ~447% from tree/items/ascendancy.
+        // Crit chance: base 5% * (1 + 80/100) = 9% (matches Lua baseline).
+        let out = evaluate_build(ci_occultist_proxy());
+
+        assert_near(out.crit_chance, 9.0, 0.5, "crit chance");
+        assert_near(out.crit_multiplier, 210.0, 1.0, "crit multi (proxy only)");
+
+        let lua_crit_multi = 657.0;
+        println!(
+            "[dual-engine] CritMulti gap: Rust={:.0}% vs Lua={:.0}% (missing {:.0}%)",
+            out.crit_multiplier, lua_crit_multi,
+            lua_crit_multi - out.crit_multiplier
+        );
+    }
+
+    #[test]
+    fn dual_engine_ci_occultist_speed() {
+        let out = evaluate_build(ci_occultist_proxy());
+        // No weapon, no attack speed mods relevant to spells
+        assert_near(out.attack_speed, 1.0, 0.01, "attack speed (spell build)");
+    }
+
+    /// Summary test: prints the full dual-engine comparison table.
+    #[test]
+    fn dual_engine_ci_occultist_summary() {
+        let out = evaluate_build(ci_occultist_proxy());
+
+        // Lua WASM reference values for pobb.in/MwTyQN55T8tE
+        struct LuaRef {
+            es: f64,
+            full_dps: f64,
+            crit_multi: f64,
+        }
+        let lua = LuaRef {
+            es: 11_050.0,
+            full_dps: 122_500_791.0,
+            crit_multi: 657.0,
+        };
+
+        println!("\n=== DUAL-ENGINE COMPARISON: CI Occultist (pobb.in/MwTyQN55T8tE) ===");
+        println!("{:<20} {:>12} {:>12} {:>10}", "Stat", "Rust", "Lua", "Gap");
+        println!("{:-<56}", "");
+        println!("{:<20} {:>12.0} {:>12.0} {:>9.1}%", "ES", out.energy_shield, lua.es, (out.energy_shield / lua.es) * 100.0);
+        println!("{:<20} {:>12.0} {:>12.0} {:>9.1}%", "FullDPS", out.combined_dps, lua.full_dps, (out.combined_dps / lua.full_dps) * 100.0);
+        println!("{:<20} {:>12.0} {:>12.0} {:>9.1}%", "CritMulti", out.crit_multiplier, lua.crit_multi, (out.crit_multiplier / lua.crit_multi) * 100.0);
+        println!("{:<20} {:>12.0} {:>12}", "Life", out.life, "1 (CI)");
+        println!("{:<20} {:>12.0} {:>12}", "Mana", out.mana, "~700");
+        println!("{:<20} {:>12.0} {:>12}", "Str", out.strength, "14");
+        println!("{:<20} {:>12.0} {:>12}", "Dex", out.dexterity, "14");
+        println!("{:<20} {:>12.0} {:>12}", "Int", out.intelligence, "~300+");
+        println!("{:<20} {:>12.0} {:>12}", "FireRes", out.fire_res, "75");
+        println!("{:<20} {:>12.0} {:>12}", "ColdRes", out.cold_res, "75");
+        println!("{:<20} {:>12.0} {:>12}", "LightningRes", out.lightning_res, "75");
+        println!("{:<20} {:>12.0} {:>12}", "ChaosRes", out.chaos_res, "75 (CI)");
+        println!("{:<20} {:>12.2} {:>12}", "AtkSpeed", out.attack_speed, "N/A (spell)");
+
+        println!("\n=== GAP ANALYSIS ===");
+        println!("ES:       {:.1}% of Lua  -- missing gear_es (real build has ~1500+ base ES from gear)", (out.energy_shield / lua.es) * 100.0);
+        println!("DPS:      {:.1}% of Lua  -- Vortex not in gems.rs, cold DoT pipeline incomplete", (out.combined_dps / lua.full_dps) * 100.0);
+        println!("CritMulti: {:.1}% of Lua  -- proxy has only +60 flat; real build has ~500+ from tree/items", (out.crit_multiplier / lua.crit_multi) * 100.0);
+        println!("Resistances: MATCH (all capped at 75)");
+        println!("Life: MATCH (CI = 1)");
+        println!("Attributes: PARTIAL (Int correct for proxy, real build has more from tree)");
+    }
 }
