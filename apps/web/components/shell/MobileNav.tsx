@@ -52,12 +52,15 @@ export function MobileNav() {
           </>
         )}
         <span className="flex-1" />
-        <button
+        <span
+          role="button"
+          tabIndex={0}
           onClick={(e) => { e.stopPropagation(); setImportOpen(true); }}
-          className="text-[9px] font-mono text-accent px-1.5 py-0.5 rounded border border-accent/30"
+          onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); setImportOpen(true); } }}
+          className="text-[9px] font-mono text-accent px-1.5 py-0.5 rounded border border-accent/30 cursor-pointer"
         >
           Import
-        </button>
+        </span>
         <span className="text-[8px] text-text-dim/60">{expanded ? "▾" : "▸"}</span>
       </button>
 
