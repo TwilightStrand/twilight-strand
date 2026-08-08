@@ -1,4 +1,3 @@
-"use client";
 
 import { StatBreakdown } from "./StatBreakdown";
 

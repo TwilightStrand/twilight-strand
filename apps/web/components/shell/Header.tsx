@@ -1,4 +1,3 @@
-"use client";
 
 import { useEffect, useState } from "react";
 import { initLocale, t } from "@/lib/i18n";

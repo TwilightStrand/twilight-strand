@@ -1,4 +1,3 @@
-"use client";
 
 import { parseClusterJewel, type ClusterJewelNode } from "@/engine/cluster-jewel";
 import type { ItemData } from "@/engine/types";

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Outlet, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import "../styles.css";
 
 export const Route = createRootRoute({
   head: () => ({

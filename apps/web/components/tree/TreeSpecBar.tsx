@@ -1,4 +1,3 @@
-"use client";
 
 import { useTreeStore } from "@/stores/tree-store";
 

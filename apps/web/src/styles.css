@@ -1,0 +1,192 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg-deep: #050810;
+  --color-bg-surface: #0a1022;
+  --color-bg-card: #0d1328;
+  --color-bg-card-alt: #131c36;
+  --color-bg-hover: #16203c;
+  --color-bg-inset: #070c18;
+
+  --color-border-card: #33436e;
+  --color-border-divider: #26304f;
+  --color-border-subtle: #1b2338;
+
+  --color-text-primary: #c8d6e5;
+  --color-text-dim: #7e8cb0;
+  --color-text-bright: #e2e8f0;
+  --color-text-heading: #f1f5f9;
+
+  --color-accent: #4fe3f7;
+  --color-accent-dim: #6f9fd6;
+
+  --color-blood: #ff6b6b;
+  --color-gold: #8ecdff;
+
+  --color-strength: #ff4d3a;
+  --color-dexterity: #5cf07a;
+  --color-intelligence: #7d95ff;
+
+  --color-life: #ff5c45;
+  --color-es: #4fe3f7;
+  --color-mana: #7d95ff;
+
+  --color-offence: #cfe0ff;
+  --color-defence: #9fb0d8;
+
+  --font-display: "Marcellus", Georgia, "Times New Roman", serif;
+  --font-body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "SF Mono", "Fira Code", Consolas, monospace;
+}
+
+body {
+  background-color: var(--color-bg-deep);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  background-image: radial-gradient(circle, rgba(100, 130, 180, 0.06) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+[data-theme="light"] body,
+body.light {
+  background-image: radial-gradient(circle, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
+}
+
+[data-theme="astral"] body {
+  background-image: radial-gradient(circle, rgba(150, 120, 240, 0.06) 1px, transparent 1px);
+}
+
+[data-theme="nostalgia"] body {
+  background-image: radial-gradient(circle, rgba(200, 160, 80, 0.05) 1px, transparent 1px);
+}
+
+@keyframes stat-flash {
+  0% { background-color: rgba(79, 227, 247, 0.15); }
+  100% { background-color: transparent; }
+}
+
+@keyframes count-up {
+  from { opacity: 0.5; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.stat-changed {
+  animation: stat-flash 0.6s ease-out;
+}
+
+.stat-value {
+  animation: count-up 0.2s ease-out;
+}
+
+[data-theme="light"] {
+  --color-bg-deep: #f0f1f5;
+  --color-bg-surface: #ffffff;
+  --color-bg-card: #ffffff;
+  --color-bg-card-alt: #f7f8fa;
+  --color-bg-hover: #e6e8ee;
+  --color-bg-inset: #ebedf2;
+
+  --color-border-card: #c8cdd8;
+  --color-border-divider: #d4d8e2;
+  --color-border-subtle: #dfe2ea;
+
+  --color-text-primary: #2a2e3b;
+  --color-text-dim: #6b7280;
+  --color-text-bright: #0f1219;
+  --color-text-heading: #111827;
+
+  --color-accent: #0891b2;
+  --color-accent-dim: #0e7490;
+
+  --color-blood: #dc2626;
+  --color-gold: #2563eb;
+
+  --color-offence: #1e293b;
+  --color-defence: #475569;
+}
+
+[data-theme="astral"] {
+  --color-bg-deep: #08071a;
+  --color-bg-surface: #0e0d28;
+  --color-bg-card: #13123a;
+  --color-bg-card-alt: #1a194a;
+  --color-bg-hover: #222158;
+  --color-bg-inset: #060514;
+
+  --color-border-card: #3a3878;
+  --color-border-divider: #2b295c;
+  --color-border-subtle: #1d1c40;
+
+  --color-text-primary: #c5c0e8;
+  --color-text-dim: #7e78b8;
+  --color-text-bright: #dcd8f2;
+  --color-text-heading: #eeebf8;
+
+  --color-accent: #9b7af0;
+  --color-accent-dim: #7858c8;
+
+  --color-blood: #e85858;
+  --color-gold: #e0b850;
+
+  --color-offence: #c8b8f0;
+  --color-defence: #9088c0;
+}
+
+[data-theme="nostalgia"] {
+  --color-bg-deep: #121008;
+  --color-bg-surface: #1c1810;
+  --color-bg-card: #242018;
+  --color-bg-card-alt: #2e281e;
+  --color-bg-hover: #383025;
+  --color-bg-inset: #0e0c06;
+
+  --color-border-card: #504028;
+  --color-border-divider: #403220;
+  --color-border-subtle: #302618;
+
+  --color-text-primary: #c8b898;
+  --color-text-dim: #908060;
+  --color-text-bright: #ddd0b0;
+  --color-text-heading: #e8dcc0;
+
+  --color-accent: #c89838;
+  --color-accent-dim: #a07828;
+
+  --color-blood: #b83820;
+  --color-gold: #c89838;
+
+  --color-offence: #ddd0b0;
+  --color-defence: #a89878;
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+.perf-mode *,
+.perf-mode *::before,
+.perf-mode *::after {
+  animation-duration: 0s !important;
+  transition-duration: 0s !important;
+}
+
+@media print {
+  nav, canvas, .minimap,
+  button:not(.print-show),
+  [role="tablist"],
+  [role="dialog"],
+  .no-print { display: none !important; }
+
+  aside {
+    width: 100% !important;
+    min-width: 0 !important;
+    border: none !important;
+    page-break-inside: avoid;
+  }
+
+  body { background: white !important; color: #222 !important; }
+  header { border-bottom: 2px solid #333 !important; padding-bottom: 8px !important; margin-bottom: 16px !important; }
+  .text-text-dim, .text-text-primary, .text-text-heading { color: #333 !important; }
+  .text-accent { color: #0891b2 !important; }
+  .text-life { color: #c00 !important; }
+  .text-es { color: #0077aa !important; }
+}

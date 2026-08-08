@@ -1,4 +1,3 @@
-"use client";
 
 import { useEffect, useState } from "react";
 import { NotesPanel } from "@/components/shell/NotesPanel";

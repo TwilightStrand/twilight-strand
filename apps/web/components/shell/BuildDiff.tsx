@@ -1,4 +1,3 @@
-"use client";
 
 import { useBuildStore } from "@/stores/build-store";
 
