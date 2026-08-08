@@ -6,7 +6,7 @@ pub mod damage;
 pub mod mod_db;
 
 mod gems;
-pub use gems::{lookup_gem, avg_base_damage, GemData, DamageType, GemTag};
+pub use gems::{lookup_gem, lookup_gem_at_level, avg_base_damage, GemData, DamageType, GemTag, SkillArchetype};
 
 pub mod stat_parser;
 pub mod node_power;
@@ -28,6 +28,7 @@ pub mod uniques;
 pub mod watchers_eye;
 pub use watchers_eye::{get_watchers_eye_mods, get_all_mods_for_auras};
 pub mod triggers;
+pub mod timeless;
 pub use flasks::{get_flask_mods, charge_mods};
 pub use weapons::{calc_weapon_dps, find_weapon_base, WeaponDps};
 pub use stat_parser::{parse_stat_line, parse_stats};
@@ -106,6 +107,8 @@ pub struct BuildInput {
     pub allocated_keystones: Vec<String>,
     #[serde(default)]
     pub main_skill_id: String,
+    #[serde(default = "default_gem_level")]
+    pub main_skill_level: u32,
     #[serde(default)]
     pub ascendancy_name: String,
     #[serde(default = "default_enemy_level")]
@@ -185,6 +188,8 @@ pub struct BuildInput {
     #[serde(default)]
     pub is_dual_wield: bool,
     #[serde(default)]
+    pub socket_groups: Vec<SocketGroup>,
+    #[serde(default)]
     pub stat_lines: Vec<String>,
     #[serde(default)]
     pub gear_armour: f64,
@@ -194,9 +199,38 @@ pub struct BuildInput {
     pub gear_es: f64,
     #[serde(default)]
     pub gear_block: f64,
+    #[serde(default)]
+    pub on_consecrated_ground: bool,
+    #[serde(default)]
+    pub enemy_intimidated: bool,
+    #[serde(default)]
+    pub enemy_unnerved: bool,
+    #[serde(default)]
+    pub have_phasing: bool,
+    #[serde(default)]
+    pub have_elusive: bool,
+    #[serde(default)]
+    pub enemy_hindered: bool,
+    #[serde(default)]
+    pub crit_in_past_8_seconds: bool,
+    #[serde(default)]
+    pub hit_recently_by_enemy: bool,
+    #[serde(default)]
+    pub used_skill_recently: bool,
+    #[serde(default)]
+    pub nearby_rare_or_unique: bool,
+}
+
+/// A socket group links an active skill with its support gems.
+#[derive(Tsify, Serialize, Deserialize, Clone, Debug)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
+pub struct SocketGroup {
+    pub active_skill: String,
+    pub support_gems: Vec<String>,
 }
 
 fn default_enemy_level() -> u32 { 83 }
+fn default_gem_level() -> u32 { 20 }
 
 /// Returns (fire, cold, lightning, chaos) resistances for boss types
 pub fn boss_resistances(boss_type: &str) -> (f64, f64, f64, f64) {
@@ -314,55 +348,7 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     let eff_dex = if input.base_dex > 0 { input.base_dex } else { class_dex };
     let eff_int = if input.base_int > 0 { input.base_int } else { class_int };
 
-    let mut all_mods = input.modifiers.clone();
-    keystones::apply_keystones(&input, &mut all_mods);
-
-    // Ascendancy mods come from tree node stats parsed by the converter.
-    // The hardcoded approximations in get_ascendancy_mods were double-counting.
-
-    for gem_name in &input.support_gems {
-        all_mods.extend(supports::get_support_modifiers(gem_name));
-    }
-
-    for unique_name in &input.equipped_uniques {
-        all_mods.extend(uniques::get_unique_effects(unique_name));
-    }
-
-    for flask_name in &input.active_flasks {
-        all_mods.extend(flasks::get_flask_mods(flask_name));
-    }
-
-    // Charges
-    all_mods.extend(flasks::charge_mods("power", input.power_charges));
-    all_mods.extend(flasks::charge_mods("frenzy", input.frenzy_charges));
-    all_mods.extend(flasks::charge_mods("endurance", input.endurance_charges));
-
-    // Fortify
-    if input.have_fortify {
-        all_mods.push(Modifier { stat: "DamageTakenReduction".into(), value: 20.0, mod_type: "flat".into() });
-    }
-
-    // Buff effects
-    if input.have_onslaught {
-        all_mods.push(Modifier { stat: "AttackSpeed".into(), value: 20.0, mod_type: "increased".into() });
-        all_mods.push(Modifier { stat: "MovementSpeed".into(), value: 20.0, mod_type: "increased".into() });
-    }
-    if input.have_tailwind {
-        all_mods.push(Modifier { stat: "AttackSpeed".into(), value: 8.0, mod_type: "increased".into() });
-    }
-    if input.have_arcane_surge {
-        all_mods.push(Modifier { stat: "SpellDamage".into(), value: 10.0, mod_type: "more".into() });
-        all_mods.push(Modifier { stat: "AttackSpeed".into(), value: 10.0, mod_type: "increased".into() });
-    }
-
-    // Dual-wield bonuses
-    if input.is_dual_wield {
-        all_mods.push(Modifier { stat: "AttackSpeed".into(), value: 10.0, mod_type: "more".into() });
-        all_mods.push(Modifier { stat: "BlockChance".into(), value: 15.0, mod_type: "flat".into() });
-        all_mods.push(Modifier { stat: "PhysicalDamage".into(), value: 20.0, mod_type: "more".into() });
-    }
-
-    // Build ModDB
+    // Build ModDB directly without cloning input.modifiers
     use mod_db::{ModDB, StatId, SkillCfg, BuildState as MdbState, ConditionId};
     let mut db = ModDB::new();
 
@@ -374,9 +360,78 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
         }
     }
 
-    // Legacy modifiers (support gems, uniques, flasks, charges, buffs, keystones)
-    for m in &all_mods {
+    // Input modifiers (from tree/items via TypeScript converter)
+    for m in &input.modifiers {
         db.add_legacy(&m.stat, m.value, &m.mod_type);
+    }
+
+    // Keystones
+    let mut keystone_mods = Vec::new();
+    keystones::apply_keystones(&input, &mut keystone_mods);
+    for m in &keystone_mods {
+        db.add_legacy(&m.stat, m.value, &m.mod_type);
+    }
+
+    // Support gems: use socket_groups when present, otherwise fall back to global support_gems
+    let effective_supports: Vec<&String> = if !input.socket_groups.is_empty() {
+        input.socket_groups.iter()
+            .find(|sg| sg.active_skill == input.main_skill_id)
+            .map(|sg| sg.support_gems.iter().collect())
+            .unwrap_or_default()
+    } else {
+        input.support_gems.iter().collect()
+    };
+    for gem_name in &effective_supports {
+        for m in supports::get_support_modifiers(gem_name) {
+            db.add_legacy(&m.stat, m.value, &m.mod_type);
+        }
+    }
+    for unique_name in &input.equipped_uniques {
+        for m in uniques::get_unique_effects(unique_name) {
+            db.add_legacy(&m.stat, m.value, &m.mod_type);
+        }
+    }
+    for flask_name in &input.active_flasks {
+        for m in flasks::get_flask_mods(flask_name) {
+            db.add_legacy(&m.stat, m.value, &m.mod_type);
+        }
+    }
+
+    // Charges
+    for ct in &["power", "frenzy", "endurance"] {
+        let count = match *ct {
+            "power" => input.power_charges,
+            "frenzy" => input.frenzy_charges,
+            _ => input.endurance_charges,
+        };
+        for m in flasks::charge_mods(ct, count) {
+            db.add_legacy(&m.stat, m.value, &m.mod_type);
+        }
+    }
+
+    // Fortify
+    if input.have_fortify {
+        db.add_legacy("DamageTakenReduction", 20.0, "flat");
+    }
+
+    // Buff effects
+    if input.have_onslaught {
+        db.add_legacy("AttackSpeed", 20.0, "increased");
+        db.add_legacy("MovementSpeed", 20.0, "increased");
+    }
+    if input.have_tailwind {
+        db.add_legacy("AttackSpeed", 8.0, "increased");
+    }
+    if input.have_arcane_surge {
+        db.add_legacy("SpellDamage", 10.0, "more");
+        db.add_legacy("AttackSpeed", 10.0, "increased");
+    }
+
+    // Dual-wield bonuses
+    if input.is_dual_wield {
+        db.add_legacy("AttackSpeed", 10.0, "more");
+        db.add_legacy("BlockChance", 15.0, "flat");
+        db.add_legacy("PhysicalDamage", 20.0, "more");
     }
     let cfg = SkillCfg::default();
     let mut mst = MdbState::default();
@@ -394,6 +449,16 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     if input.have_onslaught { mst.set_condition(ConditionId::HaveOnslaught); }
     if input.have_tailwind { mst.set_condition(ConditionId::HaveTailwind); }
     if input.have_arcane_surge { mst.set_condition(ConditionId::HaveArcaneSurge); }
+    if input.on_consecrated_ground { mst.set_condition(ConditionId::OnConsecratedGround); }
+    if input.enemy_intimidated { mst.set_condition(ConditionId::EnemyIntimidated); }
+    if input.enemy_unnerved { mst.set_condition(ConditionId::EnemyUnnerved); }
+    if input.have_phasing { mst.set_condition(ConditionId::HavePhasing); }
+    if input.have_elusive { mst.set_condition(ConditionId::HaveElusive); }
+    if input.enemy_hindered { mst.set_condition(ConditionId::EnemyHindered); }
+    if input.crit_in_past_8_seconds { mst.set_condition(ConditionId::CritInPast8Seconds); }
+    if input.hit_recently_by_enemy { mst.set_condition(ConditionId::HitRecentlyByEnemy); }
+    if input.used_skill_recently { mst.set_condition(ConditionId::UsedSkillRecently); }
+    if input.nearby_rare_or_unique { mst.set_condition(ConditionId::NearbyRareOrUnique); }
 
     // --- Attributes ----------------------------------------------------------
     let strength = db.calc(StatId::STR, eff_str as f64, &cfg, &mst).round();
@@ -443,7 +508,7 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     let fire_res_max = 75.0 + db.sum_base(StatId::FIRE_RES_MAX, &cfg, &mst);
     let cold_res_max = 75.0 + db.sum_base(StatId::COLD_RES_MAX, &cfg, &mst);
     let lightning_res_max = 75.0 + db.sum_base(StatId::LIGHTNING_RES_MAX, &cfg, &mst);
-    let chaos_res_max = 75.0;
+    let chaos_res_max = 75.0 + db.sum_base(StatId::CHAOS_RES_MAX, &cfg, &mst);
     let fire_res = (db.sum_base(StatId::FIRE_RES, &cfg, &mst) - 60.0).min(fire_res_max);
     let cold_res = (db.sum_base(StatId::COLD_RES, &cfg, &mst) - 60.0).min(cold_res_max);
     let lightning_res = (db.sum_base(StatId::LIGHTNING_RES, &cfg, &mst) - 60.0).min(lightning_res_max);
@@ -470,11 +535,13 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     };
 
     // --- DPS via damage.rs conversion pipeline --------------------------------
-    let gem = if !input.main_skill_id.is_empty() {
-        gems::lookup_gem(&input.main_skill_id)
+    let gem_level = if input.main_skill_level == 0 { 20 } else { input.main_skill_level };
+    let gem_owned = if !input.main_skill_id.is_empty() {
+        gems::lookup_gem_at_level(&input.main_skill_id, gem_level)
     } else {
         None
     };
+    let gem = gem_owned.as_ref();
 
     let has_weapon = input.weapon_aps > 0.0;
     let has_weapon2 = input.is_dual_wield && input.weapon2_aps > 0.0;
@@ -495,7 +562,7 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     let mut base_dmg = damage::DamageSet::new();
     if let Some(g) = gem {
         if !g.is_dot {
-            for dr in g.base_damages {
+            for dr in &g.base_damages {
                 let dt = match dr.damage_type {
                     gems::DamageType::Physical => damage::DamageType::Physical,
                     gems::DamageType::Fire => damage::DamageType::Fire,
@@ -618,6 +685,7 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
                 gems::GemTag::Melee => Some(StatId::MELEE_DAMAGE),
                 gems::GemTag::Projectile => Some(StatId::PROJECTILE_DAMAGE),
                 gems::GemTag::AoE => Some(StatId::AREA_DAMAGE),
+                gems::GemTag::Totem => Some(StatId::TOTEM_DAMAGE),
                 _ => None,
             };
             if let Some(stat) = tag_stat {
@@ -631,14 +699,46 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
         }
     }
 
-    // Speed
+    // Determine skill archetype for speed/DPS formula selection
+    let archetype = gem.map(|g| g.archetype()).unwrap_or(gems::SkillArchetype::Default);
+
+    // Speed: source depends on archetype
     let base_speed = match gem {
-        Some(g) if !g.is_dot => if has_weapon { eff_weapon_aps } else { 1.0 / g.base_cast_time },
+        Some(g) if !g.is_dot => match archetype {
+            gems::SkillArchetype::Trap => 1.0 / g.base_cast_time,
+            gems::SkillArchetype::Mine => 1.0 / g.base_cast_time,
+            _ => if has_weapon { eff_weapon_aps } else { 1.0 / g.base_cast_time },
+        },
         _ => if has_weapon { eff_weapon_aps } else { 1.0 },
     };
     let action_speed_inc = db.sum_inc(StatId::ACTION_SPEED, &cfg, &mst);
     let action_speed_mult = 1.0 + action_speed_inc / 100.0;
-    let attack_speed = db.calc(StatId::ATTACK_SPEED, base_speed, &cfg, &mst) * action_speed_mult;
+
+    // Trap/Mine use their own speed stats instead of generic AttackSpeed
+    let attack_speed = match archetype {
+        gems::SkillArchetype::Trap => {
+            let trap_inc = db.sum_inc(StatId::TRAP_THROWING_SPEED, &cfg, &mst);
+            let generic_inc = db.sum_inc(StatId::ATTACK_SPEED, &cfg, &mst);
+            base_speed * (1.0 + (trap_inc + generic_inc) / 100.0) * action_speed_mult
+        }
+        gems::SkillArchetype::Mine => {
+            let mine_inc = db.sum_inc(StatId::MINE_THROWING_SPEED, &cfg, &mst);
+            let generic_inc = db.sum_inc(StatId::ATTACK_SPEED, &cfg, &mst);
+            base_speed * (1.0 + (mine_inc + generic_inc) / 100.0) * action_speed_mult
+        }
+        gems::SkillArchetype::Totem => {
+            // Totem placement speed affects how fast you place totems, but the
+            // totem itself attacks at its own rate (base_cast_time).
+            // The "attack_speed" output represents the totem's attack rate here.
+            let totem_base = if let Some(g) = gem {
+                if has_weapon { eff_weapon_aps } else { 1.0 / g.base_cast_time }
+            } else {
+                1.0
+            };
+            db.calc(StatId::ATTACK_SPEED, totem_base, &cfg, &mst) * action_speed_mult
+        }
+        _ => db.calc(StatId::ATTACK_SPEED, base_speed, &cfg, &mst) * action_speed_mult,
+    };
 
     // Crit
     let crit_base_mod = db.sum_base(StatId::CRIT_CHANCE, &cfg, &mst);
@@ -664,9 +764,9 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     let fire_pen = db.sum_base(StatId::FIRE_PEN, &cfg, &mst);
     let cold_pen = db.sum_base(StatId::COLD_PEN, &cfg, &mst);
     let lightning_pen = db.sum_base(StatId::LIGHTNING_PEN, &cfg, &mst);
-    let _chaos_pen = db.sum_base(StatId::CHAOS_PEN, &cfg, &mst);
+    let chaos_pen = db.sum_base(StatId::CHAOS_PEN, &cfg, &mst);
 
-    let (e_fire, e_cold, e_light, _e_chaos) = if input.enemy_is_boss {
+    let (e_fire, e_cold, e_light, e_chaos) = if input.enemy_is_boss {
         (input.enemy_fire_res.max(40.0), input.enemy_cold_res.max(40.0),
          input.enemy_lightning_res.max(40.0), input.enemy_chaos_res.max(25.0))
     } else {
@@ -674,18 +774,68 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
          input.enemy_lightning_res, input.enemy_chaos_res)
     };
 
-    let avg_pen = (fire_pen + cold_pen + lightning_pen) / 3.0;
-    let avg_enemy_ele_res = (e_fire + e_cold + e_light) / 3.0;
-    let res_mult = apply_resistance(avg_enemy_ele_res, avg_pen);
+    let res_fire = apply_resistance(e_fire, fire_pen);
+    let res_cold = apply_resistance(e_cold, cold_pen);
+    let res_lightning = apply_resistance(e_light, lightning_pen);
+    let res_chaos = apply_resistance(e_chaos, chaos_pen);
 
     let total_dps = if gem.map_or(false, |g| g.is_dot) {
         let dot_base = gem.unwrap().dot_base;
         let (dot_flat, dot_inc, dot_more) = db.buckets(StatId::DAMAGE, &cfg, &mst);
         let dot_inc2 = db.sum_inc(StatId::DAMAGE_OVER_TIME, &cfg, &mst);
         let dot_more2 = db.product_more(StatId::DAMAGE_OVER_TIME, &cfg, &mst);
-        calc_stat(dot_base, dot_flat, dot_inc + dot_inc2, dot_more * dot_more2) * res_mult
+        let dot_raw = calc_stat(dot_base, dot_flat, dot_inc + dot_inc2, dot_more * dot_more2);
+        // DoT from gems is typed; approximate with the gem's primary element
+        let dot_res = match gem.unwrap().base_damages.first().map(|d| &d.damage_type) {
+            Some(gems::DamageType::Fire) => res_fire,
+            Some(gems::DamageType::Cold) => res_cold,
+            Some(gems::DamageType::Lightning) => res_lightning,
+            Some(gems::DamageType::Chaos) => res_chaos,
+            _ => res_fire,
+        };
+        dot_raw * dot_res
     } else {
-        hit_result.dps * res_mult
+        // Apply per-type resistance to hit damage
+        let phys_dps = hit_result.per_type.get("Physical").copied().unwrap_or(0.0);
+        let fire_dps = hit_result.per_type.get("Fire").copied().unwrap_or(0.0);
+        let cold_dps = hit_result.per_type.get("Cold").copied().unwrap_or(0.0);
+        let light_dps = hit_result.per_type.get("Lightning").copied().unwrap_or(0.0);
+        let chaos_dps = hit_result.per_type.get("Chaos").copied().unwrap_or(0.0);
+        let crit_mult = 1.0 + (hit_result.crit_chance / 100.0) * (hit_result.crit_multi / 100.0 - 1.0);
+        let avg_hit_after_res = phys_dps + fire_dps * res_fire + cold_dps * res_cold
+            + light_dps * res_lightning + chaos_dps * res_chaos;
+
+        match archetype {
+            gems::SkillArchetype::Channelling => {
+                // Channelling: DPS = damage_per_stage * stages * hit_rate
+                // Stages multiply the per-hit damage; hit_rate = 1/cast_time (already in attack_speed)
+                let stages = gem.map(|g| g.stages.max(1)).unwrap_or(1) as f64;
+                let hit_rate = attack_speed;
+                avg_hit_after_res * stages * hit_rate * crit_mult
+            }
+            gems::SkillArchetype::Totem => {
+                // Totem: DPS = single_totem_dps * totem_count
+                let base_totem_count = gem.map(|g| g.base_totem_count.max(1)).unwrap_or(1) as f64;
+                let extra_totems = db.sum_base(StatId::MAX_TOTEMS, &cfg, &mst);
+                let totem_count = base_totem_count + extra_totems;
+                let speed_hit = attack_speed * (hit_result.hit_chance / 100.0);
+                avg_hit_after_res * crit_mult * speed_hit * totem_count
+            }
+            gems::SkillArchetype::Trap | gems::SkillArchetype::Mine => {
+                // Trap/Mine: speed is already trap/mine throwing speed from above
+                let speed_hit = attack_speed * (hit_result.hit_chance / 100.0);
+                avg_hit_after_res * crit_mult * speed_hit
+            }
+            gems::SkillArchetype::Brand => {
+                // Brand: activation frequency is encoded in base_cast_time
+                let speed_hit = attack_speed * (hit_result.hit_chance / 100.0);
+                avg_hit_after_res * crit_mult * speed_hit
+            }
+            _ => {
+                let speed_hit = hit_result.attack_speed * (hit_result.hit_chance / 100.0);
+                avg_hit_after_res * crit_mult * speed_hit
+            }
+        }
     };
 
     // Ailment DPS
@@ -728,7 +878,8 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
                 if rate > 0.0 {
                     trigger_rate = rate;
                     let hit_dmg = if hit_result.avg_hit > 0.0 { hit_result.avg_hit } else { dps / attack_speed.max(0.01) };
-                    dps = hit_dmg * rate * res_mult;
+                    // Trigger-based DPS already has resistance baked in from total_dps
+                    dps = hit_dmg * rate;
                 }
                 break;
             }
@@ -767,7 +918,6 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
             * stacks.min(5) as f64
             * 0.1
             * (1.0 + impale_effect / 100.0)
-            * res_mult
     } else {
         0.0
     };
@@ -1390,17 +1540,13 @@ mod tests {
     #[test]
     fn test_penetration_increases_dps() {
         let mut input = default_input();
-        input.modifiers.push(Modifier { stat: "Damage".into(), value: 500.0, mod_type: "flat".into() });
+        input.main_skill_id = "Fireball".into();
         input.enemy_fire_res = 40.0;
-        input.enemy_cold_res = 40.0;
-        input.enemy_lightning_res = 40.0;
         input.enemy_is_boss = true;
 
         let no_pen = evaluate_build(input.clone()).total_dps;
 
         input.modifiers.push(Modifier { stat: "FirePenetration".into(), value: 37.0, mod_type: "flat".into() });
-        input.modifiers.push(Modifier { stat: "ColdPenetration".into(), value: 37.0, mod_type: "flat".into() });
-        input.modifiers.push(Modifier { stat: "LightningPenetration".into(), value: 37.0, mod_type: "flat".into() });
 
         let with_pen = evaluate_build(input).total_dps;
         assert!(with_pen > no_pen, "penetration should increase DPS: {} vs {}", with_pen, no_pen);
@@ -1409,17 +1555,325 @@ mod tests {
     #[test]
     fn test_boss_reduces_dps() {
         let mut input = default_input();
-        input.modifiers.push(Modifier { stat: "Damage".into(), value: 500.0, mod_type: "flat".into() });
+        input.main_skill_id = "Fireball".into();
 
         let normal = evaluate_build(input.clone()).total_dps;
 
         input.enemy_is_boss = true;
         input.enemy_fire_res = 40.0;
-        input.enemy_cold_res = 40.0;
-        input.enemy_lightning_res = 40.0;
 
         let boss = evaluate_build(input).total_dps;
         assert!(boss < normal, "boss should reduce DPS: {} vs {}", boss, normal);
+    }
+
+    // ---- Socket group tests -----------------------------------------------
+
+    #[test]
+    fn test_socket_groups_applies_matching_supports() {
+        let mut input = default_input();
+        input.main_skill_id = "GroundSlam".into();
+        input.socket_groups = vec![
+            SocketGroup {
+                active_skill: "GroundSlam".into(),
+                support_gems: vec!["Brutality Support".into()],
+            },
+            SocketGroup {
+                active_skill: "Fireball".into(),
+                support_gems: vec!["Fire Penetration Support".into()],
+            },
+        ];
+
+        let with_groups = evaluate_build(input);
+
+        // Brutality gives 59% more phys, so DPS should match global brutality
+        let mut input_global = default_input();
+        input_global.main_skill_id = "GroundSlam".into();
+        input_global.support_gems = vec!["Brutality Support".into()];
+        let with_global = evaluate_build(input_global);
+
+        assert!(
+            (with_groups.total_dps - with_global.total_dps).abs() < 0.01,
+            "socket group DPS ({}) should match global support DPS ({})",
+            with_groups.total_dps,
+            with_global.total_dps
+        );
+    }
+
+    #[test]
+    fn test_socket_groups_ignores_unrelated_supports() {
+        let mut input = default_input();
+        input.main_skill_id = "GroundSlam".into();
+        // Only Fireball group has supports; GroundSlam group has none
+        input.socket_groups = vec![
+            SocketGroup {
+                active_skill: "GroundSlam".into(),
+                support_gems: vec![],
+            },
+            SocketGroup {
+                active_skill: "Fireball".into(),
+                support_gems: vec!["Brutality Support".into()],
+            },
+        ];
+
+        let with_groups = evaluate_build(input);
+
+        // No supports should apply to GroundSlam
+        let mut input_bare = default_input();
+        input_bare.main_skill_id = "GroundSlam".into();
+        let bare = evaluate_build(input_bare);
+
+        assert!(
+            (with_groups.total_dps - bare.total_dps).abs() < 0.01,
+            "unrelated support should not apply: {} vs {}",
+            with_groups.total_dps,
+            bare.total_dps
+        );
+    }
+
+    #[test]
+    fn test_empty_socket_groups_falls_back_to_global() {
+        let mut input = default_input();
+        input.main_skill_id = "GroundSlam".into();
+        input.support_gems = vec!["Brutality Support".into()];
+        // socket_groups left empty (default)
+
+        let with_fallback = evaluate_build(input);
+
+        let mut input_explicit = default_input();
+        input_explicit.main_skill_id = "GroundSlam".into();
+        input_explicit.socket_groups = vec![
+            SocketGroup {
+                active_skill: "GroundSlam".into(),
+                support_gems: vec!["Brutality Support".into()],
+            },
+        ];
+        let with_explicit = evaluate_build(input_explicit);
+
+        assert!(
+            (with_fallback.total_dps - with_explicit.total_dps).abs() < 0.01,
+            "fallback DPS ({}) should match explicit socket group DPS ({})",
+            with_fallback.total_dps,
+            with_explicit.total_dps
+        );
+    }
+
+    #[test]
+    fn test_socket_groups_no_matching_group_applies_nothing() {
+        let mut input = default_input();
+        input.main_skill_id = "GroundSlam".into();
+        // socket_groups present but none match GroundSlam
+        input.socket_groups = vec![
+            SocketGroup {
+                active_skill: "Fireball".into(),
+                support_gems: vec!["Brutality Support".into()],
+            },
+        ];
+
+        let with_no_match = evaluate_build(input);
+
+        let mut input_bare = default_input();
+        input_bare.main_skill_id = "GroundSlam".into();
+        let bare = evaluate_build(input_bare);
+
+        assert!(
+            (with_no_match.total_dps - bare.total_dps).abs() < 0.01,
+            "no matching group should apply zero supports: {} vs {}",
+            with_no_match.total_dps,
+            bare.total_dps
+        );
+    }
+
+    // ---- Archetype tests: Channelling ----------------------------------------
+
+    #[test]
+    fn test_channelling_winter_orb_archetype() {
+        let gem = gems::lookup_gem("WinterOrb").unwrap();
+        assert_eq!(gem.archetype(), gems::SkillArchetype::Channelling);
+        assert_eq!(gem.stages, 10);
+    }
+
+    #[test]
+    fn test_channelling_cyclone_archetype() {
+        let gem = gems::lookup_gem("Cyclone").unwrap();
+        assert_eq!(gem.archetype(), gems::SkillArchetype::Channelling);
+    }
+
+    #[test]
+    fn test_channelling_incinerate_stages_multiply_dps() {
+        // Incinerate has 8 stages; DPS should be higher than a comparable
+        // non-channelling skill with same avg damage.
+        let mut input = default_input();
+        input.main_skill_id = "Incinerate".into();
+        let out = evaluate_build(input);
+        assert!(out.total_dps > 0.0, "Incinerate DPS should be positive: {}", out.total_dps);
+
+        let gem = gems::lookup_gem("Incinerate").unwrap();
+        assert_eq!(gem.stages, 8);
+        assert_eq!(gem.archetype(), gems::SkillArchetype::Channelling);
+    }
+
+    #[test]
+    fn test_channelling_blade_flurry_dps() {
+        let mut input = default_input();
+        input.main_skill_id = "BladeFlurry".into();
+        let out = evaluate_build(input);
+        assert!(out.total_dps > 0.0, "Blade Flurry DPS should be positive: {}", out.total_dps);
+
+        let gem = gems::lookup_gem("BladeFlurry").unwrap();
+        assert_eq!(gem.stages, 6);
+        assert_eq!(gem.archetype(), gems::SkillArchetype::Channelling);
+    }
+
+    // ---- Archetype tests: Totem -----------------------------------------------
+
+    #[test]
+    fn test_totem_ancestral_warchief_archetype() {
+        let gem = gems::lookup_gem("AncestralWarchief").unwrap();
+        assert_eq!(gem.archetype(), gems::SkillArchetype::Totem);
+        assert_eq!(gem.base_totem_count, 1);
+    }
+
+    #[test]
+    fn test_totem_dps_multiplied_by_count() {
+        let mut input_base = default_input();
+        input_base.main_skill_id = "AncestralWarchief".into();
+        let base_out = evaluate_build(input_base);
+
+        // Add +2 totems via MaxTotems stat
+        let mut input_more = default_input();
+        input_more.main_skill_id = "AncestralWarchief".into();
+        input_more.modifiers.push(Modifier {
+            stat: "MaxTotems".into(),
+            value: 2.0,
+            mod_type: "flat".into(),
+        });
+        let more_out = evaluate_build(input_more);
+
+        // With +2 totems (1 base + 2 extra = 3), DPS should be ~3x base
+        let ratio = more_out.total_dps / base_out.total_dps;
+        assert!(
+            (ratio - 3.0).abs() < 0.1,
+            "totem DPS ratio with +2 totems should be ~3.0, got {ratio} (base={}, more={})",
+            base_out.total_dps, more_out.total_dps
+        );
+    }
+
+    #[test]
+    fn test_totem_holy_flame_totem_dps() {
+        let mut input = default_input();
+        input.main_skill_id = "HolyFlameTotem".into();
+        let out = evaluate_build(input);
+        assert!(out.total_dps > 0.0, "Holy Flame Totem DPS should be positive: {}", out.total_dps);
+
+        let gem = gems::lookup_gem("HolyFlameTotem").unwrap();
+        assert_eq!(gem.archetype(), gems::SkillArchetype::Totem);
+    }
+
+    #[test]
+    fn test_totem_damage_mod_scales_dps() {
+        let mut input = default_input();
+        input.main_skill_id = "AncestralWarchief".into();
+        let base_dps = evaluate_build(input.clone()).total_dps;
+
+        input.modifiers.push(Modifier {
+            stat: "TotemDamage".into(),
+            value: 100.0,
+            mod_type: "increased".into(),
+        });
+        let scaled_dps = evaluate_build(input).total_dps;
+        assert!(
+            scaled_dps > base_dps * 1.5,
+            "totem damage mod should scale DPS: base={base_dps}, scaled={scaled_dps}"
+        );
+    }
+
+    // ---- Archetype tests: Trap -----------------------------------------------
+
+    #[test]
+    fn test_trap_archetype() {
+        let gem = gems::lookup_gem("LightningTrap").unwrap();
+        assert_eq!(gem.archetype(), gems::SkillArchetype::Trap);
+    }
+
+    #[test]
+    fn test_trap_uses_throwing_speed() {
+        let mut input = default_input();
+        input.main_skill_id = "LightningTrap".into();
+        let base_out = evaluate_build(input.clone());
+
+        // Add trap throwing speed
+        input.modifiers.push(Modifier {
+            stat: "TrapThrowingSpeed".into(),
+            value: 100.0,
+            mod_type: "increased".into(),
+        });
+        let fast_out = evaluate_build(input);
+
+        assert!(
+            fast_out.total_dps > base_out.total_dps * 1.5,
+            "trap throwing speed should increase DPS: base={}, fast={}",
+            base_out.total_dps, fast_out.total_dps
+        );
+    }
+
+    #[test]
+    fn test_trap_dps_positive() {
+        let mut input = default_input();
+        input.main_skill_id = "LightningTrap".into();
+        let out = evaluate_build(input);
+        assert!(out.total_dps > 0.0, "Lightning Trap DPS should be positive: {}", out.total_dps);
+    }
+
+    // ---- Archetype tests: Mine -----------------------------------------------
+
+    #[test]
+    fn test_mine_archetype() {
+        let gem = gems::lookup_gem("IceMine").unwrap();
+        assert_eq!(gem.archetype(), gems::SkillArchetype::Mine);
+    }
+
+    #[test]
+    fn test_mine_uses_throwing_speed() {
+        let mut input = default_input();
+        input.main_skill_id = "IceMine".into();
+        let base_out = evaluate_build(input.clone());
+
+        input.modifiers.push(Modifier {
+            stat: "MineThrowingSpeed".into(),
+            value: 100.0,
+            mod_type: "increased".into(),
+        });
+        let fast_out = evaluate_build(input);
+
+        assert!(
+            fast_out.total_dps > base_out.total_dps * 1.5,
+            "mine throwing speed should increase DPS: base={}, fast={}",
+            base_out.total_dps, fast_out.total_dps
+        );
+    }
+
+    #[test]
+    fn test_mine_dps_positive() {
+        let mut input = default_input();
+        input.main_skill_id = "IceMine".into();
+        let out = evaluate_build(input);
+        assert!(out.total_dps > 0.0, "Icicle Mine DPS should be positive: {}", out.total_dps);
+    }
+
+    // ---- Archetype tests: Brand -----------------------------------------------
+
+    #[test]
+    fn test_brand_archetype() {
+        let gem = gems::lookup_gem("StormBrand").unwrap();
+        assert_eq!(gem.archetype(), gems::SkillArchetype::Brand);
+    }
+
+    #[test]
+    fn test_brand_dps_positive() {
+        let mut input = default_input();
+        input.main_skill_id = "StormBrand".into();
+        let out = evaluate_build(input);
+        assert!(out.total_dps > 0.0, "Storm Brand DPS should be positive: {}", out.total_dps);
     }
 }
 

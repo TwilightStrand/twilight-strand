@@ -91,6 +91,85 @@ export function parse_single_stat(line) {
     const ret = wasm.parse_single_stat(ptr0, len0);
     return ret;
 }
+
+/**
+ * List all conqueror keystones for a given jewel type.
+ * Returns a JSON array of { conqueror, keystone_name, stat_lines }.
+ * @param {string} jewel_type
+ * @returns {any}
+ */
+export function timeless_keystones(jewel_type) {
+    const ptr0 = passStringToWasm0(jewel_type, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.timeless_keystones(ptr0, len0);
+    return ret;
+}
+
+/**
+ * Get the valid seed range for a jewel type.
+ * Returns [min, max] as a two-element array.
+ * @param {string} jewel_type
+ * @returns {Uint32Array}
+ */
+export function timeless_seed_range(jewel_type) {
+    const ptr0 = passStringToWasm0(jewel_type, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.timeless_seed_range(ptr0, len0);
+    var v2 = getArrayU32FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+    return v2;
+}
+
+/**
+ * Transform a passive node given a timeless jewel type, seed, and node ID.
+ *
+ * Returns a list of stat description lines that the node gains.
+ * For keystones, returns the replacement keystone's stats.
+ * For small passives and notables, returns the added stat lines.
+ *
+ * `jewel_type`: one of "Lethal Pride", "Brutal Restraint", "Militant Faith",
+ *               "Elegant Hubris", "Glorious Vanity"
+ * `seed`: the jewel's seed number
+ * `node_id`: the passive tree node ID
+ *
+ * Defaults to treating the node as a small passive. For keystones and notables,
+ * use `transform_node_full` instead.
+ * @param {string} jewel_type
+ * @param {number} seed
+ * @param {number} node_id
+ * @returns {string[]}
+ */
+export function transform_node(jewel_type, seed, node_id) {
+    const ptr0 = passStringToWasm0(jewel_type, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.transform_node(ptr0, len0, seed, node_id);
+    var v2 = getArrayJsValueFromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+    return v2;
+}
+
+/**
+ * Full transformation including keystone/notable handling.
+ *
+ * `node_type`: "small", "notable", or "keystone"
+ * `conqueror`: required for keystones (e.g. "Kaom", "Rakiata")
+ * @param {string} jewel_type
+ * @param {number} seed
+ * @param {number} node_id
+ * @param {string} node_type
+ * @param {string} conqueror
+ * @returns {any}
+ */
+export function transform_node_full(jewel_type, seed, node_id, node_type, conqueror) {
+    const ptr0 = passStringToWasm0(jewel_type, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(node_type, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ptr2 = passStringToWasm0(conqueror, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len2 = WASM_VECTOR_LEN;
+    const ret = wasm.transform_node_full(ptr0, len0, seed, node_id, ptr1, len1, ptr2, len2);
+    return ret;
+}
 function __wbg_get_imports() {
     const import0 = {
         __proto__: null,
@@ -351,6 +430,22 @@ function debugString(val) {
     }
     // TODO we could test for more things here, like `Set`s and `Map`s.
     return className;
+}
+
+function getArrayJsValueFromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    const mem = getDataViewMemory0();
+    const result = [];
+    for (let i = ptr; i < ptr + 4 * len; i += 4) {
+        result.push(wasm.__wbindgen_externrefs.get(mem.getUint32(i, true)));
+    }
+    wasm.__externref_drop_slice(ptr, len);
+    return result;
+}
+
+function getArrayU32FromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return getUint32ArrayMemory0().subarray(ptr / 4, ptr / 4 + len);
 }
 
 function getArrayU8FromWasm0(ptr, len) {

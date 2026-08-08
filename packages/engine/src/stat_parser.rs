@@ -6496,6 +6496,211 @@ mod tests {
         assert_eq!(mods[0].stat, StatId::LIFE);
         assert!(matches!(mods[1].tag1, ModTag::Condition(ConditionId::DualWielding)));
     }
+
+    // -----------------------------------------------------------------------
+    // Cluster jewel notable stat line tests
+    // -----------------------------------------------------------------------
+
+    // --- Pressure Points (medium cluster: Critical Chance) ---
+
+    #[test]
+    fn test_cluster_pressure_points_double_damage() {
+        // "Your Critical Strikes have a 5% chance to deal Double Damage"
+        let mods = parse_stat_line("Your Critical Strikes have a 5% chance to deal Double Damage");
+        assert_eq!(mods.len(), 1, "expected 1 mod, got {:?}", mods);
+        assert_eq!(mods[0].stat, "DoubleDamageChance");
+        assert_eq!(mods[0].value, 5.0);
+    }
+
+    #[test]
+    fn test_cluster_pressure_points_crit_chance() {
+        let mods = parse_stat_line("30% increased Critical Strike Chance");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "CritChance");
+        assert_eq!(mods[0].value, 30.0);
+        assert_eq!(mods[0].mod_type, "increased");
+    }
+
+    #[test]
+    fn test_cluster_pressure_points_all_stats() {
+        // Verify both stats parse when sent together as stat_lines
+        let lines = vec![
+            "Your Critical Strikes have a 5% chance to deal Double Damage".to_string(),
+            "30% increased Critical Strike Chance".to_string(),
+        ];
+        let mods = parse_stats(&lines);
+        assert_eq!(mods.len(), 2, "expected 2 mods from Pressure Points, got {:?}", mods);
+        assert!(mods.iter().any(|m| m.stat == "DoubleDamageChance" && m.value == 5.0));
+        assert!(mods.iter().any(|m| m.stat == "CritChance" && m.value == 30.0));
+    }
+
+    // --- Vast Power (medium cluster: Area Damage) ---
+
+    #[test]
+    fn test_cluster_vast_power_area_damage() {
+        let mods = parse_stat_line("20% increased Area Damage");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "AreaDamage");
+        assert_eq!(mods[0].value, 20.0);
+        assert_eq!(mods[0].mod_type, "increased");
+    }
+
+    #[test]
+    fn test_cluster_vast_power_aoe_per_charge() {
+        // "3% increased Area of Effect per Power Charge, up to a maximum of 50%"
+        // The v1 parser extracts the base value; the per-charge condition is lost.
+        let mods = parse_stat_line(
+            "3% increased Area of Effect per Power Charge, up to a maximum of 50%",
+        );
+        assert!(!mods.is_empty(), "expected at least 1 mod, got none");
+        assert!(mods.iter().any(|m| m.stat == "AreaOfEffect" && m.value == 3.0),
+            "expected AreaOfEffect=3.0, got {:?}", mods);
+    }
+
+    // --- Fuel the Fight (large cluster: Attack Damage) ---
+
+    #[test]
+    fn test_cluster_fuel_the_fight_attack_speed() {
+        let mods = parse_stat_line("8% increased Attack Speed");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "AttackSpeed");
+        assert_eq!(mods[0].value, 8.0);
+    }
+
+    #[test]
+    fn test_cluster_fuel_the_fight_mana_leech() {
+        let mods = parse_stat_line("0.4% of Attack Damage Leeched as Mana");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "ManaLeechPct");
+        assert_eq!(mods[0].value, 0.4);
+    }
+
+    #[test]
+    fn test_cluster_fuel_the_fight_damage_while_leeching() {
+        // "20% increased Damage while Leeching"
+        // The v1 parser extracts the damage value; the "while leeching" condition is lost.
+        let mods = parse_stat_line("20% increased Damage while Leeching");
+        assert!(!mods.is_empty(), "expected at least 1 mod, got none");
+        assert!(mods.iter().any(|m| m.stat == "Damage" && m.value == 20.0),
+            "expected Damage=20.0, got {:?}", mods);
+    }
+
+    #[test]
+    fn test_cluster_fuel_the_fight_all_stats() {
+        let lines = vec![
+            "8% increased Attack Speed".to_string(),
+            "0.4% of Attack Damage Leeched as Mana".to_string(),
+            "20% increased Damage while Leeching".to_string(),
+        ];
+        let mods = parse_stats(&lines);
+        assert_eq!(mods.len(), 3, "expected 3 mods from Fuel the Fight, got {:?}", mods);
+        assert!(mods.iter().any(|m| m.stat == "AttackSpeed" && m.value == 8.0));
+        assert!(mods.iter().any(|m| m.stat == "ManaLeechPct" && m.value == 0.4));
+        assert!(mods.iter().any(|m| m.stat == "Damage" && m.value == 20.0));
+    }
+
+    // --- Supercharge (large cluster: Spell Damage) ---
+
+    #[test]
+    fn test_cluster_supercharge_lucky() {
+        // "Lightning Damage with Non-Critical Strikes is Lucky"
+        // Boolean flag extracted via try_misc_patterns
+        let mods = parse_stat_line("Lightning Damage with Non-Critical Strikes is Lucky");
+        assert_eq!(mods.len(), 1, "expected 1 mod, got {:?}", mods);
+        assert_eq!(mods[0].stat, "LightningLucky");
+        assert_eq!(mods[0].value, 1.0);
+    }
+
+    // --- Additional cluster notables (from cluster-data.generated.ts) ---
+
+    #[test]
+    fn test_cluster_basics_of_pain() {
+        let lines = vec![
+            "20% increased Damage".to_string(),
+            "30% increased Critical Strike Chance".to_string(),
+        ];
+        let mods = parse_stats(&lines);
+        assert_eq!(mods.len(), 2);
+        assert!(mods.iter().any(|m| m.stat == "Damage" && m.value == 20.0));
+        assert!(mods.iter().any(|m| m.stat == "CritChance" && m.value == 30.0));
+    }
+
+    #[test]
+    fn test_cluster_quick_getaway() {
+        let lines = vec![
+            "5% increased Attack and Cast Speed".to_string(),
+            "5% increased Movement Speed if you've dealt a Critical Strike Recently".to_string(),
+            "25% increased Critical Strike Chance".to_string(),
+        ];
+        let mods = parse_stats(&lines);
+        assert!(mods.iter().any(|m| m.stat == "AttackSpeed" && m.value == 5.0),
+            "missing AttackSpeed from Quick Getaway, got {:?}", mods);
+        assert!(mods.iter().any(|m| m.stat == "CritChance" && m.value == 25.0),
+            "missing CritChance from Quick Getaway, got {:?}", mods);
+    }
+
+    #[test]
+    fn test_cluster_force_multiplier() {
+        let lines = vec![
+            "5% chance to deal Double Damage".to_string(),
+            "25% increased Physical Damage".to_string(),
+        ];
+        let mods = parse_stats(&lines);
+        assert!(mods.iter().any(|m| m.stat == "DoubleDamageChance" && m.value == 5.0));
+        assert!(mods.iter().any(|m| m.stat == "PhysicalDamage" && m.value == 25.0));
+    }
+
+    #[test]
+    fn test_cluster_wasting_affliction() {
+        let lines = vec![
+            "20% increased Damage over Time".to_string(),
+            "10% increased Skill Effect Duration".to_string(),
+        ];
+        let mods = parse_stats(&lines);
+        assert!(mods.iter().any(|m| m.stat == "DamageOverTime" && m.value == 20.0));
+        assert!(mods.iter().any(|m| m.stat == "SkillDuration" && m.value == 10.0));
+    }
+
+    #[test]
+    fn test_cluster_fettle() {
+        // Small cluster notable: Life
+        let lines = vec![
+            "+20 to maximum Life".to_string(),
+            "10% increased maximum Life".to_string(),
+        ];
+        let mods = parse_stats(&lines);
+        assert_eq!(mods.len(), 2);
+        assert!(mods.iter().any(|m| m.stat == "Life" && m.value == 20.0 && m.mod_type == "flat"));
+        assert!(mods.iter().any(|m| m.stat == "Life" && m.value == 10.0 && m.mod_type == "increased"));
+    }
+
+    #[test]
+    fn test_cluster_energy_from_naught() {
+        let mods = parse_stat_line("+100 to maximum Energy Shield");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].stat, "EnergyShield");
+        assert_eq!(mods[0].value, 100.0);
+        assert_eq!(mods[0].mod_type, "flat");
+    }
+
+    #[test]
+    fn test_cluster_small_passive_stats() {
+        // Cluster small passives push their stat text directly (e.g. "12% increased Cold Damage")
+        let small_passive_lines = vec![
+            "12% increased Cold Damage".to_string(),
+            "10% increased Elemental Damage".to_string(),
+            "10% increased Damage over Time".to_string(),
+            "15% increased Critical Strike Chance".to_string(),
+        ];
+        let mods = parse_stats(&small_passive_lines);
+        assert!(mods.iter().any(|m| m.stat == "ColdDamage" && m.value == 12.0));
+        // Elemental splits into 3 elements
+        assert!(mods.iter().any(|m| m.stat == "FireDamage" && m.value == 10.0));
+        assert!(mods.iter().any(|m| m.stat == "ColdDamage" && m.value == 10.0));
+        assert!(mods.iter().any(|m| m.stat == "LightningDamage" && m.value == 10.0));
+        assert!(mods.iter().any(|m| m.stat == "DamageOverTime" && m.value == 10.0));
+        assert!(mods.iter().any(|m| m.stat == "CritChance" && m.value == 15.0));
+    }
 }
 
 #[cfg(test)]
