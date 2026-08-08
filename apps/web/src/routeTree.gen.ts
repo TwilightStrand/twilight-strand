@@ -21,9 +21,9 @@ import { Route as BuildIdRouteImport } from './routes/build.$id'
 import { Route as RobotsTxtRouteImport } from './routes/robots.txt'
 import { Route as SitemapXmlRouteImport } from './routes/sitemap.xml'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
-import { Route as ApiBuildsLeaderboardRouteImport } from './routes/api/builds_.leaderboard'
-import { Route as ApiBuildsSharedRouteImport } from './routes/api/builds_.shared'
-import { Route as ApiBuildsIdShareRouteImport } from './routes/api/builds_.$id.share'
+import { Route as ApiBuildsLeaderboardRouteImport } from './routes/api/builds/leaderboard'
+import { Route as ApiBuildsSharedRouteImport } from './routes/api/builds/shared'
+import { Route as ApiBuildsIdShareRouteImport } from './routes/api/builds/$id.share'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -86,25 +86,25 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiBuildsLeaderboardRoute = ApiBuildsLeaderboardRouteImport.update({
-  id: '/api/builds_/leaderboard',
-  path: '/api/builds/leaderboard',
-  getParentRoute: () => rootRouteImport,
+  id: '/leaderboard',
+  path: '/leaderboard',
+  getParentRoute: () => ApiBuildsRoute,
 } as any)
 const ApiBuildsSharedRoute = ApiBuildsSharedRouteImport.update({
-  id: '/api/builds_/shared',
-  path: '/api/builds/shared',
-  getParentRoute: () => rootRouteImport,
+  id: '/shared',
+  path: '/shared',
+  getParentRoute: () => ApiBuildsRoute,
 } as any)
 const ApiBuildsIdShareRoute = ApiBuildsIdShareRouteImport.update({
-  id: '/api/builds_/$id/share',
-  path: '/api/builds/$id/share',
-  getParentRoute: () => rootRouteImport,
+  id: '/$id/share',
+  path: '/$id/share',
+  getParentRoute: () => ApiBuildsRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/community': typeof CommunityRoute
-  '/api/builds': typeof ApiBuildsRoute
+  '/api/builds': typeof ApiBuildsRouteWithChildren
   '/api/character': typeof ApiCharacterRoute
   '/api/import': typeof ApiImportRoute
   '/api/ninja': typeof ApiNinjaRoute
@@ -121,7 +121,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/community': typeof CommunityRoute
-  '/api/builds': typeof ApiBuildsRoute
+  '/api/builds': typeof ApiBuildsRouteWithChildren
   '/api/character': typeof ApiCharacterRoute
   '/api/import': typeof ApiImportRoute
   '/api/ninja': typeof ApiNinjaRoute
@@ -139,7 +139,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/community': typeof CommunityRoute
-  '/api/builds': typeof ApiBuildsRoute
+  '/api/builds': typeof ApiBuildsRouteWithChildren
   '/api/character': typeof ApiCharacterRoute
   '/api/import': typeof ApiImportRoute
   '/api/ninja': typeof ApiNinjaRoute
@@ -149,9 +149,9 @@ export interface FileRoutesById {
   '/robots/txt': typeof RobotsTxtRoute
   '/sitemap/xml': typeof SitemapXmlRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/api/builds_/leaderboard': typeof ApiBuildsLeaderboardRoute
-  '/api/builds_/shared': typeof ApiBuildsSharedRoute
-  '/api/builds_/$id/share': typeof ApiBuildsIdShareRoute
+  '/api/builds/leaderboard': typeof ApiBuildsLeaderboardRoute
+  '/api/builds/shared': typeof ApiBuildsSharedRoute
+  '/api/builds/$id/share': typeof ApiBuildsIdShareRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -202,15 +202,15 @@ export interface FileRouteTypes {
     | '/robots/txt'
     | '/sitemap/xml'
     | '/api/auth/$'
-    | '/api/builds_/leaderboard'
-    | '/api/builds_/shared'
-    | '/api/builds_/$id/share'
+    | '/api/builds/leaderboard'
+    | '/api/builds/shared'
+    | '/api/builds/$id/share'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CommunityRoute: typeof CommunityRoute
-  ApiBuildsRoute: typeof ApiBuildsRoute
+  ApiBuildsRoute: typeof ApiBuildsRouteWithChildren
   ApiCharacterRoute: typeof ApiCharacterRoute
   ApiImportRoute: typeof ApiImportRoute
   ApiNinjaRoute: typeof ApiNinjaRoute
@@ -220,9 +220,6 @@ export interface RootRouteChildren {
   RobotsTxtRoute: typeof RobotsTxtRoute
   SitemapXmlRoute: typeof SitemapXmlRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
-  ApiBuildsLeaderboardRoute: typeof ApiBuildsLeaderboardRoute
-  ApiBuildsSharedRoute: typeof ApiBuildsSharedRoute
-  ApiBuildsIdShareRoute: typeof ApiBuildsIdShareRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -311,34 +308,50 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/builds_/leaderboard': {
-      id: '/api/builds_/leaderboard'
-      path: '/api/builds/leaderboard'
+    '/api/builds/leaderboard': {
+      id: '/api/builds/leaderboard'
+      path: '/leaderboard'
       fullPath: '/api/builds/leaderboard'
       preLoaderRoute: typeof ApiBuildsLeaderboardRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof ApiBuildsRoute
     }
-    '/api/builds_/shared': {
-      id: '/api/builds_/shared'
-      path: '/api/builds/shared'
+    '/api/builds/shared': {
+      id: '/api/builds/shared'
+      path: '/shared'
       fullPath: '/api/builds/shared'
       preLoaderRoute: typeof ApiBuildsSharedRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof ApiBuildsRoute
     }
-    '/api/builds_/$id/share': {
-      id: '/api/builds_/$id/share'
-      path: '/api/builds/$id/share'
+    '/api/builds/$id/share': {
+      id: '/api/builds/$id/share'
+      path: '/$id/share'
       fullPath: '/api/builds/$id/share'
       preLoaderRoute: typeof ApiBuildsIdShareRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof ApiBuildsRoute
     }
   }
 }
 
+interface ApiBuildsRouteChildren {
+  ApiBuildsLeaderboardRoute: typeof ApiBuildsLeaderboardRoute
+  ApiBuildsSharedRoute: typeof ApiBuildsSharedRoute
+  ApiBuildsIdShareRoute: typeof ApiBuildsIdShareRoute
+}
+
+const ApiBuildsRouteChildren: ApiBuildsRouteChildren = {
+  ApiBuildsLeaderboardRoute: ApiBuildsLeaderboardRoute,
+  ApiBuildsSharedRoute: ApiBuildsSharedRoute,
+  ApiBuildsIdShareRoute: ApiBuildsIdShareRoute,
+}
+
+const ApiBuildsRouteWithChildren = ApiBuildsRoute._addFileChildren(
+  ApiBuildsRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CommunityRoute: CommunityRoute,
-  ApiBuildsRoute: ApiBuildsRoute,
+  ApiBuildsRoute: ApiBuildsRouteWithChildren,
   ApiCharacterRoute: ApiCharacterRoute,
   ApiImportRoute: ApiImportRoute,
   ApiNinjaRoute: ApiNinjaRoute,
@@ -348,9 +361,6 @@ const rootRouteChildren: RootRouteChildren = {
   RobotsTxtRoute: RobotsTxtRoute,
   SitemapXmlRoute: SitemapXmlRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
-  ApiBuildsLeaderboardRoute: ApiBuildsLeaderboardRoute,
-  ApiBuildsSharedRoute: ApiBuildsSharedRoute,
-  ApiBuildsIdShareRoute: ApiBuildsIdShareRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
