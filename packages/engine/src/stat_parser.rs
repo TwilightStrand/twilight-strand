@@ -176,9 +176,12 @@ static RULES: &[StatRule] = &[
 
     // === Energy Shield ===
     StatRule::new(Value, "to maximum energy shield", Flat, "EnergyShield"),
-    StatRule::new(Pct, "increased maximum energy shield", Increased, "EnergyShield").group(1),
-    StatRule::new(Pct, "increased energy shield", Increased, "EnergyShield").group(1),
-    StatRule::new(Pct, "more energy shield", More, "EnergyShield"),
+    StatRule::new(Pct, "increased maximum energy shield", Increased, "EnergyShield")
+        .excludes(["recovery", "recharge", "leech", ""]).group(1),
+    StatRule::new(Pct, "increased energy shield", Increased, "EnergyShield")
+        .excludes(["recovery", "recharge", "leech", ""]).group(1),
+    StatRule::new(Pct, "more energy shield", More, "EnergyShield")
+        .excludes(["recovery", "recharge", "leech", ""]),
 
     // === Mana ===
     StatRule::new(Value, "to maximum mana", Flat, "Mana"),

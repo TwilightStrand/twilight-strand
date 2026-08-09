@@ -452,6 +452,24 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     mst.power_charges = input.power_charges as u8;
     mst.frenzy_charges = input.frenzy_charges as u8;
     mst.endurance_charges = input.endurance_charges as u8;
+
+    // Base charge bonuses (PoE core mechanics)
+    if input.power_charges > 0 {
+        let pc = input.power_charges as f64;
+        db.add_legacy("CritChance", 40.0 * pc, "increased");
+    }
+    if input.frenzy_charges > 0 {
+        let fc = input.frenzy_charges as f64;
+        db.add_legacy("AttackSpeed", 4.0 * fc, "increased");
+        db.add_legacy("Damage", 4.0 * fc, "more");
+    }
+    if input.endurance_charges > 0 {
+        let ec = input.endurance_charges as f64;
+        db.add_legacy("PhysReduction", 4.0 * ec, "flat");
+        db.add_legacy("FireRes", ec, "flat");
+        db.add_legacy("ColdRes", ec, "flat");
+        db.add_legacy("LightningRes", ec, "flat");
+    }
     if input.is_dual_wield { mst.set_condition(ConditionId::DualWielding); }
     if input.on_full_life { mst.set_condition(ConditionId::OnFullLife); }
     if input.on_low_life { mst.set_condition(ConditionId::OnLowLife); }
