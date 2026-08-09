@@ -824,10 +824,11 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
         dot_raw * dot_res
     } else { 0.0 };
 
-    // Pure DoT gems (no hit damage) use only DoT DPS
-    let is_pure_dot = gem.map_or(false, |g| g.is_dot && g.base_damages.is_empty());
+    // DoT gems use DoT DPS as the primary damage number.
+    // For hybrid gems (Vortex), the hit is secondary (often on cooldown).
+    let is_dot_primary = gem.map_or(false, |g| g.is_dot);
 
-    let total_dps = if is_pure_dot {
+    let total_dps = if is_dot_primary && dot_dps > 0.0 {
         dot_dps
     } else {
         // Apply per-type resistance to hit damage
@@ -871,13 +872,6 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
                 avg_hit_after_res * crit_mult * speed_hit
             }
         }
-    };
-
-    // Add DoT DPS for hybrid gems (e.g. Vortex has both hit and DoT)
-    let total_dps = if !is_pure_dot && dot_dps > 0.0 {
-        total_dps + dot_dps
-    } else {
-        total_dps
     };
 
     // Ailment DPS

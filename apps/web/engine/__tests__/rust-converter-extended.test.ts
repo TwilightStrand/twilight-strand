@@ -98,11 +98,9 @@ describe("rust-converter: gear defence aggregation", () => {
     ];
 
     const result = convertToRustInput(baseStats, items, [], mockTreeNodes([]));
-    // gear defences are set to 0 to avoid local-mod double-scaling;
-    // defence values flow through stat_lines instead
-    expect(result.gear_armour).toBe(0);
-    expect(result.gear_evasion).toBe(0);
-    expect(result.gear_es).toBe(0);
+    expect(result.gear_armour).toBe(1900);
+    expect(result.gear_evasion).toBe(500);
+    expect(result.gear_es).toBe(150);
   });
 
   it("excludes flasks from gear defence totals", () => {
@@ -112,7 +110,7 @@ describe("rust-converter: gear defence aggregation", () => {
     ];
 
     const result = convertToRustInput(baseStats, items, [], mockTreeNodes([]));
-    expect(result.gear_armour).toBe(0);
+    expect(result.gear_armour).toBe(1000);
   });
 
   it("sums block chance from shields", () => {

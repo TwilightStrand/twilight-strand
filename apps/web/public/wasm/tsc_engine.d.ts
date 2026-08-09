@@ -44,6 +44,11 @@ export interface BuildInput {
     enemy_chaos_res?: number;
     enemy_is_boss?: boolean;
     support_gems?: string[];
+    /**
+     * Gem levels for each support gem, parallel to `support_gems`.
+     * When shorter than support_gems, missing entries default to 20.
+     */
+    support_gem_levels?: number[];
     equipped_uniques?: string[];
     active_flasks?: string[];
     weapon_base_type?: string;
@@ -174,6 +179,11 @@ export interface CalcOutput {
     impale_dps: number;
     ward: number;
     es_recharge_rate: number;
+    full_dps: number;
+    fire_res_max: number;
+    cold_res_max: number;
+    lightning_res_max: number;
+    chaos_res_max: number;
 }
 
 export interface DeltaResult {

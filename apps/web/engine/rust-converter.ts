@@ -192,8 +192,13 @@ export function convertToRustInput(
         line = mod.replace(WHILE_AFFECTED_RE, "");
       }
 
-      // All item mods flow through as stat_lines. Defence mods are NOT filtered
-      // since gear_es/gear_armour/gear_evasion are set to 0 (see below).
+      // Filter local defence mods from items that have computed defence headers.
+      // gear_es/gear_armour/gear_evasion already include local flat + local %,
+      // so passing those mods as stat_lines would double-count them.
+      const lower = line.toLowerCase();
+      if (hasLocalES && isLocalESMod(lower)) continue;
+      if (hasLocalArmour && isLocalArmourMod(lower)) continue;
+      if (hasLocalEvasion && isLocalEvasionMod(lower)) continue;
 
       statLines.push(line);
     }
@@ -337,12 +342,9 @@ export function convertToRustInput(
     is_dual_wield: isDualWield,
     socket_groups: socketGroups,
     stat_lines: statLines,
-    // Don't pass pre-computed gear defences; the local % is already baked
-    // into these values and would be double-scaled by global % from tree.
-    // Let flat/increased defence mods from stat_lines build up defences instead.
-    gear_armour: 0,
-    gear_evasion: 0,
-    gear_es: 0,
+    gear_armour: gearArmour,
+    gear_evasion: gearEvasion,
+    gear_es: gearES,
     gear_block: gearBlock,
     on_consecrated_ground: cfgBool("conditionOnConsecratedGround"),
     enemy_intimidated: cfgBool("conditionEnemyIntimidated") || cfgBool("conditionChampionIntimidate"),
