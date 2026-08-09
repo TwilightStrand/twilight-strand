@@ -170,8 +170,8 @@ describe("convertCharacterToXml", () => {
               frameType: 4,
               inventoryId: "",
               properties: [
-                { name: "Level", values: [["21", 0]] },
-                { name: "Quality", values: [["+23%", 0]] },
+                { name: "Level", values: [["21", 0] as [string, number]] },
+                { name: "Quality", values: [["+23%", 0] as [string, number]] },
               ],
             },
           ],

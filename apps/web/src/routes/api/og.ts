@@ -109,7 +109,7 @@ export const Route = createFileRoute("/api/og")({
           });
           const png = resvg.render().asPng();
 
-          return new Response(png, {
+          return new Response(new Uint8Array(png), {
             headers: {
               "Content-Type": "image/png",
               "Cache-Control": "public, max-age=86400",

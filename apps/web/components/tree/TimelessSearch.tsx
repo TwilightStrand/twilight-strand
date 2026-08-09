@@ -245,7 +245,7 @@ export function TimelessSearch() {
       radiusNodeIds.delete(targetSocket); // socket itself is not transformed
 
       // Attempt WASM transforms
-      let bridge: Awaited<ReturnType<typeof import("@/engine/rust-bridge")>> | null = null;
+      let bridge: Awaited<typeof import("@/engine/rust-bridge")> | null = null;
       if (wasmReady) {
         try {
           bridge = await import("@/engine/rust-bridge");
