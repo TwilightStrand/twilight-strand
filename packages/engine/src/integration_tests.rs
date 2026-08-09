@@ -1241,4 +1241,42 @@ mod tests {
         println!("Life: MATCH (CI = 1)");
         println!("Attributes: PARTIAL (Int correct for proxy, real build has more from tree)");
     }
+
+    #[test]
+    fn debug_winter_orb_dps_breakdown() {
+        // Simulate the CI Winter Orb Occultist key inputs
+        let mut input = witch(100);
+        input.main_skill_id = "WinterOrb".into();
+        input.main_skill_level = 21;
+        input.power_charges = 16;
+        input.frenzy_charges = 16;
+        // Add some typical tree + item mods
+        input.stat_lines = vec![
+            "+300% increased Spell Damage".into(),
+            "+200% increased Cold Damage".into(),
+            "+150% increased Critical Strike Chance".into(),
+            "+100% to Critical Strike Multiplier".into(),
+            "+50% increased Cast Speed".into(),
+            "+200 to Intelligence".into(),
+            "+100 to maximum Energy Shield".into(),
+            "+150% increased Energy Shield".into(),
+        ];
+        input.gear_es = 5000.0;
+        
+        let out = evaluate_build(input);
+        println!("\n=== WINTER ORB DPS BREAKDOWN ===");
+        println!("DPS: {:.0}", out.total_dps);
+        println!("Combined DPS: {:.0}", out.combined_dps);
+        println!("Crit Chance: {:.1}%", out.crit_chance);
+        println!("Crit Multi: {:.0}%", out.crit_multiplier);
+        println!("Attack Speed: {:.2}/s", out.attack_speed);
+        println!("ES: {:.0}", out.energy_shield);
+        println!("Int: {:.0}", out.intelligence);
+        
+        // With 16 power charges (640% inc crit) + 150% from mods + base 7.5%
+        // crit should be capped at 100%
+        assert!(out.crit_chance <= 100.0);
+        // DPS shouldn't be in the billions
+        assert!(out.total_dps < 1_000_000_000.0, "DPS is {:.0}, way too high", out.total_dps);
+    }
 }
