@@ -362,7 +362,7 @@
       "bleed_dps": 0.0,
       "chaos_res": 0.0,
       "cold_res": 75.0,
-      "combined_dps": 332.32,
+      "combined_dps": 160.0,
       "crit_chance": 5.0,
       "crit_multiplier": 150.0,
       "dexterity": 14.0,
@@ -379,7 +379,7 @@
       "mana": 587.0,
       "poison_dps": 0.0,
       "strength": 232.0,
-      "total_dps": 332.32,
+      "total_dps": 160.0,
       "total_ehp": 68110.0
     }
   },
@@ -531,7 +531,7 @@
       "bleed_dps": 0.0,
       "chaos_res": 75.0,
       "cold_res": 75.0,
-      "combined_dps": 16492.13,
+      "combined_dps": 7789.76,
       "crit_chance": 1.8,
       "crit_multiplier": 210.0,
       "dexterity": 14.0,
@@ -548,7 +548,7 @@
       "mana": 708.0,
       "poison_dps": 0.0,
       "strength": 14.0,
-      "total_dps": 16492.13,
+      "total_dps": 7789.76,
       "total_ehp": 3965.07
     }
   },

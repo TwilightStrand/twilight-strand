@@ -801,13 +801,16 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     let res_lightning = apply_resistance(e_light, lightning_pen);
     let res_chaos = apply_resistance(e_chaos, chaos_pen);
 
-    let total_dps = if gem.map_or(false, |g| g.is_dot) {
+    // DoT DPS (for gems with dot_base > 0)
+    let dot_dps = if gem.map_or(false, |g| g.dot_base > 0.0) {
         let dot_base = gem.unwrap().dot_base;
-        let (dot_flat, dot_inc, dot_more) = db.buckets(StatId::DAMAGE, &cfg, &mst);
-        let dot_inc2 = db.sum_inc(StatId::DAMAGE_OVER_TIME, &cfg, &mst);
-        let dot_more2 = db.product_more(StatId::DAMAGE_OVER_TIME, &cfg, &mst);
-        let dot_raw = calc_stat(dot_base, dot_flat, dot_inc + dot_inc2, dot_more * dot_more2);
-        // DoT from gems is typed; use damage_types for pure DoT gems, base_damages for hybrids
+        let dot_flat = db.sum_base(StatId::DAMAGE_OVER_TIME, &cfg, &mst);
+        let dot_inc = db.sum_inc(StatId::DAMAGE_OVER_TIME, &cfg, &mst);
+        let dot_more = db.product_more(StatId::DAMAGE_OVER_TIME, &cfg, &mst);
+        let spell_dot_inc = if gem.unwrap().tags.contains(&gems::GemTag::Spell) {
+            db.sum_inc(StatId::SPELL_DAMAGE, &cfg, &mst)
+        } else { 0.0 };
+        let dot_raw = calc_stat(dot_base, dot_flat, dot_inc + spell_dot_inc, dot_more);
         let g = gem.unwrap();
         let primary_element = g.base_damages.first().map(|d| &d.damage_type)
             .or_else(|| g.damage_types.first());
@@ -819,6 +822,13 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
             _ => res_fire,
         };
         dot_raw * dot_res
+    } else { 0.0 };
+
+    // Pure DoT gems (no hit damage) use only DoT DPS
+    let is_pure_dot = gem.map_or(false, |g| g.is_dot && g.base_damages.is_empty());
+
+    let total_dps = if is_pure_dot {
+        dot_dps
     } else {
         // Apply per-type resistance to hit damage
         let phys_dps = hit_result.per_type.get("Physical").copied().unwrap_or(0.0);
@@ -861,6 +871,13 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
                 avg_hit_after_res * crit_mult * speed_hit
             }
         }
+    };
+
+    // Add DoT DPS for hybrid gems (e.g. Vortex has both hit and DoT)
+    let total_dps = if !is_pure_dot && dot_dps > 0.0 {
+        total_dps + dot_dps
+    } else {
+        total_dps
     };
 
     // Ailment DPS
