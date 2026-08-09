@@ -57,6 +57,19 @@ function extractConfig(root: Element): Record<string, string | boolean | number>
     }
   }
 
+  // Extract max charge counts from PlayerStat elements
+  const buildEl = root.querySelector("Build");
+  if (buildEl) {
+    for (const ps of buildEl.querySelectorAll("PlayerStat")) {
+      const stat = ps.getAttribute("stat");
+      const val = ps.getAttribute("value");
+      if (!stat || !val) continue;
+      if (stat === "PowerChargesMax") config["powerCharges"] = parseFloat(val);
+      else if (stat === "FrenzyChargesMax") config["frenzyCharges"] = parseFloat(val);
+      else if (stat === "EnduranceChargesMax") config["enduranceCharges"] = parseFloat(val);
+    }
+  }
+
   return config;
 }
 
