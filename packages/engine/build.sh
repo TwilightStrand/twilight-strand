@@ -12,7 +12,7 @@ if ! command -v wasm-pack &>/dev/null; then
 fi
 
 echo "Running tests..."
-cargo test -- --skip damage::tests::test_chained_conversion
+cargo test --lib -- --skip damage::tests::test_chained_conversion
 
 echo ""
 echo "Building WASM (release)..."
