@@ -180,57 +180,6 @@ function stripTagPrefixes(line: string): string {
   return s;
 }
 
-/**
- * Reverse-engineer the raw base defence value from a computed header value.
- * PoB items have headers like "Energy Shield: 661" which is already computed:
- *   computed = (rawBase + localFlat) * (1 + localPct/100)
- * We extract local flat/% from the item's mods to recover rawBase.
- * This lets the Rust engine apply local + global % additively (matching PoB).
- */
-function reverseLocalDefence(computed: number, mods: string[], defenceType: string): number {
-  if (computed <= 0) return 0;
-
-  let localFlat = 0;
-  let localPct = 0;
-
-  for (const mod of mods) {
-    const lower = mod.toLowerCase();
-    if (!lower.includes(defenceType)) continue;
-    // Skip non-local patterns
-    if (lower.includes("recharge") || lower.includes("leech") || lower.includes("regenerate")
-      || lower.includes("on kill") || lower.includes("as extra") || lower.includes("gain")
-      || lower.includes("recover") || lower.includes("per second") || lower.includes("nearby")
-      || lower.includes("chance to evade") || lower.includes("penetrate") || lower.includes("ignore")) continue;
-
-    // Flat: "+80 to maximum Energy Shield" or "+X to Armour"
-    const flatMatch = mod.match(/\+(\d+)\s+to\s+(maximum\s+)?/i);
-    if (flatMatch && (lower.includes("to maximum") || lower.includes("to armour") || lower.includes("to evasion"))) {
-      localFlat += parseInt(flatMatch[1], 10);
-      continue;
-    }
-
-    // Percentage: "156% increased Energy Shield" or "(56-74)% increased"
-    const rangeMatch = mod.match(/\((\d+)-(\d+)\)%\s+increased/i);
-    if (rangeMatch) {
-      localPct += (parseInt(rangeMatch[1], 10) + parseInt(rangeMatch[2], 10)) / 2;
-      continue;
-    }
-    const pctMatch = mod.match(/(\d+)%\s+increased/i);
-    if (pctMatch && !lower.includes("global")) {
-      localPct += parseInt(pctMatch[1], 10);
-      continue;
-    }
-  }
-
-  if (localFlat === 0 && localPct === 0) return computed;
-
-  // computed = (rawBase + localFlat) * (1 + localPct/100)
-  // rawBase = computed / (1 + localPct/100) - localFlat
-  const multiplier = 1 + localPct / 100;
-  const rawBase = Math.round(computed / multiplier - localFlat);
-  return Math.max(rawBase, 0);
-}
-
 function extractItems(root: Element): ItemData[] {
   const itemsEl = root.querySelector("Items");
   if (!itemsEl) return [];
@@ -314,14 +263,6 @@ function extractItems(root: Element): ItemData[] {
       }
     }
 
-    // Reverse-engineer raw base defences from computed headers.
-    // The "Energy Shield: 661" header is computed (base + local flat + local %).
-    // Extract local mods from this item to recover the raw base type value,
-    // so the Rust engine can apply local + global % additively (matching PoB).
-    const rawArmour = reverseLocalDefence(baseArmour, mods, "armour");
-    const rawEvasion = reverseLocalDefence(baseEvasion, mods, "evasion");
-    const rawES = reverseLocalDefence(baseES, mods, "energy shield");
-
     const id = getAttr(el, "id");
     const slot = findSlotForItem(itemsEl, id);
 
@@ -333,9 +274,9 @@ function extractItems(root: Element): ItemData[] {
       mods,
       quality: 0,
       sockets: "",
-      baseArmour: rawArmour || undefined,
-      baseEvasion: rawEvasion || undefined,
-      baseES: rawES || undefined,
+      baseArmour: baseArmour || undefined,
+      baseEvasion: baseEvasion || undefined,
+      baseES: baseES || undefined,
       baseBlock: baseBlock || undefined,
     });
   }

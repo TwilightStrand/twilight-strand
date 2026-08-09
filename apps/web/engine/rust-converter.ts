@@ -177,9 +177,12 @@ export function convertToRustInput(
       continue;
     }
 
-    // baseES/baseArmour/baseEvasion are now raw base values (reverse-engineered
-    // from computed headers). Local mods flow through stat_lines and combine
-    // additively with global mods in the Rust engine's ModDB.
+    // Local defence mods are already baked into the item's baseES/baseArmour/baseEvasion
+    // values parsed from the "Energy Shield: X" headers. Skip them to avoid double-counting.
+    const hasLocalES = (item.baseES ?? 0) > 0;
+    const hasLocalArmour = (item.baseArmour ?? 0) > 0;
+    const hasLocalEvasion = (item.baseEvasion ?? 0) > 0;
+
     for (const mod of item.mods) {
       let line = mod;
       const affectedMatch = mod.match(/while affected by (.+)$/i);
@@ -188,6 +191,14 @@ export function convertToRustInput(
         if (!activeAuras.has(aura)) continue;
         line = mod.replace(WHILE_AFFECTED_RE, "");
       }
+
+      // Filter local defence mods from items that have computed defence headers.
+      // gear_es/gear_armour/gear_evasion already include local flat + local %,
+      // so passing those mods as stat_lines would double-count them.
+      const lower = line.toLowerCase();
+      if (hasLocalES && isLocalESMod(lower)) continue;
+      if (hasLocalArmour && isLocalArmourMod(lower)) continue;
+      if (hasLocalEvasion && isLocalEvasionMod(lower)) continue;
 
       statLines.push(line);
     }

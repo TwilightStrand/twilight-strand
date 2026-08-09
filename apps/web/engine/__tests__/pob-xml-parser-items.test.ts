@@ -30,8 +30,7 @@ Energy Shield: 245
     expect(item.rarity).toBe("Rare");
     expect(item.name).toBe("Hypnotic Crown");
     expect(item.slot).toBe("Helmet");
-    // baseES is raw base type value (computed 245 minus local +80 flat)
-    expect(item.baseES).toBe(165);
+    expect(item.baseES).toBe(245);
     expect(item.mods).toContain("+80 to maximum Energy Shield");
     expect(item.mods).toContain("+40 to Intelligence");
     expect(item.mods).toContain("+30% to Cold Resistance");
