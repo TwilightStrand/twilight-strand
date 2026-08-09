@@ -99,19 +99,27 @@ function extractWeaponStats(items: ItemData[], slots: string[]): WeaponStats {
 }
 
 function isLocalESMod(lower: string): boolean {
-  return (lower.includes("energy shield") && !lower.includes("recharge") && !lower.includes("leech")
-    && !lower.includes("regenerate") && !lower.includes("on kill") && !lower.includes("as extra")
-    && (lower.includes("to maximum") || lower.includes("increased") || lower.includes("more")));
+  if (!lower.includes("energy shield")) return false;
+  // Keep these as global mods (not local defence mods)
+  if (lower.includes("recharge") || lower.includes("leech") || lower.includes("regenerate")
+    || lower.includes("on kill") || lower.includes("as extra") || lower.includes("gain")
+    || lower.includes("recover") || lower.includes("per second") || lower.includes("nearby")) return false;
+  // Local defence mods: flat ES, % increased ES, % more ES
+  return lower.includes("to maximum") || lower.includes("increased") || lower.includes("more");
 }
 
 function isLocalArmourMod(lower: string): boolean {
-  return (lower.includes("armour") && !lower.includes("penetrate") && !lower.includes("ignore")
-    && (lower.includes("to armour") || lower.includes("increased armour") || lower.includes("more armour")));
+  if (!lower.includes("armour")) return false;
+  if (lower.includes("penetrate") || lower.includes("ignore") || lower.includes("nearby")) return false;
+  return lower.includes("to armour") || lower.includes("increased armour") || lower.includes("more armour")
+    || lower.includes("additional armour");
 }
 
 function isLocalEvasionMod(lower: string): boolean {
-  return (lower.includes("evasion") && !lower.includes("chance to evade")
-    && (lower.includes("to evasion") || lower.includes("increased evasion") || lower.includes("more evasion")));
+  if (!lower.includes("evasion")) return false;
+  if (lower.includes("chance to evade") || lower.includes("nearby")) return false;
+  return lower.includes("to evasion") || lower.includes("increased evasion") || lower.includes("more evasion")
+    || lower.includes("additional evasion");
 }
 
 function bossEnemyRes(boss: string | undefined, element: string): number {
@@ -184,12 +192,8 @@ export function convertToRustInput(
         line = mod.replace(WHILE_AFFECTED_RE, "");
       }
 
-      // Filter local defence mods when the computed defence value is present.
-      // The "Energy Shield: 503" header already includes local flat + % mods.
-      const lower = line.toLowerCase();
-      if (hasLocalES && isLocalESMod(lower)) continue;
-      if (hasLocalArmour && isLocalArmourMod(lower)) continue;
-      if (hasLocalEvasion && isLocalEvasionMod(lower)) continue;
+      // All item mods flow through as stat_lines. Defence mods are NOT filtered
+      // since gear_es/gear_armour/gear_evasion are set to 0 (see below).
 
       statLines.push(line);
     }
@@ -333,9 +337,12 @@ export function convertToRustInput(
     is_dual_wield: isDualWield,
     socket_groups: socketGroups,
     stat_lines: statLines,
-    gear_armour: gearArmour,
-    gear_evasion: gearEvasion,
-    gear_es: gearES,
+    // Don't pass pre-computed gear defences; the local % is already baked
+    // into these values and would be double-scaled by global % from tree.
+    // Let flat/increased defence mods from stat_lines build up defences instead.
+    gear_armour: 0,
+    gear_evasion: 0,
+    gear_es: 0,
     gear_block: gearBlock,
     on_consecrated_ground: cfgBool("conditionOnConsecratedGround"),
     enemy_intimidated: cfgBool("conditionEnemyIntimidated") || cfgBool("conditionChampionIntimidate"),
@@ -348,6 +355,7 @@ export function convertToRustInput(
     used_skill_recently: cfgBool("conditionUsedSkillRecently"),
     nearby_rare_or_unique: false,
   };
+
 }
 
 export function rustOutputToBuildStats(
