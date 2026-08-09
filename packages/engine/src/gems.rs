@@ -36,6 +36,14 @@ pub enum GemTag {
     Trap,
     Mine,
     Brand,
+    Fire,
+    Cold,
+    Lightning,
+    Chaos,
+    Physical,
+    Warcry,
+    Movement,
+    Curse,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -196,6 +204,14 @@ fn parse_tag(s: &str) -> Option<GemTag> {
         "Aura" => Some(GemTag::Aura),
         "Herald" => Some(GemTag::Herald),
         "Vaal" => Some(GemTag::Vaal),
+        "Fire" => Some(GemTag::Fire),
+        "Cold" => Some(GemTag::Cold),
+        "Lightning" => Some(GemTag::Lightning),
+        "Chaos" => Some(GemTag::Chaos),
+        "Physical" => Some(GemTag::Physical),
+        "Warcry" => Some(GemTag::Warcry),
+        "Movement" => Some(GemTag::Movement),
+        "Curse" | "Hex" | "Mark" => Some(GemTag::Curse),
         _ => None,
     }
 }

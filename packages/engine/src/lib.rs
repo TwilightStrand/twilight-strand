@@ -358,7 +358,7 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     let eff_int = if input.base_int > 0 { input.base_int } else { class_int };
 
     // Build ModDB directly without cloning input.modifiers
-    use mod_db::{ModDB, StatId, SkillCfg, BuildState as MdbState, ConditionId};
+    use mod_db::{ModDB, StatId, SkillCfg, BuildState as MdbState, ConditionId, ModFlags, KeywordFlags};
     let mut db = ModDB::new();
 
     // v2-parsed stat lines carry conditions, flags, and multipliers
@@ -445,7 +445,120 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
         db.add_legacy("BlockChance", 15.0, "flat");
         db.add_legacy("PhysicalDamage", 20.0, "more");
     }
-    let cfg = SkillCfg::default();
+
+    // Lookup gem early so SkillCfg can be built from its tags
+    let gem_level = if input.main_skill_level == 0 { 20 } else { input.main_skill_level };
+    let gem_owned = if !input.main_skill_id.is_empty() {
+        gems::lookup_gem_at_level(&input.main_skill_id, gem_level)
+    } else {
+        None
+    };
+    let gem = gem_owned.as_ref();
+    let has_weapon = input.weapon_aps > 0.0;
+
+    // Build SkillCfg from the active skill's tags so flag-filtered mods apply correctly.
+    // PoB: cfg.flags must include the skill's flags (Attack, Spell, etc.) so that mods
+    // with matching flags (e.g. "20% increased Attack Damage" with ModFlag.Attack) are
+    // included in queries. Without this, flagged mods are silently dropped.
+    let cfg = {
+        let mut flags = ModFlags::empty();
+        let mut keyflags = KeywordFlags::empty();
+        if let Some(g) = gem {
+            for tag in &g.tags {
+                match tag {
+                    gems::GemTag::Attack => {
+                        flags |= ModFlags::ATTACK | ModFlags::HIT;
+                        keyflags |= KeywordFlags::ATTACK;
+                    }
+                    gems::GemTag::Spell => {
+                        flags |= ModFlags::SPELL | ModFlags::HIT;
+                        keyflags |= KeywordFlags::SPELL;
+                    }
+                    gems::GemTag::Melee => {
+                        flags |= ModFlags::MELEE;
+                    }
+                    gems::GemTag::Projectile => {
+                        flags |= ModFlags::PROJECTILE;
+                    }
+                    gems::GemTag::AoE => {
+                        flags |= ModFlags::AREA;
+                    }
+                    gems::GemTag::DoT => {
+                        flags |= ModFlags::DOT;
+                    }
+                    gems::GemTag::Totem => {
+                        keyflags |= KeywordFlags::TOTEM;
+                    }
+                    gems::GemTag::Trap => {
+                        keyflags |= KeywordFlags::TRAP;
+                    }
+                    gems::GemTag::Mine => {
+                        keyflags |= KeywordFlags::MINE;
+                    }
+                    gems::GemTag::Minion => {
+                        keyflags |= KeywordFlags::MINION;
+                    }
+                    gems::GemTag::Brand => {
+                        keyflags |= KeywordFlags::BRAND;
+                    }
+                    gems::GemTag::Fire => {
+                        keyflags |= KeywordFlags::FIRE;
+                    }
+                    gems::GemTag::Cold => {
+                        keyflags |= KeywordFlags::COLD;
+                    }
+                    gems::GemTag::Lightning => {
+                        keyflags |= KeywordFlags::LIGHTNING;
+                    }
+                    gems::GemTag::Chaos => {
+                        keyflags |= KeywordFlags::CHAOS;
+                    }
+                    gems::GemTag::Physical => {
+                        keyflags |= KeywordFlags::PHYSICAL;
+                    }
+                    gems::GemTag::Vaal => {
+                        keyflags |= KeywordFlags::VAAL;
+                    }
+                    gems::GemTag::Warcry => {
+                        keyflags |= KeywordFlags::WARCRY;
+                    }
+                    gems::GemTag::Movement => {
+                        keyflags |= KeywordFlags::MOVEMENT;
+                    }
+                    gems::GemTag::Aura => {
+                        keyflags |= KeywordFlags::AURA;
+                    }
+                    _ => {}
+                }
+            }
+            // Weapon flags from equipped weapon
+            if has_weapon && flags.contains(ModFlags::ATTACK) {
+                let base_lower = input.weapon_base_type.to_lowercase();
+                if base_lower.contains("sword") || base_lower.contains("foil") || base_lower.contains("sabre") {
+                    flags |= ModFlags::SWORD;
+                } else if base_lower.contains("axe") || base_lower.contains("chopper") || base_lower.contains("hatchet") || base_lower.contains("cleaver") || base_lower.contains("tomahawk") {
+                    flags |= ModFlags::AXE;
+                } else if base_lower.contains("mace") || base_lower.contains("sceptre") || base_lower.contains("flail") || base_lower.contains("morning star") || base_lower.contains("pernarch") {
+                    flags |= ModFlags::MACE;
+                } else if base_lower.contains("dagger") || base_lower.contains("shiv") || base_lower.contains("stiletto") || base_lower.contains("skean") || base_lower.contains("kris") || base_lower.contains("sai") {
+                    flags |= ModFlags::DAGGER;
+                } else if base_lower.contains("claw") || base_lower.contains("fist") || base_lower.contains("awl") || base_lower.contains("blinder") || base_lower.contains("gouger") {
+                    flags |= ModFlags::CLAW;
+                } else if base_lower.contains("bow") {
+                    flags |= ModFlags::BOW;
+                    keyflags |= KeywordFlags::BOW;
+                } else if base_lower.contains("wand") || base_lower.contains("horn") || base_lower.contains("quill") {
+                    flags |= ModFlags::WAND;
+                } else if base_lower.contains("staff") || base_lower.contains("quarterstaff") || base_lower.contains("lathi") || base_lower.contains("warstaff") {
+                    flags |= ModFlags::STAFF;
+                }
+            }
+        }
+        SkillCfg { flags, keyflags, skill_id: 0 }
+    };
+    // Separate cfg without skill-specific flags for global stats (attributes, life, ES, etc.)
+    // These should not be filtered by skill tags.
+    let global_cfg = SkillCfg::default();
     let mut mst = MdbState::default();
 
     // Populate BuildState from input flags so conditional mods can evaluate
@@ -491,9 +604,9 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     if input.nearby_rare_or_unique { mst.set_condition(ConditionId::NearbyRareOrUnique); }
 
     // --- Attributes ----------------------------------------------------------
-    let strength = db.calc(StatId::STR, eff_str as f64, &cfg, &mst).round();
-    let dexterity = db.calc(StatId::DEX, eff_dex as f64, &cfg, &mst).round();
-    let intelligence = db.calc(StatId::INT, eff_int as f64, &cfg, &mst).round();
+    let strength = db.calc(StatId::STR, eff_str as f64, &global_cfg, &mst).round();
+    let dexterity = db.calc(StatId::DEX, eff_dex as f64, &global_cfg, &mst).round();
+    let intelligence = db.calc(StatId::INT, eff_int as f64, &global_cfg, &mst).round();
     mst.strength = strength;
     mst.dexterity = dexterity;
     mst.intelligence = intelligence;
@@ -501,24 +614,24 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     // --- Pool ----------------------------------------------------------------
     let life = {
         let base = 38.0 + (input.level as f64 - 1.0) * 12.0 + (strength / 2.0).floor();
-        db.calc(StatId::LIFE, base, &cfg, &mst).round().max(1.0)
+        db.calc(StatId::LIFE, base, &global_cfg, &mst).round().max(1.0)
     };
     let energy_shield = {
         // PoB: floor(Int/10) as % increased ES (CalcPerform.lua:518)
         let int_bonus = (intelligence / 10.0).floor();
-        let (flat, inc, more) = db.buckets(StatId::ENERGY_SHIELD, &cfg, &mst);
+        let (flat, inc, more) = db.buckets(StatId::ENERGY_SHIELD, &global_cfg, &mst);
         ((input.gear_es + flat) * (1.0 + (inc + int_bonus) / 100.0) * more).round().max(0.0)
     };
     let mana = {
         let base = 34.0 + (input.level as f64 - 1.0) * 6.0 + (intelligence / 2.0).floor();
-        db.calc(StatId::MANA, base, &cfg, &mst).round().max(0.0)
+        db.calc(StatId::MANA, base, &global_cfg, &mst).round().max(0.0)
     };
 
     // --- Ward ----------------------------------------------------------------
-    let ward = db.sum_base(StatId::WARD, &cfg, &mst).max(0.0);
+    let ward = db.sum_base(StatId::WARD, &global_cfg, &mst).max(0.0);
 
     // --- ES Recharge ---------------------------------------------------------
-    let es_recharge_inc = db.sum_inc(StatId::ES_RECHARGE_RATE, &cfg, &mst);
+    let es_recharge_inc = db.sum_inc(StatId::ES_RECHARGE_RATE, &global_cfg, &mst);
     let es_recharge_rate = if energy_shield > 0.0 {
         (energy_shield / 2.0) * (1.0 + es_recharge_inc / 100.0)
     } else {
@@ -528,34 +641,34 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     // --- Armour / Evasion (gear values are pre-computed with local mods) -----
     let armour = {
         let str_armour_bonus = (strength / 5.0).floor();
-        db.calc(StatId::ARMOUR, input.gear_armour + str_armour_bonus, &cfg, &mst).round()
+        db.calc(StatId::ARMOUR, input.gear_armour + str_armour_bonus, &global_cfg, &mst).round()
     };
     let evasion = {
         let dex_evasion_bonus = (dexterity / 5.0).floor();
-        db.calc(StatId::EVASION, input.gear_evasion + dex_evasion_bonus, &cfg, &mst).round().max(0.0)
+        db.calc(StatId::EVASION, input.gear_evasion + dex_evasion_bonus, &global_cfg, &mst).round().max(0.0)
     };
 
     // --- Resistances with max res cap ----------------------------------------
-    let fire_res_max = 75.0 + db.sum_base(StatId::FIRE_RES_MAX, &cfg, &mst);
-    let cold_res_max = 75.0 + db.sum_base(StatId::COLD_RES_MAX, &cfg, &mst);
-    let lightning_res_max = 75.0 + db.sum_base(StatId::LIGHTNING_RES_MAX, &cfg, &mst);
-    let chaos_res_max = 75.0 + db.sum_base(StatId::CHAOS_RES_MAX, &cfg, &mst);
-    let fire_res = (db.sum_base(StatId::FIRE_RES, &cfg, &mst) - 60.0).min(fire_res_max);
-    let cold_res = (db.sum_base(StatId::COLD_RES, &cfg, &mst) - 60.0).min(cold_res_max);
-    let lightning_res = (db.sum_base(StatId::LIGHTNING_RES, &cfg, &mst) - 60.0).min(lightning_res_max);
-    let chaos_res = (db.sum_base(StatId::CHAOS_RES, &cfg, &mst) - 60.0).min(chaos_res_max);
+    let fire_res_max = 75.0 + db.sum_base(StatId::FIRE_RES_MAX, &global_cfg, &mst);
+    let cold_res_max = 75.0 + db.sum_base(StatId::COLD_RES_MAX, &global_cfg, &mst);
+    let lightning_res_max = 75.0 + db.sum_base(StatId::LIGHTNING_RES_MAX, &global_cfg, &mst);
+    let chaos_res_max = 75.0 + db.sum_base(StatId::CHAOS_RES_MAX, &global_cfg, &mst);
+    let fire_res = (db.sum_base(StatId::FIRE_RES, &global_cfg, &mst) - 60.0).min(fire_res_max);
+    let cold_res = (db.sum_base(StatId::COLD_RES, &global_cfg, &mst) - 60.0).min(cold_res_max);
+    let lightning_res = (db.sum_base(StatId::LIGHTNING_RES, &global_cfg, &mst) - 60.0).min(lightning_res_max);
+    let chaos_res = (db.sum_base(StatId::CHAOS_RES, &global_cfg, &mst) - 60.0).min(chaos_res_max);
 
     // --- Block ---------------------------------------------------------------
-    let block_chance = (input.gear_block + db.sum_base(StatId::BLOCK_CHANCE, &cfg, &mst)).clamp(0.0, 75.0);
-    let spell_block = db.sum_base(StatId::SPELL_BLOCK_CHANCE, &cfg, &mst).clamp(0.0, 75.0);
+    let block_chance = (input.gear_block + db.sum_base(StatId::BLOCK_CHANCE, &global_cfg, &mst)).clamp(0.0, 75.0);
+    let spell_block = db.sum_base(StatId::SPELL_BLOCK_CHANCE, &global_cfg, &mst).clamp(0.0, 75.0);
 
     // --- Suppression ---------------------------------------------------------
-    let suppression = db.sum_base(StatId::SPELL_SUPPRESSION, &cfg, &mst).clamp(0.0, 100.0);
+    let suppression = db.sum_base(StatId::SPELL_SUPPRESSION, &global_cfg, &mst).clamp(0.0, 100.0);
 
     // --- Accuracy / Hit Chance (PoB formula) ---------------------------------
     let accuracy = {
         let base = (input.level as f64 - 1.0) * 2.0 + dexterity * 2.0;
-        db.calc(StatId::ACCURACY, base, &cfg, &mst).round().max(0.0)
+        db.calc(StatId::ACCURACY, base, &global_cfg, &mst).round().max(0.0)
     };
     let enemy_evasion = 600.0;
     let hit_chance = if enemy_evasion <= 0.0 {
@@ -566,15 +679,6 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     };
 
     // --- DPS via damage.rs conversion pipeline --------------------------------
-    let gem_level = if input.main_skill_level == 0 { 20 } else { input.main_skill_level };
-    let gem_owned = if !input.main_skill_id.is_empty() {
-        gems::lookup_gem_at_level(&input.main_skill_id, gem_level)
-    } else {
-        None
-    };
-    let gem = gem_owned.as_ref();
-
-    let has_weapon = input.weapon_aps > 0.0;
     let has_weapon2 = input.is_dual_wield && input.weapon2_aps > 0.0;
 
     // For dual-wield, average both weapons' stats
@@ -980,16 +1084,16 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     let combined_dps = total_dps + bleed_dps + poison_dps + ignite_dps + impale_dps;
 
     // --- Regen ---------------------------------------------------------------
-    let life_regen_flat = db.sum_base(StatId::LIFE_REGEN, &cfg, &mst);
-    let life_regen_pct = db.sum_base(StatId::LIFE_REGEN_PCT, &cfg, &mst);
+    let life_regen_flat = db.sum_base(StatId::LIFE_REGEN, &global_cfg, &mst);
+    let life_regen_pct = db.sum_base(StatId::LIFE_REGEN_PCT, &global_cfg, &mst);
     let life_regen = life_regen_flat + life * life_regen_pct / 100.0;
 
-    let mana_regen_flat = db.sum_base(StatId::MANA_REGEN, &cfg, &mst);
-    let mana_regen_inc = db.sum_inc(StatId::MANA_REGEN, &cfg, &mst);
+    let mana_regen_flat = db.sum_base(StatId::MANA_REGEN, &global_cfg, &mst);
+    let mana_regen_inc = db.sum_inc(StatId::MANA_REGEN, &global_cfg, &mst);
     let base_mana_regen = mana * 0.0175;
     let mana_regen = (base_mana_regen + mana_regen_flat) * (1.0 + mana_regen_inc / 100.0);
 
-    let es_regen = db.sum_base(StatId::ES_REGEN, &cfg, &mst);
+    let es_regen = db.sum_base(StatId::ES_REGEN, &global_cfg, &mst);
 
     // --- Aura reservation -------------------------------------------------------
     let mana_reserved_pct = input.mana_reserved_pct.clamp(0.0, 100.0);
@@ -1012,7 +1116,7 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     };
 
     // --- Leech rate --------------------------------------------------------------
-    let leech_pct = db.sum_base(StatId::LIFE_LEECH_PCT, &cfg, &mst);
+    let leech_pct = db.sum_base(StatId::LIFE_LEECH_PCT, &global_cfg, &mst);
     let max_life_leech_rate = life * 0.20; // 20% of max life per second
     let life_leech_rate = if leech_pct > 0.0 && total_dps > 0.0 {
         (total_dps * leech_pct / 100.0).min(max_life_leech_rate)
@@ -1020,7 +1124,7 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
         0.0
     };
 
-    let es_leech_pct = db.sum_base(StatId::ES_LEECH_PCT, &cfg, &mst);
+    let es_leech_pct = db.sum_base(StatId::ES_LEECH_PCT, &global_cfg, &mst);
     let max_es_leech_rate = energy_shield * 0.20;
     let es_leech_rate = if es_leech_pct > 0.0 && total_dps > 0.0 {
         (total_dps * es_leech_pct / 100.0).min(max_es_leech_rate)
@@ -1030,13 +1134,13 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
 
     // --- Derived defences ----------------------------------------------------
     let phys_reduction = phys_reduction_from_armour(armour, 83.0 * 5.0)
-        + db.sum_base(StatId::PHYS_DAMAGE_REDUCTION, &cfg, &mst)
-        + db.sum_base(StatId::DAMAGE_TAKEN_REDUCTION, &cfg, &mst);
+        + db.sum_base(StatId::PHYS_DAMAGE_REDUCTION, &global_cfg, &mst)
+        + db.sum_base(StatId::DAMAGE_TAKEN_REDUCTION, &global_cfg, &mst);
     // Phys taken as element: shifted portion benefits from elemental resistances
-    let phys_as_fire = db.sum_base(StatId::PHYS_TAKEN_AS_FIRE, &cfg, &mst).min(100.0);
-    let phys_as_cold = db.sum_base(StatId::PHYS_TAKEN_AS_COLD, &cfg, &mst).min(100.0);
-    let phys_as_lightning = db.sum_base(StatId::PHYS_TAKEN_AS_LIGHTNING, &cfg, &mst).min(100.0);
-    let phys_as_chaos = db.sum_base(StatId::PHYS_TAKEN_AS_CHAOS, &cfg, &mst).min(100.0);
+    let phys_as_fire = db.sum_base(StatId::PHYS_TAKEN_AS_FIRE, &global_cfg, &mst).min(100.0);
+    let phys_as_cold = db.sum_base(StatId::PHYS_TAKEN_AS_COLD, &global_cfg, &mst).min(100.0);
+    let phys_as_lightning = db.sum_base(StatId::PHYS_TAKEN_AS_LIGHTNING, &global_cfg, &mst).min(100.0);
+    let phys_as_chaos = db.sum_base(StatId::PHYS_TAKEN_AS_CHAOS, &global_cfg, &mst).min(100.0);
     let phys_shift_total = (phys_as_fire + phys_as_cold + phys_as_lightning + phys_as_chaos).min(100.0);
     let phys_shift_reduction = if phys_shift_total > 0.0 {
         (phys_as_fire * fire_res + phys_as_cold * cold_res
