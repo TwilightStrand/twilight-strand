@@ -235,6 +235,7 @@ const GLORIOUS_VANITY_KEYSTONES: &[ConquerorKeystone] = &[
 /// A possible stat line that can be added to a passive node.
 /// Index matches the LegionPassives.lua additions table (1-indexed in Lua).
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct AdditionMod {
     id: &'static str,
     display: &'static str,

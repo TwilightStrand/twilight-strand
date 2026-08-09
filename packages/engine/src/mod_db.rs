@@ -1172,12 +1172,10 @@ impl ModDB {
             ModTag::StatThreshold(stat, threshold) => {
                 if state.get_stat(*stat) >= *threshold { value } else { 0.0 }
             }
-            ModTag::SkillType(required) => {
-                // This is checked in the keyword flags path already
+            ModTag::SkillType(_) => {
                 value
             }
-            ModTag::SkillId(id) => {
-                // Would need skill_id in a richer SkillCfg
+            ModTag::SkillId(_) => {
                 value
             }
             ModTag::Limit(cap) => {

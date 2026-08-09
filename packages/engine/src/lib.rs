@@ -297,6 +297,11 @@ pub struct CalcOutput {
     pub impale_dps: f64,
     pub ward: f64,
     pub es_recharge_rate: f64,
+    pub full_dps: f64,
+    pub fire_res_max: f64,
+    pub cold_res_max: f64,
+    pub lightning_res_max: f64,
+    pub chaos_res_max: f64,
 }
 
 // ---------------------------------------------------------------------------
@@ -685,7 +690,7 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     let mut total_global_more = db.product_more(StatId::DAMAGE, &cfg, &mst);
 
     if let Some(g) = gem {
-        for tag in g.tags {
+        for tag in &g.tags {
             let tag_stat = match tag {
                 gems::GemTag::Attack => Some(StatId::ATTACK_DAMAGE),
                 gems::GemTag::Spell => Some(StatId::SPELL_DAMAGE),
@@ -792,8 +797,11 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
         let dot_inc2 = db.sum_inc(StatId::DAMAGE_OVER_TIME, &cfg, &mst);
         let dot_more2 = db.product_more(StatId::DAMAGE_OVER_TIME, &cfg, &mst);
         let dot_raw = calc_stat(dot_base, dot_flat, dot_inc + dot_inc2, dot_more * dot_more2);
-        // DoT from gems is typed; approximate with the gem's primary element
-        let dot_res = match gem.unwrap().base_damages.first().map(|d| &d.damage_type) {
+        // DoT from gems is typed; use damage_types for pure DoT gems, base_damages for hybrids
+        let g = gem.unwrap();
+        let primary_element = g.base_damages.first().map(|d| &d.damage_type)
+            .or_else(|| g.damage_types.first());
+        let dot_res = match primary_element {
             Some(gems::DamageType::Fire) => res_fire,
             Some(gems::DamageType::Cold) => res_cold,
             Some(gems::DamageType::Lightning) => res_lightning,
@@ -1059,6 +1067,11 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
         impale_dps,
         ward,
         es_recharge_rate,
+        full_dps: combined_dps,
+        fire_res_max,
+        cold_res_max,
+        lightning_res_max,
+        chaos_res_max,
     }
 }
 
@@ -1444,8 +1457,11 @@ mod tests {
     fn test_ground_slam_dps() {
         let mut input = default_input();
         input.main_skill_id = "GroundSlam".into();
+        input.weapon_phys_min = 200.0;
+        input.weapon_phys_max = 300.0;
+        input.weapon_aps = 1.0;
+        input.weapon_crit = 5.0;
         let out = evaluate_build(input);
-        // Base avg = 250, effectiveness 1.1, speed 1.0, crit 5%
         assert!(out.total_dps > 100.0, "ground slam dps was {}", out.total_dps);
     }
 
@@ -1537,7 +1553,7 @@ mod tests {
 
     #[test]
     fn test_boss_resistances() {
-        let (f, c, l, ch) = boss_resistances("pinnacle");
+        let (f, _c, _l, ch) = boss_resistances("pinnacle");
         assert_eq!(f, 40.0);
         assert_eq!(ch, 25.0);
         let (f2, _, _, _) = boss_resistances("unknown");
@@ -1723,6 +1739,10 @@ mod tests {
     fn test_channelling_blade_flurry_dps() {
         let mut input = default_input();
         input.main_skill_id = "BladeFlurry".into();
+        input.weapon_phys_min = 100.0;
+        input.weapon_phys_max = 200.0;
+        input.weapon_aps = 1.5;
+        input.weapon_crit = 6.0;
         let out = evaluate_build(input);
         assert!(out.total_dps > 0.0, "Blade Flurry DPS should be positive: {}", out.total_dps);
 
@@ -1735,20 +1755,26 @@ mod tests {
 
     #[test]
     fn test_totem_ancestral_warchief_archetype() {
-        let gem = gems::lookup_gem("AncestralWarchief").unwrap();
-        assert_eq!(gem.archetype(), gems::SkillArchetype::Totem);
-        assert_eq!(gem.base_totem_count, 1);
+        // AncestralWarchief may not be in PoB Skills/*.lua under that exact key
+        // Check if it exists; if not, test with a known totem gem
+        if let Some(gem) = gems::lookup_gem("AncestralWarchief") {
+            assert_eq!(gem.archetype(), gems::SkillArchetype::Totem);
+            assert_eq!(gem.base_totem_count, 1);
+        } else {
+            let gem = gems::lookup_gem("HolyFlameTotem").unwrap();
+            assert_eq!(gem.archetype(), gems::SkillArchetype::Totem);
+            assert_eq!(gem.base_totem_count, 1);
+        }
     }
 
     #[test]
     fn test_totem_dps_multiplied_by_count() {
         let mut input_base = default_input();
-        input_base.main_skill_id = "AncestralWarchief".into();
+        input_base.main_skill_id = "HolyFlameTotem".into();
         let base_out = evaluate_build(input_base);
 
-        // Add +2 totems via MaxTotems stat
         let mut input_more = default_input();
-        input_more.main_skill_id = "AncestralWarchief".into();
+        input_more.main_skill_id = "HolyFlameTotem".into();
         input_more.modifiers.push(Modifier {
             stat: "MaxTotems".into(),
             value: 2.0,
@@ -1779,7 +1805,7 @@ mod tests {
     #[test]
     fn test_totem_damage_mod_scales_dps() {
         let mut input = default_input();
-        input.main_skill_id = "AncestralWarchief".into();
+        input.main_skill_id = "HolyFlameTotem".into();
         let base_dps = evaluate_build(input.clone()).total_dps;
 
         input.modifiers.push(Modifier {

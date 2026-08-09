@@ -149,6 +149,11 @@ export interface RustCalcOutput {
   impale_dps: number;
   ward: number;
   es_recharge_rate: number;
+  full_dps: number;
+  fire_res_max: number;
+  cold_res_max: number;
+  lightning_res_max: number;
+  chaos_res_max: number;
 }
 
 export function defaultRustInput(overrides?: Partial<RustBuildInput>): RustBuildInput {

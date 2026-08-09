@@ -1,5 +1,7 @@
 use crate::Modifier;
-use crate::mod_db::{self, ModFlags, KeywordFlags, ConditionId, MultiplierId, ModTag, ModType, StatId};
+use crate::mod_db::{self, ModFlags, ConditionId, MultiplierId, ModType, StatId};
+#[cfg(test)]
+use crate::mod_db::ModTag;
 
 /// Strip `(X-Y)` range notation to midpoint value, e.g. "(5-10)" -> "8"
 /// Also handles negative ranges like "(-10-10)" -> "0"
@@ -1933,7 +1935,9 @@ fn try_misc_patterns(line: &str, lower: &str, mods: &mut Vec<Modifier>) {
     }
 
     // "Armour from Equipped Body Armour is doubled" / "Defences from Equipped Body Armour are doubled"
-    if (lower.contains("armour from equipped body armour is doubled") || lower.contains("defences from equipped body armour are doubled")) {
+    if lower.contains("armour from equipped body armour is doubled")
+        || lower.contains("defences from equipped body armour are doubled")
+    {
         mods.push(more("Armour", 100.0));
         return;
     }
@@ -5202,7 +5206,7 @@ fn try_on_event_patterns(line: &str, lower: &str, mods: &mut Vec<Modifier>) {
     }
 }
 
-fn try_remaining_patterns(line: &str, lower: &str, mods: &mut Vec<Modifier>) {
+fn try_remaining_patterns(_line: &str, lower: &str, mods: &mut Vec<Modifier>) {
     // Keystones as item mods
     let keystones = ["acrobatics", "avatar of fire", "point blank", "phase acrobatics",
         "ghost dance", "wind dancer", "arrow dancing", "pain attunement",

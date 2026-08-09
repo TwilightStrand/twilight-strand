@@ -98,6 +98,13 @@ function extractWeaponStats(items: ItemData[], slots: string[]): WeaponStats {
   return { base: weapon.base, physMin, physMax, aps, crit };
 }
 
+function bossEnemyRes(boss: string | undefined, element: string): number {
+  if (!boss || boss === "None" || boss === "") return 0;
+  const isPinnacle = boss.toLowerCase().includes("pinnacle");
+  if (element === "chaos") return isPinnacle ? 25 : 0;
+  return isPinnacle ? 40 : 0;
+}
+
 export function convertToRustInput(
   stats: BuildStats,
   items: ItemData[],
@@ -256,11 +263,11 @@ export function convertToRustInput(
     main_skill_level: mainSkillLevel,
     ascendancy_name: stats.ascendancy,
     enemy_level: 83,
-    enemy_fire_res: 0,
-    enemy_cold_res: 0,
-    enemy_lightning_res: 0,
-    enemy_chaos_res: 0,
-    enemy_is_boss: false,
+    enemy_fire_res: bossEnemyRes(cfg["boss"] as string | undefined, "fire"),
+    enemy_cold_res: bossEnemyRes(cfg["boss"] as string | undefined, "cold"),
+    enemy_lightning_res: bossEnemyRes(cfg["boss"] as string | undefined, "lightning"),
+    enemy_chaos_res: bossEnemyRes(cfg["boss"] as string | undefined, "chaos"),
+    enemy_is_boss: cfg["boss"] !== undefined && cfg["boss"] !== "None" && cfg["boss"] !== "",
     support_gems: supportGems,
     support_gem_levels: supportGemLevels,
     equipped_uniques: equippedUniques,
@@ -270,9 +277,9 @@ export function convertToRustInput(
     weapon_phys_max: weapon.physMax,
     weapon_aps: weapon.aps,
     weapon_crit: weapon.crit,
-    power_charges: 0,
-    frenzy_charges: 0,
-    endurance_charges: 0,
+    power_charges: cfgBool("usePowerCharges") ? Number(cfg["powerCharges"] ?? 0) : 0,
+    frenzy_charges: cfgBool("useFrenzyCharges") ? Number(cfg["frenzyCharges"] ?? 0) : 0,
+    endurance_charges: cfgBool("useEnduranceCharges") ? Number(cfg["enduranceCharges"] ?? 0) : 0,
     on_full_life: cfgBool("conditionFullLife") || !cfgBool("conditionLowLife"),
     on_low_life: cfgBool("conditionLowLife"),
     is_leeching: cfgBool("conditionLeeching"),
@@ -350,58 +357,20 @@ export function rustOutputToBuildStats(
     evade_chance: rust.evade_chance,
     phys_reduction: rust.phys_reduction,
     suppression: rust.suppression,
+    total_dps_with_minions: rust.total_dps_with_minions ?? rust.total_dps,
+    mana_unreserved: rust.mana_unreserved ?? base.mana_unreserved,
+    life_unreserved: rust.life_unreserved ?? base.life_unreserved,
+    mana_reserved_percent: rust.mana_reserved_percent ?? base.mana_reserved_percent,
+    life_leech_rate: rust.life_leech_rate ?? 0,
+    es_leech_rate: rust.es_leech_rate ?? 0,
+    impale_dps: rust.impale_dps ?? 0,
+    ward: rust.ward ?? 0,
+    es_recharge_rate: rust.es_recharge_rate ?? 0,
+    full_dps: rust.full_dps ?? rust.combined_dps,
+    fire_res_max: rust.fire_res_max ?? base.fire_res_max,
+    cold_res_max: rust.cold_res_max ?? base.cold_res_max,
+    lightning_res_max: rust.lightning_res_max ?? base.lightning_res_max,
+    chaos_res_max: rust.chaos_res_max ?? base.chaos_res_max,
   };
 }
 
-export interface EngineDivergence {
-  stat: string;
-  lua: number;
-  rust: number;
-  diff: number;
-  pctDiff: number;
-}
-
-const COMPARE_STATS: Array<{ key: keyof BuildStats; rustKey: string; label: string }> = [
-  { key: "life", rustKey: "life", label: "Life" },
-  { key: "energy_shield", rustKey: "energy_shield", label: "Energy Shield" },
-  { key: "mana", rustKey: "mana", label: "Mana" },
-  { key: "strength", rustKey: "strength", label: "Strength" },
-  { key: "dexterity", rustKey: "dexterity", label: "Dexterity" },
-  { key: "intelligence", rustKey: "intelligence", label: "Intelligence" },
-  { key: "armour", rustKey: "armour", label: "Armour" },
-  { key: "evasion", rustKey: "evasion", label: "Evasion" },
-  { key: "fire_res", rustKey: "fire_res", label: "Fire Res" },
-  { key: "cold_res", rustKey: "cold_res", label: "Cold Res" },
-  { key: "lightning_res", rustKey: "lightning_res", label: "Lightning Res" },
-  { key: "chaos_res", rustKey: "chaos_res", label: "Chaos Res" },
-  { key: "block_chance", rustKey: "block_chance", label: "Block" },
-  { key: "spell_block", rustKey: "spell_block", label: "Spell Block" },
-  { key: "total_dps", rustKey: "total_dps", label: "Total DPS" },
-  { key: "crit_chance", rustKey: "crit_chance", label: "Crit Chance" },
-  { key: "crit_multiplier", rustKey: "crit_multiplier", label: "Crit Multi" },
-  { key: "attack_speed", rustKey: "attack_speed", label: "Attack Speed" },
-  { key: "accuracy", rustKey: "accuracy", label: "Accuracy" },
-  { key: "hit_chance", rustKey: "hit_chance", label: "Hit Chance" },
-  { key: "total_ehp", rustKey: "total_ehp", label: "EHP" },
-];
-
-export function compareLuaVsRust(
-  lua: BuildStats,
-  rust: Record<string, number>,
-): EngineDivergence[] {
-  const results: EngineDivergence[] = [];
-
-  for (const { key, rustKey, label } of COMPARE_STATS) {
-    const luaVal = lua[key] as number;
-    const rustVal = rust[rustKey] ?? 0;
-    if (typeof luaVal !== "number") continue;
-
-    const diff = rustVal - luaVal;
-    const base = Math.abs(luaVal) > 0.01 ? luaVal : 1;
-    const pctDiff = (diff / base) * 100;
-
-    results.push({ stat: label, lua: luaVal, rust: rustVal, diff, pctDiff });
-  }
-
-  return results;
-}

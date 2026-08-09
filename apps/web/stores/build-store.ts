@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import type { BuildInputKind } from "@/engine/import-export";
 import { classifyBuildInput, gggDataToXml, parseAccountCharFromUrl } from "@/engine/import-export";
-import type { EngineDivergence } from "@/engine/rust-converter";
 import type { BuildStats, ItemData, SkillGroup } from "@/engine/types";
 
 type EngineStatus = "idle" | "loading" | "ready" | "error";
@@ -41,7 +40,6 @@ interface BuildState {
   engineInitTime: number | null;
   engineEvalTime: number | null;
   rustEvalTime: number | null;
-  engineDivergences: EngineDivergence[];
   rustModCount: number;
 
   history: Array<{ action: string; timestamp: number }>;
@@ -96,7 +94,6 @@ export const useBuildStore = create<BuildState>((set, get) => ({
   engineInitTime: null,
   engineEvalTime: null,
   rustEvalTime: null,
-  engineDivergences: [],
   rustModCount: 0,
   history: [],
   configOverrides: {},
@@ -137,16 +134,8 @@ export const useBuildStore = create<BuildState>((set, get) => ({
   },
 
   async reEvaluate() {
-    const { xml, stats, items, skills, engineStatus, configOverrides } = get();
-    if (!xml) return;
+    const { stats, items, skills } = get();
     if (stats) runRustEval(stats, items, skills);
-    if (engineStatus === "ready") {
-      if (Object.keys(configOverrides).length > 0) {
-        reconfigureLua(configOverrides);
-      } else {
-        evaluateWithLua(xml);
-      }
-    }
   },
 
   recalcFromTree(allocatedNodes: Set<string>) {
@@ -267,22 +256,13 @@ export const useBuildStore = create<BuildState>((set, get) => ({
 
   async initEngine() {
     if (get().engineStatus !== "idle") return;
-    set({ engineStatus: "loading", engineProgress: "Starting engine..." });
+    set({ engineStatus: "loading", engineProgress: "Loading WASM engine..." });
 
     try {
       const initStart = performance.now();
-      const { getEngineBridge } = await import("@/engine/bridge");
-      const bridge = getEngineBridge();
-
-      bridge.onProgress((stage) => {
-        set({ engineProgress: stage });
-      });
-
-      await bridge.init("poe1");
+      const { initRustEngine } = await import("@/engine/rust-bridge");
+      await initRustEngine();
       set({ engineStatus: "ready", engineProgress: "", engineInitTime: Math.round(performance.now() - initStart) });
-
-      // Also init Rust WASM engine (non-blocking, used for fast node power calcs)
-      import("@/engine/rust-bridge").then((m) => m.initRustEngine()).catch(() => {});
     } catch (e) {
       set({
         engineStatus: "error",
@@ -460,21 +440,8 @@ export const useBuildStore = create<BuildState>((set, get) => ({
         window.history.replaceState(null, "", `#${input}`);
       }
 
-      // Phase 1.5: instant Rust eval for immediate accurate stats
+      // Rust WASM eval for full stats
       runRustEval(result.stats, result.items, result.skills);
-
-      // Phase 2: Lua engine for full validation (non-blocking)
-      const { engineStatus } = get();
-      if (engineStatus === "ready") {
-        evaluateWithLua(xml);
-      } else if (engineStatus === "idle") {
-        get()
-          .initEngine()
-          .then(() => {
-            const currentXml = get().xml;
-            if (currentXml) evaluateWithLua(currentXml);
-          });
-      }
     } catch (e) {
       set({
         loading: false,
@@ -495,7 +462,6 @@ export const useBuildStore = create<BuildState>((set, get) => ({
       evaluating: false,
       buildName: "Unnamed Build",
       notes: "",
-      engineDivergences: [],
       rustModCount: 0,
       rustEvalTime: null,
     });
@@ -566,123 +532,3 @@ async function runRustEval(xmlStats: BuildStats, items: ItemData[], skills: Skil
   }
 }
 
-async function reconfigureLua(config: Record<string, string | boolean | number>) {
-  const { setState, getState } = useBuildStore;
-  setState({ evaluating: true });
-  try {
-    const { getEngineBridge } = await import("@/engine/bridge");
-    const bridge = getEngineBridge();
-    const result = await bridge.reconfigure(config);
-
-    const prev = getState().stats;
-    const merged = { ...result.stats };
-    if (prev) {
-      if (merged.class_name === "?" && prev.class_name !== "?") merged.class_name = prev.class_name;
-      if (!merged.ascendancy && prev.ascendancy) merged.ascendancy = prev.ascendancy;
-      if (merged.level <= 1 && prev.level > 1) merged.level = prev.level;
-      if (prev.allocated_nodes.length > 0 && merged.allocated_nodes.length === 0) {
-        merged.allocated_nodes = prev.allocated_nodes;
-      }
-    }
-
-    setState({
-      stats: merged,
-      evaluating: false,
-    });
-  } catch (e) {
-    console.warn("Lua reconfigure failed:", e);
-    setState({ evaluating: false });
-  }
-}
-
-async function evaluateWithLua(xml: string) {
-  const { setState, getState } = useBuildStore;
-  setState({ evaluating: true });
-
-  try {
-    const evalStart = performance.now();
-    const { getEngineBridge } = await import("@/engine/bridge");
-    const bridge = getEngineBridge();
-    const config = getState().configOverrides;
-    const result = await bridge.evaluate(xml, Object.keys(config).length > 0 ? config : undefined);
-
-    if (getState().xml !== xml) return;
-
-    const prev = getState().stats;
-    const eng = result.stats;
-
-    const merged: typeof eng = { ...eng };
-    if (prev) {
-      if (merged.class_name === "?" && prev.class_name !== "?") merged.class_name = prev.class_name;
-      if (!merged.ascendancy && prev.ascendancy) merged.ascendancy = prev.ascendancy;
-      if (merged.level <= 1 && prev.level > 1) merged.level = prev.level;
-      if (prev.allocated_nodes.length > 0 && merged.allocated_nodes.length === 0) {
-        merged.allocated_nodes = prev.allocated_nodes;
-      }
-    }
-
-    const finalItems = result.items.length > 0 ? result.items : getState().items;
-    const finalSkills = result.skills.length > 0 ? result.skills : getState().skills;
-
-    if ((eng as Record<string, unknown>)._debug) {
-      console.log("[engine]", (eng as Record<string, unknown>)._debug);
-    }
-
-    // Lua is ground truth: overwrite Rust stats
-    setState({
-      stats: merged,
-      items: finalItems,
-      skills: finalSkills,
-      evaluating: false,
-      engineEvalTime: Math.round(performance.now() - evalStart),
-    });
-
-    if (merged.allocated_nodes.length > 0) {
-      const { useTreeStore } = await import("@/stores/tree-store");
-      useTreeStore.getState().setAllocatedNodes(new Set(merged.allocated_nodes.map(String)));
-    }
-
-    // Compare Rust vs Lua for divergence tracking
-    runDivergenceCheck(merged, finalItems, finalSkills);
-  } catch (e) {
-    console.warn("Lua evaluation failed, keeping Rust/XML stats:", e);
-    setState({ evaluating: false });
-  }
-}
-
-async function runDivergenceCheck(luaStats: BuildStats, items: ItemData[], skills: SkillGroup[]) {
-  const { setState } = useBuildStore;
-  try {
-    const [
-      { isRustEngineReady, evaluateBuildRust },
-      { ensureTreeData, convertToRustInput, compareLuaVsRust },
-    ] = await Promise.all([import("@/engine/rust-bridge"), import("@/engine/rust-converter")]);
-
-    if (!isRustEngineReady()) return;
-
-    const treeNodes = await ensureTreeData();
-    const config = useBuildStore.getState().configOverrides;
-    const rustInput = convertToRustInput(luaStats, items, skills, treeNodes, config);
-    const rustOutput = evaluateBuildRust(rustInput);
-
-    if (!rustOutput) {
-      setState({ engineDivergences: [] });
-      return;
-    }
-
-    const divergences = compareLuaVsRust(luaStats, rustOutput as unknown as Record<string, number>);
-    setState({ engineDivergences: divergences });
-
-    const significant = divergences.filter((d) => Math.abs(d.pctDiff) > 5);
-    if (significant.length > 0) {
-      console.warn(
-        `[dual-engine] ${significant.length} divergences >5%:`,
-        significant.map(
-          (d) => `${d.stat}: lua=${d.lua.toFixed(1)} rust=${d.rust.toFixed(1)} (${d.pctDiff.toFixed(1)}%)`,
-        ),
-      );
-    }
-  } catch (e) {
-    console.warn("[dual-engine] Divergence check failed:", e);
-  }
-}

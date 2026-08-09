@@ -68,18 +68,7 @@ export class EngineBridge {
     return { stats: resp.stats, items: resp.items, skills: resp.skills };
   }
 
-  async reconfigure(config: Record<string, string | boolean | number>): Promise<{
-    stats: BuildStats;
-  }> {
-    const resp = await this.send(
-      { type: "reconfigure", config } as Omit<EngineRequest, "id">,
-      30_000
-    );
-    if (resp.type === "error") {
-      throw new Error(resp.message);
-    }
-    return { stats: resp.stats };
-  }
+  // reconfigure() removed - Lua engine replaced by Rust
 
   isReady(): boolean {
     return this.ready;

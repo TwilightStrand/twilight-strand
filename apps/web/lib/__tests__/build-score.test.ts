@@ -4,7 +4,7 @@ import type { BuildStats } from "@/engine/types";
 
 function makeStats(overrides: Partial<BuildStats>): BuildStats {
   return {
-    total_dps: 0, combined_dps: 0, total_ehp: 0,
+    total_dps: 0, combined_dps: 0, full_dps: 0, total_ehp: 0,
     life: 1, energy_shield: 0, mana: 50,
     strength: 20, dexterity: 20, intelligence: 20,
     armour: 0, evasion: 0, evade_chance: 0,

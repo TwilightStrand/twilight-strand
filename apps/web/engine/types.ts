@@ -85,6 +85,7 @@ export interface GemData {
   isSupport: boolean;
 }
 
+// Legacy types used by bridge.ts/worker.ts (Lua engine - deprecated)
 export type EngineRequest =
   | { id: number; type: "init"; gameId: GameId }
   | { id: number; type: "evaluate"; xml: string; config?: Record<string, string | boolean | number> }
@@ -96,3 +97,4 @@ export type EngineResponse =
   | { id: number; type: "pong" }
   | { id: number; type: "error"; message: string }
   | { id: number; type: "progress"; stage: string };
+

@@ -77,6 +77,7 @@ function extractBuildInfo(root: Element): BuildStats {
   return {
     total_dps: 0,
     combined_dps: 0,
+    full_dps: 0,
     total_ehp: 0,
     life: 60 + (level - 1) * 12,
     energy_shield: 0,

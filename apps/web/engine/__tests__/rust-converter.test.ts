@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { convertToRustInput, compareLuaVsRust, rustOutputToBuildStats } from "../rust-converter";
+import { convertToRustInput, rustOutputToBuildStats } from "../rust-converter";
 import type { BuildStats, ItemData, SkillGroup } from "../types";
 import type { RustCalcOutput } from "../rust-bridge";
 import type { TreeNode } from "@/components/tree/tree-data";
@@ -127,25 +127,6 @@ describe("rust-converter", () => {
     });
   });
 
-  describe("compareLuaVsRust", () => {
-    it("should compute divergences for matching values", () => {
-      const rust: Record<string, number> = { life: 1000, mana: 500, fire_res: -60 };
-      const divergences = compareLuaVsRust(baseStats, rust);
-      const lifeDivergence = divergences.find(d => d.stat === "Life");
-      expect(lifeDivergence).toBeDefined();
-      expect(lifeDivergence!.pctDiff).toBe(0);
-    });
-
-    it("should detect divergences", () => {
-      const rust: Record<string, number> = { life: 1200, mana: 500 };
-      const divergences = compareLuaVsRust(baseStats, rust);
-      const lifeDivergence = divergences.find(d => d.stat === "Life");
-      expect(lifeDivergence).toBeDefined();
-      expect(lifeDivergence!.diff).toBe(200);
-      expect(lifeDivergence!.pctDiff).toBe(20);
-    });
-  });
-
   describe("rustOutputToBuildStats", () => {
     it("should merge Rust output into BuildStats preserving non-overlapping fields", () => {
       const rust: RustCalcOutput = {
@@ -167,6 +148,11 @@ describe("rust-converter", () => {
         impale_dps: 0,
         ward: 0,
         es_recharge_rate: 0,
+        full_dps: 56000,
+        fire_res_max: 75,
+        cold_res_max: 75,
+        lightning_res_max: 75,
+        chaos_res_max: 75,
       };
       const merged = rustOutputToBuildStats(baseStats, rust);
       expect(merged.life).toBe(5000);

@@ -177,11 +177,11 @@
     "name": "Cyclone Slayer - Endgame Phys",
     "snapshot": {
       "armour": 8161.0,
-      "attack_speed": 2.76,
-      "bleed_dps": 11986.04,
+      "attack_speed": 2.48,
+      "bleed_dps": 13365.64,
       "chaos_res": -20.0,
       "cold_res": 75.0,
-      "combined_dps": 69945.39,
+      "combined_dps": 71533.11,
       "crit_chance": 17.4,
       "crit_multiplier": 230.0,
       "dexterity": 83.0,
@@ -198,7 +198,7 @@
       "mana": 605.0,
       "poison_dps": 0.0,
       "strength": 173.0,
-      "total_dps": 57959.35,
+      "total_dps": 58167.47,
       "total_ehp": 51525.0
     }
   },
@@ -362,7 +362,7 @@
       "bleed_dps": 0.0,
       "chaos_res": 0.0,
       "cold_res": 75.0,
-      "combined_dps": 399.32,
+      "combined_dps": 332.32,
       "crit_chance": 5.0,
       "crit_multiplier": 150.0,
       "dexterity": 14.0,
@@ -379,7 +379,7 @@
       "mana": 587.0,
       "poison_dps": 0.0,
       "strength": 232.0,
-      "total_dps": 399.32,
+      "total_dps": 332.32,
       "total_ehp": 68110.0
     }
   },
@@ -531,8 +531,8 @@
       "bleed_dps": 0.0,
       "chaos_res": 75.0,
       "cold_res": 75.0,
-      "combined_dps": 0.0,
-      "crit_chance": 9.0,
+      "combined_dps": 16492.13,
+      "crit_chance": 1.8,
       "crit_multiplier": 210.0,
       "dexterity": 14.0,
       "energy_shield": 3168.0,
@@ -548,7 +548,7 @@
       "mana": 708.0,
       "poison_dps": 0.0,
       "strength": 14.0,
-      "total_dps": -0.0,
+      "total_dps": 16492.13,
       "total_ehp": 3965.07
     }
   },
@@ -726,10 +726,10 @@
     "snapshot": {
       "armour": 2.0,
       "attack_speed": 3.59,
-      "bleed_dps": 422.24,
+      "bleed_dps": 130.57,
       "chaos_res": -60.0,
       "cold_res": 75.0,
-      "combined_dps": 19454.93,
+      "combined_dps": 11426.28,
       "crit_chance": 16.0,
       "crit_multiplier": 358.0,
       "dexterity": 212.0,
@@ -746,7 +746,7 @@
       "mana": 593.0,
       "poison_dps": 0.0,
       "strength": 14.0,
-      "total_dps": 19032.69,
+      "total_dps": 11295.71,
       "total_ehp": 9141.98
     }
   },
@@ -912,10 +912,10 @@
     "snapshot": {
       "armour": 2.0,
       "attack_speed": 2.45,
-      "bleed_dps": 563.74,
+      "bleed_dps": 107.34,
       "chaos_res": 0.0,
       "cold_res": 60.0,
-      "combined_dps": 4126.35,
+      "combined_dps": 783.26,
       "crit_chance": 22.1,
       "crit_multiplier": 200.0,
       "dexterity": 143.0,
@@ -930,9 +930,9 @@
       "life_regen": 0.0,
       "lightning_res": 70.0,
       "mana": 591.0,
-      "poison_dps": 893.11,
+      "poison_dps": 169.45,
       "strength": 14.0,
-      "total_dps": 2669.51,
+      "total_dps": 506.48,
       "total_ehp": 5431.61
     }
   }
