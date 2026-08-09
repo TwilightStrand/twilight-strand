@@ -177,12 +177,12 @@
     "name": "Cyclone Slayer - Endgame Phys",
     "snapshot": {
       "armour": 8161.0,
-      "attack_speed": 2.48,
-      "bleed_dps": 13365.64,
+      "attack_speed": 4.52,
+      "bleed_dps": 14818.43,
       "chaos_res": -20.0,
       "cold_res": 75.0,
-      "combined_dps": 71533.11,
-      "crit_chance": 17.4,
+      "combined_dps": 133945.4,
+      "crit_chance": 18.85,
       "crit_multiplier": 230.0,
       "dexterity": 83.0,
       "energy_shield": 0.0,
@@ -198,7 +198,7 @@
       "mana": 605.0,
       "poison_dps": 0.0,
       "strength": 173.0,
-      "total_dps": 58167.47,
+      "total_dps": 119126.97,
       "total_ehp": 51525.0
     }
   },
@@ -725,13 +725,13 @@
     "name": "Lightning Arrow Deadeye - Ele Bow",
     "snapshot": {
       "armour": 2.0,
-      "attack_speed": 3.59,
-      "bleed_dps": 130.57,
+      "attack_speed": 3.15,
+      "bleed_dps": 231.24,
       "chaos_res": -60.0,
       "cold_res": 75.0,
-      "combined_dps": 11426.28,
+      "combined_dps": 12779.23,
       "crit_chance": 16.0,
-      "crit_multiplier": 358.0,
+      "crit_multiplier": 408.0,
       "dexterity": 212.0,
       "energy_shield": 0.0,
       "evasion": 4492.0,
@@ -746,7 +746,7 @@
       "mana": 593.0,
       "poison_dps": 0.0,
       "strength": 14.0,
-      "total_dps": 11295.71,
+      "total_dps": 12547.99,
       "total_ehp": 9141.98
     }
   },

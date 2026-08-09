@@ -5495,10 +5495,13 @@ pub fn parse_stat_line(line: &str) -> Vec<Modifier> {
     let mut line = line.trim();
     if line.is_empty() { return vec![]; }
 
-    // Strip PoB tag prefixes: {implicit}, {crafted}, {fractured}, etc.
-    if line.starts_with('{') {
+    // Strip PoB tag prefixes: {implicit}, {crafted}, {fractured}, {tags:...}, {range:...}, etc.
+    // Items can have multiple stacked prefixes like {tags:resistance}{range:1}+30%
+    while line.starts_with('{') {
         if let Some(end) = line.find('}') {
             line = line[end + 1..].trim();
+        } else {
+            break;
         }
     }
     // Strip "(crafted)" / "(enchant)" / "(implicit)" text prefixes

@@ -163,6 +163,23 @@ function extractAllocatedNodes(root: Element): number[] {
   }
 }
 
+/** Strip all leading {tag} prefixes from a PoB mod line (e.g. {tags:resistance}{range:1}+30%) */
+function stripTagPrefixes(line: string): string {
+  let s = line;
+  while (s.startsWith("{")) {
+    const end = s.indexOf("}");
+    if (end === -1) break;
+    s = s.slice(end + 1).trim();
+  }
+  // Also strip (crafted)/(enchant)/(implicit) text prefixes
+  for (const prefix of ["(crafted)", "(enchant)", "(implicit)", "(fractured)"]) {
+    if (s.startsWith(prefix)) {
+      s = s.slice(prefix.length).trim();
+    }
+  }
+  return s;
+}
+
 function extractItems(root: Element): ItemData[] {
   const itemsEl = root.querySelector("Items");
   if (!itemsEl) return [];
@@ -189,13 +206,24 @@ function extractItems(root: Element): ItemData[] {
     let baseEvasion = 0;
     let baseES = 0;
     let baseBlock = 0;
-    let pastSeparator = false;
+
+    // PoB items come in two formats:
+    // 1. Clipboard format: sections split by "--------" separators
+    // 2. Internal save format: no separators, uses "Implicits: N" as boundary
+    // We handle both by matching defence headers and mods regardless of separators.
+
+    const METADATA_RE = /^(Rarity:|Crafted:|Prefix:|Suffix:|Quality:|LevelReq:|Item Level:|Unique ID:|League:|Implicits:|Sockets:|Selected Variant:|Variant:|Limited to:|Radius:|Has Alt Variant|Has Alt Variant Two|Has Alt Variant Three|ArmourBasePercentile:|EnergyShieldBasePercentile:|EvasionBasePercentile:|Searing Exarch Item|Eater of Worlds Item|Requires |<ModRange)/;
+
+    let inModSection = false;
+    let implicitsRemaining = -1;
+
     for (const line of lines) {
       if (line === "--------") {
-        pastSeparator = true;
+        inModSection = true;
         continue;
       }
-      if (!pastSeparator) continue;
+
+      // Defence stats can appear in the header (both formats)
       const defMatch = line.match(/^(Armour|Evasion Rating|Energy Shield|Chance to Block):\s*(\d+)/);
       if (defMatch) {
         const val = parseInt(defMatch[2], 10);
@@ -205,8 +233,33 @@ function extractItems(root: Element): ItemData[] {
         else if (defMatch[1] === "Chance to Block") baseBlock = val;
         continue;
       }
-      if (!line.startsWith("Rarity:") && !line.startsWith("{")) {
-        mods.push(line);
+
+      // "Implicits: N" marks the start of mods in the internal format
+      const implMatch = line.match(/^Implicits:\s*(\d+)/);
+      if (implMatch) {
+        implicitsRemaining = parseInt(implMatch[1], 10);
+        inModSection = true;
+        continue;
+      }
+
+      if (!inModSection) continue;
+
+      // Track implicit mod count (they come right after "Implicits: N")
+      if (implicitsRemaining > 0) {
+        implicitsRemaining--;
+        // Implicit mods are still mods; strip {tag} prefixes before adding
+        mods.push(stripTagPrefixes(line));
+        continue;
+      }
+
+      // Skip metadata lines that aren't actual mods
+      if (METADATA_RE.test(line)) continue;
+
+      // Everything else in the mod section is an explicit mod
+      // Strip PoB tag prefixes like {tags:...}, {crafted}, {range:...}, {exarch}, etc.
+      const stripped = stripTagPrefixes(line);
+      if (stripped && !stripped.startsWith("Rarity:")) {
+        mods.push(stripped);
       }
     }
 

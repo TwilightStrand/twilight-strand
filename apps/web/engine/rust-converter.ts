@@ -153,6 +153,12 @@ export function convertToRustInput(
       continue;
     }
 
+    // Local defence mods are already baked into the item's baseES/baseArmour/baseEvasion
+    // values parsed from the "Energy Shield: X" headers. Skip them to avoid double-counting.
+    const hasLocalES = (item.baseES ?? 0) > 0;
+    const hasLocalArmour = (item.baseArmour ?? 0) > 0;
+    const hasLocalEvasion = (item.baseEvasion ?? 0) > 0;
+
     for (const mod of item.mods) {
       let line = mod;
       const affectedMatch = mod.match(/while affected by (.+)$/i);
@@ -161,6 +167,16 @@ export function convertToRustInput(
         if (!activeAuras.has(aura)) continue;
         line = mod.replace(WHILE_AFFECTED_RE, "");
       }
+
+      // Filter local defence mods when the computed defence value is present
+      const lower = line.toLowerCase();
+      if (hasLocalES && /^\+?\d+(%| to maximum) (energy shield|to maximum energy shield)/i.test(line)) continue;
+      if (hasLocalES && /increased energy shield$/i.test(line)) continue;
+      if (hasLocalArmour && /^\+?\d+(%| to )(armour|to armour)/i.test(line)) continue;
+      if (hasLocalArmour && /increased armour$/i.test(line)) continue;
+      if (hasLocalEvasion && /^\+?\d+(%| to )(evasion rating|to evasion rating)/i.test(line)) continue;
+      if (hasLocalEvasion && /increased evasion rating$/i.test(line)) continue;
+
       statLines.push(line);
     }
   }

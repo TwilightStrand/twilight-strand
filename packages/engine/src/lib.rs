@@ -587,11 +587,17 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
         }
     }
 
-    // Add weapon physical damage
+    // Add weapon physical damage, scaled by the gem's base damage multiplier
+    // (e.g. Cyclone "Deals 55% of Base Damage")
     if has_weapon {
         let weapon_avg = (eff_weapon_phys_min + eff_weapon_phys_max) / 2.0;
-        if weapon_avg > 0.0 {
-            base_dmg.add(damage::DamageType::Physical, weapon_avg);
+        let base_mult = match gem {
+            Some(g) if g.tags.contains(&gems::GemTag::Attack) && g.base_multiplier > 0.0 => g.base_multiplier,
+            _ => 1.0,
+        };
+        let scaled = weapon_avg * base_mult;
+        if scaled > 0.0 {
+            base_dmg.add(damage::DamageType::Physical, scaled);
         }
     }
 
@@ -716,10 +722,14 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
 
     // Speed: source depends on archetype
     let base_speed = match gem {
-        Some(g) if !g.is_dot => match archetype {
-            gems::SkillArchetype::Trap => 1.0 / g.base_cast_time,
-            gems::SkillArchetype::Mine => 1.0 / g.base_cast_time,
-            _ => if has_weapon { eff_weapon_aps } else { 1.0 / g.base_cast_time },
+        Some(g) if !g.is_dot => {
+            // attack_speed_multiplier is stored as a percentage (e.g. 200 = 200% of base speed)
+            let asm = if g.attack_speed_multiplier > 0.0 { g.attack_speed_multiplier / 100.0 } else { 1.0 };
+            match archetype {
+                gems::SkillArchetype::Trap => 1.0 / g.base_cast_time,
+                gems::SkillArchetype::Mine => 1.0 / g.base_cast_time,
+                _ => if has_weapon { eff_weapon_aps * asm } else { 1.0 / g.base_cast_time },
+            }
         },
         _ => if has_weapon { eff_weapon_aps } else { 1.0 },
     };

@@ -41,6 +41,8 @@ fn map_support_mod(m: &gems::SupportMod) -> Option<Modifier> {
 
 fn map_raw_stat(stat: &str, value: f64) -> Option<Modifier> {
     let lower = stat.to_lowercase();
+
+    // Added damage min/max
     if lower.contains("minimum_added") || lower.contains("minimum_base") {
         let element = detect_element(&lower);
         return Some(flat(&format!("Added{element}Min"), value));
@@ -49,11 +51,63 @@ fn map_raw_stat(stat: &str, value: f64) -> Option<Modifier> {
         let element = detect_element(&lower);
         return Some(flat(&format!("Added{element}Max"), value));
     }
+
+    // Penetration (both "penetration/penetrate" and "reduce_enemy_X_resistance")
     if lower.contains("penetration") || lower.contains("penetrate") {
         let element = detect_element(&lower);
         return Some(flat(&format!("{element}Penetration"), value));
     }
+    if lower.contains("reduce_enemy") && lower.contains("resistance") {
+        if lower.contains("elemental") {
+            return Some(flat("ElementalPenetration", value));
+        }
+        let element = detect_element(&lower);
+        return Some(flat(&format!("{element}Penetration"), value));
+    }
+
+    // Cast speed / attack speed
+    if lower.contains("cast_speed") {
+        return Some(inc("AttackSpeed", value));
+    }
+    if lower.contains("attack_speed") {
+        return Some(inc("AttackSpeed", value));
+    }
+
+    // Crit chance / crit multiplier
+    if lower.contains("critical_strike_chance") {
+        return Some(inc("CritChance", value));
+    }
+    if lower.contains("critical_strike_multiplier") {
+        return Some(flat("CritMultiplier", value));
+    }
+
+    // Damage-as-extra-element (e.g. physical_damage_%_to_add_as_fire)
+    if lower.contains("damage_%_to_add_as") || lower.contains("damage_to_add_as") {
+        let element = detect_element(&lower);
+        return Some(flat(&format!("PhysGainAs{element}"), value));
+    }
+
+    // Spell / projectile / area damage
+    if lower.contains("spell_damage") {
+        return Some(inc("SpellDamage", value));
+    }
+    if lower.contains("projectile_damage") {
+        return Some(inc("Damage", value));
+    }
+    if lower.contains("area_damage") {
+        return Some(inc("Damage", value));
+    }
+
+    // More multipliers from support raw stats
+    if lower.contains("more_damage") || lower == "damage_+%_final" {
+        return Some(Modifier { stat: "Damage".into(), value, mod_type: "more".into() });
+    }
+
     None
+}
+
+fn inc(stat: &str, value: f64) -> Modifier {
+    Modifier { stat: stat.into(), value, mod_type: "increased".into() }
 }
 
 fn detect_element(s: &str) -> &'static str {
