@@ -170,6 +170,13 @@ function extractAllocatedNodes(root: Element): number[] {
   const spec = specs[activeSpec - 1] ?? specs[0];
   if (!spec) return [];
 
+  // Preferred: read node IDs directly from the "nodes" attribute (comma-separated)
+  const nodesAttr = spec.getAttribute("nodes");
+  if (nodesAttr) {
+    return nodesAttr.split(",").map(s => parseInt(s.trim(), 10)).filter(Number.isFinite);
+  }
+
+  // Fallback: decode from the tree URL
   const urlEl = spec.querySelector("URL");
   if (!urlEl?.textContent) return [];
 
@@ -183,7 +190,6 @@ function extractAllocatedNodes(root: Element): number[] {
     for (let i = 0; i < decoded.length; i++) {
       bytes[i] = decoded.charCodeAt(i);
     }
-    // PoE tree URL format: version(4 bytes) + classId(1 byte) + ascId(1 byte) + fullscreen(1 byte) + nodeIds(2 bytes each)
     if (bytes.length < 7) return [];
     const nodes: number[] = [];
     for (let i = 7; i < bytes.length - 1; i += 2) {
