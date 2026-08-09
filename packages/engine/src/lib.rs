@@ -504,7 +504,8 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
         db.calc(StatId::LIFE, base, &cfg, &mst).round().max(1.0)
     };
     let energy_shield = {
-        let int_bonus = (intelligence / 5.0).floor();
+        // PoB: floor(Int/10) as % increased ES (CalcPerform.lua:518)
+        let int_bonus = (intelligence / 10.0).floor();
         let (flat, inc, more) = db.buckets(StatId::ENERGY_SHIELD, &cfg, &mst);
         ((input.gear_es + flat) * (1.0 + (inc + int_bonus) / 100.0) * more).round().max(0.0)
     };

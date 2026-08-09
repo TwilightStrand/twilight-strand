@@ -732,18 +732,19 @@ mod tests {
 
     #[test]
     fn es_int_bonus_is_percentage_not_flat() {
-        // Witch level 90, base_int=32, gear_es=200, no ES mods.
-        // intelligence = 32, int_bonus = floor(32/5) = 6 (% increased ES)
-        // ES = (200 + 0) * (1 + (0 + 6)/100) * 1.0 = 200 * 1.06 = 212
-        // If int were wrongly treated as flat: ES = (200 + 6) * 1.0 = 206
+        // Witch level 90, base_int=32, +200 Int, gear_es=200, no ES mods.
+        // intelligence = 32 + 200 = 232, int_bonus = floor(232/10) = 23 (% increased ES)
+        // ES = (200 + 0) * (1 + (0 + 23)/100) * 1.0 = 200 * 1.23 = 246
+        // If int were wrongly flat: ES = (200 + 23) * 1.0 = 223
         let mut input = witch(90);
         input.gear_es = 200.0;
+        input.modifiers.push(m("Int", 200.0, "flat"));
         let out = evaluate_build(input);
-        assert_near(out.energy_shield, 212.0, 1.0, "ES with int-as-percentage");
-        // Must NOT be 206 (the flat-int-bonus mistake)
+        assert_near(out.energy_shield, 246.0, 1.0, "ES with int-as-percentage");
+        // Must NOT be 223 (the flat-int-bonus mistake)
         assert!(
-            (out.energy_shield - 206.0).abs() > 3.0,
-            "ES {} is too close to 206 (flat-int bug)",
+            (out.energy_shield - 223.0).abs() > 10.0,
+            "ES {} is too close to 223 (flat-int bug)",
             out.energy_shield
         );
     }
@@ -761,7 +762,7 @@ mod tests {
             m("EnergyShield", 100.0, "increased"),
         ];
         let out = evaluate_build(input);
-        assert_near(out.energy_shield, 944.0, 1.0, "ES with int+inc");
+        assert_near(out.energy_shield, 872.0, 1.0, "ES with int+inc");
     }
 
     #[test]
@@ -777,7 +778,7 @@ mod tests {
             m("EnergyShield", 30.0, "more"),
         ];
         let out = evaluate_build(input);
-        assert_near(out.energy_shield, 811.0, 1.0, "ES with flat+inc+more");
+        assert_near(out.energy_shield, 796.0, 1.0, "ES with flat+inc+more");
     }
 
     // ---- Issue 2: Attribute calculation order --------------------------------
@@ -817,7 +818,7 @@ mod tests {
         input.modifiers = vec![m("Int", 200.0, "flat")];
         let out = evaluate_build(input);
         assert_near(out.intelligence, 232.0, 0.1, "int");
-        assert_near(out.energy_shield, 730.0, 1.0, "ES scales with computed int");
+        assert_near(out.energy_shield, 615.0, 1.0, "ES scales with computed int");
     }
 
     // ---- Issue 3: Resistance calc with Kitava penalty -----------------------
@@ -1019,7 +1020,7 @@ mod tests {
         assert_near(out.intelligence, 44.0, 0.1, "int");
         assert_near(out.life, 2200.0, 1.0, "life");
         assert_near(out.mana, 590.0, 1.0, "mana");
-        assert_near(out.energy_shield, 108.0, 1.0, "ES");
+        assert_near(out.energy_shield, 104.0, 1.0, "ES");
         assert_near(out.fire_res, 75.0, 0.1, "fire_res capped");
         assert_near(out.cold_res, 40.0, 0.1, "cold_res");
         assert_near(out.lightning_res, -60.0, 0.1, "lightning_res default");
@@ -1049,7 +1050,7 @@ mod tests {
         let out = evaluate_build(input);
 
         assert_near(out.intelligence, 232.0, 0.1, "int");
-        assert_near(out.energy_shield, 1995.0, 1.0, "ES");
+        assert_near(out.energy_shield, 1822.0, 1.0, "ES");
         assert_near(out.mana, 714.0, 1.0, "mana");
     }
 
@@ -1114,7 +1115,7 @@ mod tests {
         let out = evaluate_build(ci_occultist_proxy());
 
         assert_eq!(out.life, 1.0, "CI life must be 1");
-        assert_near(out.energy_shield, 3168.0, 2.0, "Rust proxy ES");
+        assert_near(out.energy_shield, 2984.0, 2.0, "Rust proxy ES");
         // Gap: 3168 vs 11050 = 28.7% of Lua value.
         // Root cause: no gear_es, flat ES mod is a proxy for total gear+tree ES.
         // Real build has ~1500+ base ES from gear alone.
