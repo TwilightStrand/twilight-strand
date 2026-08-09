@@ -1,5 +1,3 @@
-export type GameId = "poe1" | "poe2";
-
 export interface BuildStats {
   total_dps: number;
   combined_dps: number;
@@ -85,16 +83,4 @@ export interface GemData {
   isSupport: boolean;
 }
 
-// Legacy types used by bridge.ts/worker.ts (Lua engine - deprecated)
-export type EngineRequest =
-  | { id: number; type: "init"; gameId: GameId }
-  | { id: number; type: "evaluate"; xml: string; config?: Record<string, string | boolean | number> }
-  | { id: number; type: "ping" };
-
-export type EngineResponse =
-  | { id: number; type: "ready" }
-  | { id: number; type: "evaluated"; stats: BuildStats; items: ItemData[]; skills: SkillGroup[] }
-  | { id: number; type: "pong" }
-  | { id: number; type: "error"; message: string }
-  | { id: number; type: "progress"; stage: string };
 
