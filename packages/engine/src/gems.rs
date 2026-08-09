@@ -149,7 +149,8 @@ struct SkillOverrides {
 
 static OVERRIDES: LazyLock<HashMap<&'static str, SkillOverrides>> = LazyLock::new(|| {
     let mut m = HashMap::new();
-    m.insert("WinterOrb", SkillOverrides { stages: 10, base_totem_count: 0 });
+    // Winter Orb fires projectiles; stages determine frequency not a damage multiplier
+    m.insert("WinterOrb", SkillOverrides { stages: 1, base_totem_count: 0 });
     m.insert("BladeFlurry", SkillOverrides { stages: 6, base_totem_count: 0 });
     m.insert("Incinerate", SkillOverrides { stages: 8, base_totem_count: 0 });
     m.insert("ScourgeArrow", SkillOverrides { stages: 5, base_totem_count: 0 });
@@ -566,7 +567,7 @@ mod tests {
     fn test_archetype_detection() {
         let wo = lookup_gem("WinterOrb").unwrap();
         assert_eq!(wo.archetype(), SkillArchetype::Channelling);
-        assert_eq!(wo.stages, 10);
+        assert_eq!(wo.stages, 1);
 
         let cyclone = lookup_gem("Cyclone").unwrap();
         assert_eq!(cyclone.archetype(), SkillArchetype::Channelling);

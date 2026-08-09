@@ -1751,7 +1751,7 @@ mod tests {
     fn test_channelling_winter_orb_archetype() {
         let gem = gems::lookup_gem("WinterOrb").unwrap();
         assert_eq!(gem.archetype(), gems::SkillArchetype::Channelling);
-        assert_eq!(gem.stages, 10);
+        assert_eq!(gem.stages, 1);
     }
 
     #[test]
