@@ -525,6 +525,7 @@ async function runRustEval(xmlStats: BuildStats, items: ItemData[], skills: Skil
     setState({
       stats: rustStats,
       rustEvalTime: rustTime,
+      engineEvalTime: rustTime,
       rustModCount: rustInput.modifiers.length,
     });
   } catch (e) {

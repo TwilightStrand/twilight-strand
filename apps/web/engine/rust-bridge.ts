@@ -17,7 +17,7 @@ export async function initRustEngine(): Promise<void> {
       wasmModule = mod;
       initialized = true;
     } catch {
-      // WASM not built yet or not available - Lua engine handles calcs
+      // WASM not built yet or not available
     }
   })();
 
