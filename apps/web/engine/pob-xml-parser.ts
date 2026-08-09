@@ -23,22 +23,41 @@ export function parsePobXml(xml: string): {
   const root = doc.querySelector("PathOfBuilding");
   if (!root) throw new Error("Invalid PoB XML: no PathOfBuilding root");
 
+  // Read active set indices from their respective parent elements
+  const itemsEl = root.querySelector("Items");
+  const skillsEl = root.querySelector("Skills");
+  const configEl = root.querySelector("Config");
+  const activeItemSet = getNumAttr(itemsEl ?? root, "activeItemSet", 0);
+  const activeSkillSet = getNumAttr(skillsEl ?? root, "activeSkillSet", 0);
+  const activeConfigSet = getNumAttr(configEl ?? root, "activeConfigSet", 0);
+
   const stats = extractBuildInfo(root);
-  const items = extractItems(root);
-  const skills = extractSkills(root);
+  const items = extractItems(root, activeItemSet);
+  const skills = extractSkills(root, activeSkillSet);
   const notesEl = root.querySelector("Notes");
   const notes = notesEl?.textContent?.trim() ?? "";
-  const config = extractConfig(root);
+  const config = extractConfig(root, activeConfigSet);
 
   return { stats, items, skills, notes, config };
 }
 
-function extractConfig(root: Element): Record<string, string | boolean | number> {
+function extractConfig(root: Element, activeConfigSet: number): Record<string, string | boolean | number> {
   const configEl = root.querySelector("Config");
   if (!configEl) return {};
 
   const config: Record<string, string | boolean | number> = {};
-  const inputs = configEl.querySelectorAll("Input");
+
+  // Use the active ConfigSet if available, otherwise fall back to top-level inputs
+  let inputSource: Element = configEl;
+  if (activeConfigSet > 0) {
+    for (const cs of configEl.querySelectorAll("ConfigSet")) {
+      if (getAttr(cs, "id") === String(activeConfigSet)) {
+        inputSource = cs;
+        break;
+      }
+    }
+  }
+  const inputs = inputSource.querySelectorAll("Input");
 
   for (const input of inputs) {
     const name = input.getAttribute("name");
@@ -193,14 +212,34 @@ function stripTagPrefixes(line: string): string {
   return s;
 }
 
-function extractItems(root: Element): ItemData[] {
+function extractItems(root: Element, activeItemSet: number): ItemData[] {
   const itemsEl = root.querySelector("Items");
   if (!itemsEl) return [];
 
+  // Build a map of itemId -> slot name from the active ItemSet
+  const activeSlotMap = new Map<string, string>();
+  if (activeItemSet > 0) {
+    for (const is of itemsEl.querySelectorAll("ItemSet")) {
+      if (getAttr(is, "id") === String(activeItemSet)) {
+        for (const slot of is.querySelectorAll("Slot")) {
+          const itemId = getAttr(slot, "itemId");
+          const slotName = getAttr(slot, "name");
+          if (itemId && itemId !== "0" && slotName) {
+            activeSlotMap.set(itemId, slotName);
+          }
+        }
+        break;
+      }
+    }
+  }
+
   const items: ItemData[] = [];
-  const itemEls = itemsEl.querySelectorAll("Item");
+  const itemEls = itemsEl.querySelectorAll(":scope > Item");
 
   for (const el of itemEls) {
+    // If we have an active ItemSet, only process items in that set
+    const id = getAttr(el, "id");
+    if (activeSlotMap.size > 0 && !activeSlotMap.has(id)) continue;
     const text = el.textContent?.trim() ?? "";
     if (!text) continue;
 
@@ -276,8 +315,7 @@ function extractItems(root: Element): ItemData[] {
       }
     }
 
-    const id = getAttr(el, "id");
-    const slot = findSlotForItem(itemsEl, id);
+    const slot = activeSlotMap.get(id) ?? findSlotForItem(itemsEl, id);
 
     items.push({
       slot,
@@ -307,12 +345,23 @@ function findSlotForItem(itemsEl: Element, itemId: string): string {
   return "";
 }
 
-function extractSkills(root: Element): SkillGroup[] {
+function extractSkills(root: Element, activeSkillSet: number): SkillGroup[] {
   const skillsEl = root.querySelector("Skills");
   if (!skillsEl) return [];
 
+  // Use skills from the active SkillSet if available
+  let skillSource: Element = skillsEl;
+  if (activeSkillSet > 0) {
+    for (const ss of skillsEl.querySelectorAll("SkillSet")) {
+      if (getAttr(ss, "id") === String(activeSkillSet)) {
+        skillSource = ss;
+        break;
+      }
+    }
+  }
+
   const groups: SkillGroup[] = [];
-  const skillEls = skillsEl.querySelectorAll("Skill");
+  const skillEls = skillSource.querySelectorAll("Skill");
 
   for (const skillEl of skillEls) {
     const enabled = getAttr(skillEl, "enabled") !== "false";
