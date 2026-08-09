@@ -98,6 +98,22 @@ function extractWeaponStats(items: ItemData[], slots: string[]): WeaponStats {
   return { base: weapon.base, physMin, physMax, aps, crit };
 }
 
+function isLocalESMod(lower: string): boolean {
+  return (lower.includes("energy shield") && !lower.includes("recharge") && !lower.includes("leech")
+    && !lower.includes("regenerate") && !lower.includes("on kill") && !lower.includes("as extra")
+    && (lower.includes("to maximum") || lower.includes("increased") || lower.includes("more")));
+}
+
+function isLocalArmourMod(lower: string): boolean {
+  return (lower.includes("armour") && !lower.includes("penetrate") && !lower.includes("ignore")
+    && (lower.includes("to armour") || lower.includes("increased armour") || lower.includes("more armour")));
+}
+
+function isLocalEvasionMod(lower: string): boolean {
+  return (lower.includes("evasion") && !lower.includes("chance to evade")
+    && (lower.includes("to evasion") || lower.includes("increased evasion") || lower.includes("more evasion")));
+}
+
 function bossEnemyRes(boss: string | undefined, element: string): number {
   if (!boss || boss === "None" || boss === "") return 0;
   const isPinnacle = boss.toLowerCase().includes("pinnacle");
@@ -168,14 +184,12 @@ export function convertToRustInput(
         line = mod.replace(WHILE_AFFECTED_RE, "");
       }
 
-      // Filter local defence mods when the computed defence value is present
+      // Filter local defence mods when the computed defence value is present.
+      // The "Energy Shield: 503" header already includes local flat + % mods.
       const lower = line.toLowerCase();
-      if (hasLocalES && /^\+?\d+(%| to maximum) (energy shield|to maximum energy shield)/i.test(line)) continue;
-      if (hasLocalES && /increased energy shield$/i.test(line)) continue;
-      if (hasLocalArmour && /^\+?\d+(%| to )(armour|to armour)/i.test(line)) continue;
-      if (hasLocalArmour && /increased armour$/i.test(line)) continue;
-      if (hasLocalEvasion && /^\+?\d+(%| to )(evasion rating|to evasion rating)/i.test(line)) continue;
-      if (hasLocalEvasion && /increased evasion rating$/i.test(line)) continue;
+      if (hasLocalES && isLocalESMod(lower)) continue;
+      if (hasLocalArmour && isLocalArmourMod(lower)) continue;
+      if (hasLocalEvasion && isLocalEvasionMod(lower)) continue;
 
       statLines.push(line);
     }
