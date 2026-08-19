@@ -29,6 +29,7 @@ pub mod watchers_eye;
 pub use watchers_eye::{get_watchers_eye_mods, get_all_mods_for_auras};
 pub mod triggers;
 pub mod timeless;
+pub mod timeless_lut;
 pub mod golems;
 pub mod curses;
 pub mod auras;
@@ -683,15 +684,30 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     }
 
     // Timeless jewel node transformations
+    // Try LUT-based lookup first (exact seed results); fall back to hash-based.
     for jewel in &input.timeless_jewels {
         if let Some(jt) = timeless::JewelType::from_str(&jewel.jewel_type) {
             for node in &jewel.affected_nodes {
                 let is_notable = node.node_type == "notable";
                 let is_keystone = node.node_type == "keystone";
-                let transform = timeless::transform_node_typed(
-                    jt, jewel.seed, node.node_id,
-                    is_notable, is_keystone, &jewel.conqueror,
-                );
+
+                // Try LUT-based lookup for notables when binary data is loaded
+                let transform = if !is_keystone {
+                    timeless_lut::lookup_lut(jt, jewel.seed, node.node_id, is_notable)
+                        .unwrap_or_else(|| {
+                            timeless::transform_node_typed(
+                                jt, jewel.seed, node.node_id,
+                                is_notable, false, &jewel.conqueror,
+                            )
+                        })
+                } else {
+                    // Keystones: use conqueror-based logic (not seed-dependent)
+                    timeless::transform_node_typed(
+                        jt, jewel.seed, node.node_id,
+                        false, true, &jewel.conqueror,
+                    )
+                };
+
                 // Parse stat display strings through the stat parser and add to ModDB
                 for line in &transform.added_stats {
                     let v2_mods = stat_parser::parse_stat_line_v2(line);
