@@ -201,6 +201,335 @@
       "gem_level": 20
     }
   ],
+  "timeless_jewels": [
+    {
+      "jewel_type": "Elegant Hubris",
+      "seed": 27800,
+      "conqueror": "Caspiro",
+      "affected_nodes": [
+        {
+          "node_id": 64583,
+          "node_type": "small"
+        },
+        {
+          "node_id": 54447,
+          "node_type": "small"
+        },
+        {
+          "node_id": 15167,
+          "node_type": "small"
+        },
+        {
+          "node_id": 23027,
+          "node_type": "small"
+        },
+        {
+          "node_id": 21984,
+          "node_type": "small"
+        },
+        {
+          "node_id": 26725,
+          "node_type": "small"
+        },
+        {
+          "node_id": 57197,
+          "node_type": "notable"
+        },
+        {
+          "node_id": 34171,
+          "node_type": "small"
+        },
+        {
+          "node_id": 44191,
+          "node_type": "notable"
+        },
+        {
+          "node_id": 19595,
+          "node_type": "small"
+        },
+        {
+          "node_id": 27623,
+          "node_type": "notable"
+        },
+        {
+          "node_id": 15452,
+          "node_type": "small"
+        },
+        {
+          "node_id": 49080,
+          "node_type": "small"
+        },
+        {
+          "node_id": 61419,
+          "node_type": "small"
+        },
+        {
+          "node_id": 18769,
+          "node_type": "notable"
+        },
+        {
+          "node_id": 7600,
+          "node_type": "small"
+        },
+        {
+          "node_id": 29712,
+          "node_type": "small"
+        },
+        {
+          "node_id": 26270,
+          "node_type": "small"
+        },
+        {
+          "node_id": 62319,
+          "node_type": "small"
+        },
+        {
+          "node_id": 63723,
+          "node_type": "small"
+        },
+        {
+          "node_id": 9402,
+          "node_type": "small"
+        },
+        {
+          "node_id": 46519,
+          "node_type": "small"
+        },
+        {
+          "node_id": 26712,
+          "node_type": "small"
+        },
+        {
+          "node_id": 13170,
+          "node_type": "small"
+        },
+        {
+          "node_id": 63425,
+          "node_type": "keystone"
+        },
+        {
+          "node_id": 44169,
+          "node_type": "small"
+        },
+        {
+          "node_id": 861,
+          "node_type": "notable"
+        },
+        {
+          "node_id": 34506,
+          "node_type": "notable"
+        },
+        {
+          "node_id": 24872,
+          "node_type": "small"
+        },
+        {
+          "node_id": 40483,
+          "node_type": "small"
+        },
+        {
+          "node_id": 60472,
+          "node_type": "small"
+        },
+        {
+          "node_id": 52502,
+          "node_type": "small"
+        },
+        {
+          "node_id": 9408,
+          "node_type": "small"
+        },
+        {
+          "node_id": 57226,
+          "node_type": "small"
+        },
+        {
+          "node_id": 55190,
+          "node_type": "small"
+        },
+        {
+          "node_id": 61653,
+          "node_type": "small"
+        },
+        {
+          "node_id": 5935,
+          "node_type": "small"
+        },
+        {
+          "node_id": 32932,
+          "node_type": "notable"
+        },
+        {
+          "node_id": 17527,
+          "node_type": "small"
+        },
+        {
+          "node_id": 10851,
+          "node_type": "small"
+        },
+        {
+          "node_id": 12128,
+          "node_type": "keystone"
+        },
+        {
+          "node_id": 54279,
+          "node_type": "small"
+        },
+        {
+          "node_id": 40705,
+          "node_type": "small"
+        },
+        {
+          "node_id": 11455,
+          "node_type": "keystone"
+        },
+        {
+          "node_id": 53290,
+          "node_type": "small"
+        },
+        {
+          "node_id": 10532,
+          "node_type": "small"
+        },
+        {
+          "node_id": 18901,
+          "node_type": "small"
+        },
+        {
+          "node_id": 21033,
+          "node_type": "small"
+        },
+        {
+          "node_id": 43061,
+          "node_type": "small"
+        },
+        {
+          "node_id": 2491,
+          "node_type": "small"
+        },
+        {
+          "node_id": 48813,
+          "node_type": "small"
+        },
+        {
+          "node_id": 7960,
+          "node_type": "small"
+        },
+        {
+          "node_id": 47085,
+          "node_type": "small"
+        },
+        {
+          "node_id": 36226,
+          "node_type": "small"
+        },
+        {
+          "node_id": 11730,
+          "node_type": "notable"
+        },
+        {
+          "node_id": 22618,
+          "node_type": "small"
+        },
+        {
+          "node_id": 23659,
+          "node_type": "small"
+        },
+        {
+          "node_id": 56461,
+          "node_type": "notable"
+        },
+        {
+          "node_id": 27323,
+          "node_type": "small"
+        },
+        {
+          "node_id": 26196,
+          "node_type": "small"
+        },
+        {
+          "node_id": 25831,
+          "node_type": "small"
+        },
+        {
+          "node_id": 5972,
+          "node_type": "small"
+        },
+        {
+          "node_id": 21974,
+          "node_type": "small"
+        },
+        {
+          "node_id": 12246,
+          "node_type": "small"
+        },
+        {
+          "node_id": 37114,
+          "node_type": "small"
+        },
+        {
+          "node_id": 19732,
+          "node_type": "keystone"
+        },
+        {
+          "node_id": 20987,
+          "node_type": "small"
+        },
+        {
+          "node_id": 62849,
+          "node_type": "notable"
+        },
+        {
+          "node_id": 50029,
+          "node_type": "notable"
+        },
+        {
+          "node_id": 53732,
+          "node_type": "small"
+        },
+        {
+          "node_id": 33864,
+          "node_type": "small"
+        },
+        {
+          "node_id": 59928,
+          "node_type": "small"
+        },
+        {
+          "node_id": 16023,
+          "node_type": "small"
+        },
+        {
+          "node_id": 58998,
+          "node_type": "small"
+        },
+        {
+          "node_id": 21460,
+          "node_type": "notable"
+        },
+        {
+          "node_id": 6770,
+          "node_type": "notable"
+        },
+        {
+          "node_id": 62429,
+          "node_type": "small"
+        },
+        {
+          "node_id": 27038,
+          "node_type": "notable"
+        },
+        {
+          "node_id": 35288,
+          "node_type": "small"
+        },
+        {
+          "node_id": 61259,
+          "node_type": "notable"
+        }
+      ]
+    }
+  ],
   "stat_lines": [
     "30% increased Armour",
     "+20% to Fire Resistance",

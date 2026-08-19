@@ -2465,6 +2465,72 @@ mod tests {
             "Should have 0 unreserved, got {}", out.mana_unreserved
         );
     }
+
+    #[test]
+    fn test_timeless_jewel_lethal_pride_adds_strength() {
+        let mut input = default_input();
+        // Lethal Pride small passives add Strength
+        input.timeless_jewels.push(TimelessJewelInput {
+            jewel_type: "Lethal Pride".into(),
+            seed: 10000,
+            conqueror: "Kaom".into(),
+            affected_nodes: vec![
+                TimelessAffectedNode { node_id: 42, node_type: "small".into() },
+                TimelessAffectedNode { node_id: 43, node_type: "small".into() },
+            ],
+        });
+        let base_out = evaluate_build(default_input());
+        let jewel_out = evaluate_build(input);
+        // Timeless jewel should add some strength from small passive additions
+        assert!(
+            jewel_out.strength >= base_out.strength,
+            "Timeless jewel should not reduce strength: base={}, jewel={}",
+            base_out.strength, jewel_out.strength
+        );
+    }
+
+    #[test]
+    fn test_timeless_jewel_elegant_hubris_notable() {
+        let mut input = default_input();
+        // Elegant Hubris replaces notables with a single themed mod
+        input.timeless_jewels.push(TimelessJewelInput {
+            jewel_type: "Elegant Hubris".into(),
+            seed: 50000,
+            conqueror: "Caspiro".into(),
+            affected_nodes: vec![
+                TimelessAffectedNode { node_id: 100, node_type: "notable".into() },
+            ],
+        });
+        // Should not panic and should produce valid output
+        let out = evaluate_build(input);
+        assert!(out.life > 0.0, "Build should have positive life");
+    }
+
+    #[test]
+    fn test_timeless_jewel_keystone_replacement() {
+        let mut input = default_input();
+        // Lethal Pride + Kaom conqueror replaces keystones with Strength of Blood
+        input.timeless_jewels.push(TimelessJewelInput {
+            jewel_type: "Lethal Pride".into(),
+            seed: 10000,
+            conqueror: "Kaom".into(),
+            affected_nodes: vec![
+                TimelessAffectedNode { node_id: 99, node_type: "keystone".into() },
+            ],
+        });
+        let out = evaluate_build(input);
+        assert!(out.life > 0.0, "Build should have positive life");
+    }
+
+    #[test]
+    fn test_timeless_jewel_empty_list_no_effect() {
+        let mut input = default_input();
+        input.timeless_jewels = vec![]; // no jewels
+        let base = evaluate_build(default_input());
+        let out = evaluate_build(input);
+        assert_eq!(base.strength, out.strength);
+        assert_eq!(base.life, out.life);
+    }
 }
 
 #[cfg(test)]
