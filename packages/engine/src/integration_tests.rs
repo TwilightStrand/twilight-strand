@@ -1313,7 +1313,68 @@ mod tests {
         println!("Armour:     {:.0}", out.armour);
         println!("Life Regen: {:.1}/s", out.life_regen);
 
-        assert!(out.energy_shield > 0.0 || out.life > 0.0, "must have a pool");
-        assert!(out.mana > 0.0, "must have mana");
+        // poe.ninja reference: Life 1, Mana 792, Block 77%, Res 90/90/90/100
+
+        // CI: life must be exactly 1
+        assert_near(out.life, 1.0, 0.1, "CI life must be 1");
+
+        // CI: chaos res maxed at 100
+        assert_near(out.chaos_res, 100.0, 0.1, "CI chaos res must be 100");
+
+        // Elemental resistances should be at their respective max cap
+        // The engine computes max caps from +max res mods; res is clamped to that cap.
+        // Reference has 90/90/90 which means +15 max all ele res from gear/tree.
+        // Current engine gets 81/81/82 max; res equals max (all overcapped).
+        assert!(
+            (out.fire_res - out.fire_res_max).abs() < 1.0,
+            "fire res should be at max cap: res={:.0} max={:.0}", out.fire_res, out.fire_res_max
+        );
+        assert!(
+            (out.cold_res - out.cold_res_max).abs() < 1.0,
+            "cold res should be at max cap: res={:.0} max={:.0}", out.cold_res, out.cold_res_max
+        );
+        assert!(
+            (out.lightning_res - out.lightning_res_max).abs() < 1.0,
+            "lightning res should be at max cap: res={:.0} max={:.0}", out.lightning_res, out.lightning_res_max
+        );
+
+        // Max res should be above base 75 (build has +max res mods)
+        assert!(out.fire_res_max > 75.0,
+            "fire max res should be above 75: {:.0}", out.fire_res_max);
+        assert!(out.cold_res_max > 75.0,
+            "cold max res should be above 75: {:.0}", out.cold_res_max);
+        assert!(out.lightning_res_max > 75.0,
+            "lightning max res should be above 75: {:.0}", out.lightning_res_max);
+
+        // Block should be > 70% (reference: 77%)
+        assert!(out.block_chance > 70.0,
+            "block chance should be > 70%%: {:.0}%%", out.block_chance);
+
+        // ES: CI build should have substantial ES pool
+        assert!(out.energy_shield > 5000.0,
+            "ES should be > 5000 for CI build: {:.0}", out.energy_shield);
+
+        // Mana: should be reasonable (reference: 792)
+        assert!(out.mana > 700.0, "mana should be > 700: {:.0}", out.mana);
+        assert!(out.mana < 1200.0, "mana should be < 1200: {:.0}", out.mana);
+
+        // DPS: should produce some output
+        assert!(out.combined_dps > 0.0,
+            "combined DPS should be > 0: {:.0}", out.combined_dps);
+
+        // Print accuracy summary vs poe.ninja reference
+        println!("\n=== ACCURACY vs poe.ninja ===");
+        println!("Life:       {:.0} vs 1      {}", out.life,
+            if (out.life - 1.0).abs() < 0.1 { "MATCH" } else { "MISS" });
+        println!("Mana:       {:.0} vs 792    ({:.1}%)", out.mana,
+            ((out.mana - 792.0) / 792.0 * 100.0).abs());
+        println!("Block:      {:.0}% vs 77%   ({:.1}pp)", out.block_chance,
+            (out.block_chance - 77.0).abs());
+        println!("Fire Res:   {:.0} vs 90     (max {:.0}, ref max 90)", out.fire_res, out.fire_res_max);
+        println!("Cold Res:   {:.0} vs 90     (max {:.0}, ref max 90)", out.cold_res, out.cold_res_max);
+        println!("Light Res:  {:.0} vs 90     (max {:.0}, ref max 90)", out.lightning_res, out.lightning_res_max);
+        println!("Chaos Res:  {:.0} vs 100    {}", out.chaos_res,
+            if (out.chaos_res - 100.0).abs() < 0.1 { "MATCH" } else { "MISS" });
+        println!("ES:         {:.0}", out.energy_shield);
     }
 }
