@@ -280,6 +280,9 @@ pub struct TimelessAffectedNode {
     pub node_id: u32,
     /// "small", "notable", or "keystone"
     pub node_type: String,
+    /// Original passive node name, used for attribute-node detection
+    #[serde(default)]
+    pub original_name: String,
 }
 
 fn default_enemy_level() -> u32 { 83 }
@@ -2475,8 +2478,8 @@ mod tests {
             seed: 10000,
             conqueror: "Kaom".into(),
             affected_nodes: vec![
-                TimelessAffectedNode { node_id: 42, node_type: "small".into() },
-                TimelessAffectedNode { node_id: 43, node_type: "small".into() },
+                TimelessAffectedNode { node_id: 42, node_type: "small".into(), original_name: String::new() },
+                TimelessAffectedNode { node_id: 43, node_type: "small".into(), original_name: String::new() },
             ],
         });
         let base_out = evaluate_build(default_input());
@@ -2498,7 +2501,7 @@ mod tests {
             seed: 50000,
             conqueror: "Caspiro".into(),
             affected_nodes: vec![
-                TimelessAffectedNode { node_id: 100, node_type: "notable".into() },
+                TimelessAffectedNode { node_id: 100, node_type: "notable".into(), original_name: String::new() },
             ],
         });
         // Should not panic and should produce valid output
@@ -2515,7 +2518,7 @@ mod tests {
             seed: 10000,
             conqueror: "Kaom".into(),
             affected_nodes: vec![
-                TimelessAffectedNode { node_id: 99, node_type: "keystone".into() },
+                TimelessAffectedNode { node_id: 99, node_type: "keystone".into(), original_name: String::new() },
             ],
         });
         let out = evaluate_build(input);

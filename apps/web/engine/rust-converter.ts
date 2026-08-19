@@ -1,9 +1,12 @@
 import type { BuildStats, ItemData, SkillGroup } from "./types";
 import type { RustBuildInput, RustCalcOutput, RustSocketGroup, TimelessJewelInput } from "./rust-bridge";
 import type { JewelSocketEntry } from "./pob-xml-parser";
-import type { TreeNode } from "@/components/tree/tree-data";
+import type { TreeNode, TreeGroup } from "@/components/tree/tree-data";
 import { parseClusterJewel } from "./cluster-jewel";
 import { CLUSTER_NOTABLES } from "@/data/cluster-data.generated";
+
+// Large radius squared (1800^2) used for timeless jewel node filtering
+const LARGE_RADIUS_SQUARED = 1800 * 1800; // 3_240_000
 
 const CLASS_IDS: Record<string, number> = {
   Scion: 0,
@@ -14,6 +17,25 @@ const CLASS_IDS: Record<string, number> = {
   Templar: 5,
   Shadow: 6,
 };
+
+/** Compute a node's (x,y) position from its group + orbit placement. */
+function calcNodePos(
+  group: TreeGroup | undefined,
+  orbit: number,
+  orbitIndex: number,
+  skillsPerOrbit: number[],
+  orbitRadii: number[],
+): { x: number; y: number } {
+  if (!group) return { x: 0, y: 0 };
+  if (orbit === 0) return { x: group.x, y: group.y };
+  const nodesInOrbit = skillsPerOrbit[orbit] ?? 1;
+  const radius = orbitRadii[orbit] ?? 0;
+  const angle = (Math.PI * 2 * orbitIndex) / nodesInOrbit - Math.PI / 2;
+  return {
+    x: group.x + radius * Math.cos(angle),
+    y: group.y + radius * Math.sin(angle),
+  };
+}
 
 let treeNodeCache: Map<string, TreeNode> | null = null;
 let treeFetchPromise: Promise<Map<string, TreeNode>> | null = null;
@@ -26,9 +48,29 @@ export async function ensureTreeData(): Promise<Map<string, TreeNode>> {
     const resp = await fetch("/data/tree/tree-3_29.json");
     if (!resp.ok) throw new Error(`Tree data fetch failed: ${resp.status}`);
     const raw = await resp.json();
+    const rawGroups = raw.groups as Record<string, Record<string, unknown>>;
+    const constants = raw.constants as { skillsPerOrbit: number[]; orbitRadii: number[] };
+
+    // Build group lookup for position calculation
+    const groups = new Map<string, TreeGroup>();
+    for (const [gid, g] of Object.entries(rawGroups)) {
+      groups.set(gid, {
+        x: g.x as number,
+        y: g.y as number,
+        orbits: g.orbits as number[],
+        nodes: g.nodes as string[],
+      });
+    }
+
     const nodes = new Map<string, TreeNode>();
     for (const [id, n] of Object.entries(raw.nodes as Record<string, Record<string, unknown>>)) {
       if (id === "root") continue;
+
+      const groupData = groups.get(String(n.group));
+      const orbit = n.orbit as number;
+      const orbitIndex = n.orbitIndex as number;
+      const pos = calcNodePos(groupData, orbit, orbitIndex, constants.skillsPerOrbit, constants.orbitRadii);
+
       nodes.set(id, {
         id,
         name: n.name as string | undefined,
@@ -36,14 +78,16 @@ export async function ensureTreeData(): Promise<Map<string, TreeNode>> {
         isKeystone: n.isKeystone as boolean | undefined,
         isNotable: n.isNotable as boolean | undefined,
         isMastery: n.isMastery as boolean | undefined,
+        isJewelSocket: n.isJewelSocket as boolean | undefined,
+        ascendancyName: n.ascendancyName as string | undefined,
         masteryEffects: n.masteryEffects as Array<{ effect: number; stats: string[] }> | undefined,
-        group: 0,
-        orbit: 0,
-        orbitIndex: 0,
-        out: [],
-        in: [],
-        x: 0,
-        y: 0,
+        group: n.group as number,
+        orbit,
+        orbitIndex,
+        out: (n.out as string[]) || [],
+        in: (n.in as string[]) || [],
+        x: pos.x,
+        y: pos.y,
       });
     }
     treeNodeCache = nodes;
@@ -447,20 +491,36 @@ export function convertToRustInput(
       const parsed = parseTimelessJewel(item.name, item.mods);
       if (!parsed || parsed.seed === 0) continue;
 
-      // Gather affected allocated nodes (all non-ascendancy, non-mastery nodes)
-      const affectedNodes: Array<{ node_id: number; node_type: string }> = [];
+      // Look up the jewel socket's position for radius filtering
+      const socketNode = treeNodes.get(String(socket.nodeId));
+      const socketX = socketNode?.x ?? 0;
+      const socketY = socketNode?.y ?? 0;
+
+      // Gather allocated nodes within Large radius (1800 units) of the socket
+      const affectedNodes: Array<{ node_id: number; node_type: string; original_name: string }> = [];
       for (const nodeId of stats.allocated_nodes) {
         const node = treeNodes.get(String(nodeId));
         if (!node) continue;
         if (node.isMastery) continue;
+        if (node.isJewelSocket) continue;
+        if (node.ascendancyName) continue;
         // Skip nodes that already have overrides (e.g., from PoB's own timeless calculation)
         if (stats.node_overrides?.[String(nodeId)]) continue;
+
+        // Euclidean distance check: only include nodes within Large radius
+        const dx = node.x - socketX;
+        const dy = node.y - socketY;
+        if (dx * dx + dy * dy > LARGE_RADIUS_SQUARED) continue;
 
         let nodeType = "small";
         if (node.isKeystone) nodeType = "keystone";
         else if (node.isNotable) nodeType = "notable";
 
-        affectedNodes.push({ node_id: nodeId, node_type: nodeType });
+        affectedNodes.push({
+          node_id: nodeId,
+          node_type: nodeType,
+          original_name: node.name ?? "",
+        });
       }
 
       timelessJewels.push({

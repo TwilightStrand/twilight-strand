@@ -411,3 +411,140 @@ describe("rust-converter: config conditions", () => {
     expect(result.on_full_life).toBe(false);
   });
 });
+
+describe("rust-converter: timeless jewel radius filtering", () => {
+  // Helper to create tree nodes with positions
+  function mockTreeNodesWithPos(
+    entries: Array<{
+      id: string; x: number; y: number; stats?: string[];
+      isKeystone?: boolean; isNotable?: boolean; isMastery?: boolean;
+      isJewelSocket?: boolean; ascendancyName?: string; name?: string;
+    }>
+  ): Map<string, TreeNode> {
+    const map = new Map<string, TreeNode>();
+    for (const e of entries) {
+      map.set(e.id, {
+        id: e.id, name: e.name, stats: e.stats,
+        isKeystone: e.isKeystone, isNotable: e.isNotable,
+        isMastery: e.isMastery, isJewelSocket: e.isJewelSocket,
+        ascendancyName: e.ascendancyName,
+        group: 0, orbit: 0, orbitIndex: 0, out: [], in: [],
+        x: e.x, y: e.y,
+      });
+    }
+    return map;
+  }
+
+  const timelessItem: ItemData = {
+    slot: "TreeJewel 1", name: "Elegant Hubris",
+    base: "Timeless Jewel", rarity: "Unique", quality: 0, sockets: "",
+    mods: ["Commissioned 27800 coins to commemorate Caspiro"],
+  };
+
+  it("only includes nodes within 1800 radius of the jewel socket", () => {
+    // Socket at (0, 0); node A at (1000, 0) = within; node B at (2000, 0) = outside
+    const treeNodes = mockTreeNodesWithPos([
+      { id: "50000", x: 0, y: 0, isJewelSocket: true, name: "Jewel Socket" },
+      { id: "101", x: 1000, y: 0, stats: ["+10 to Strength"], name: "Strength" },
+      { id: "102", x: 2000, y: 0, stats: ["+10 to Dexterity"], name: "Dexterity" },
+    ]);
+    const stats = { ...baseStats, allocated_nodes: [101, 102] };
+    const sockets = [{ nodeId: 50000, itemId: "1" }];
+
+    const result = convertToRustInput(stats, [timelessItem], [], treeNodes, {}, sockets);
+    expect(result.timeless_jewels).toHaveLength(1);
+    expect(result.timeless_jewels[0].affected_nodes).toHaveLength(1);
+    expect(result.timeless_jewels[0].affected_nodes[0].node_id).toBe(101);
+  });
+
+  it("excludes mastery nodes from affected list", () => {
+    const treeNodes = mockTreeNodesWithPos([
+      { id: "50000", x: 0, y: 0, isJewelSocket: true, name: "Jewel Socket" },
+      { id: "101", x: 500, y: 0, stats: [], name: "Normal Node" },
+      { id: "102", x: 500, y: 500, isMastery: true, stats: [], name: "Mastery Node" },
+    ]);
+    const stats = { ...baseStats, allocated_nodes: [101, 102] };
+    const sockets = [{ nodeId: 50000, itemId: "1" }];
+
+    const result = convertToRustInput(stats, [timelessItem], [], treeNodes, {}, sockets);
+    expect(result.timeless_jewels[0].affected_nodes).toHaveLength(1);
+    expect(result.timeless_jewels[0].affected_nodes[0].node_id).toBe(101);
+  });
+
+  it("excludes jewel socket nodes from affected list", () => {
+    const treeNodes = mockTreeNodesWithPos([
+      { id: "50000", x: 0, y: 0, isJewelSocket: true, name: "Jewel Socket" },
+      { id: "50001", x: 500, y: 0, isJewelSocket: true, name: "Other Jewel Socket" },
+      { id: "101", x: 500, y: 500, stats: [], name: "Normal Node" },
+    ]);
+    const stats = { ...baseStats, allocated_nodes: [50001, 101] };
+    const sockets = [{ nodeId: 50000, itemId: "1" }];
+
+    const result = convertToRustInput(stats, [timelessItem], [], treeNodes, {}, sockets);
+    expect(result.timeless_jewels[0].affected_nodes).toHaveLength(1);
+    expect(result.timeless_jewels[0].affected_nodes[0].node_id).toBe(101);
+  });
+
+  it("excludes ascendancy nodes from affected list", () => {
+    const treeNodes = mockTreeNodesWithPos([
+      { id: "50000", x: 0, y: 0, isJewelSocket: true, name: "Jewel Socket" },
+      { id: "101", x: 500, y: 0, stats: [], name: "Normal Node" },
+      { id: "102", x: 200, y: 0, stats: [], ascendancyName: "Juggernaut", name: "Ascendancy Node" },
+    ]);
+    const stats = { ...baseStats, allocated_nodes: [101, 102] };
+    const sockets = [{ nodeId: 50000, itemId: "1" }];
+
+    const result = convertToRustInput(stats, [timelessItem], [], treeNodes, {}, sockets);
+    expect(result.timeless_jewels[0].affected_nodes).toHaveLength(1);
+    expect(result.timeless_jewels[0].affected_nodes[0].node_id).toBe(101);
+  });
+
+  it("includes original_name in affected nodes", () => {
+    const treeNodes = mockTreeNodesWithPos([
+      { id: "50000", x: 0, y: 0, isJewelSocket: true, name: "Jewel Socket" },
+      { id: "101", x: 500, y: 0, stats: [], name: "Strength" },
+      { id: "102", x: 600, y: 0, stats: [], isNotable: true, name: "Heart of the Warrior" },
+    ]);
+    const stats = { ...baseStats, allocated_nodes: [101, 102] };
+    const sockets = [{ nodeId: 50000, itemId: "1" }];
+
+    const result = convertToRustInput(stats, [timelessItem], [], treeNodes, {}, sockets);
+    expect(result.timeless_jewels[0].affected_nodes).toHaveLength(2);
+    const small = result.timeless_jewels[0].affected_nodes.find(n => n.node_id === 101);
+    const notable = result.timeless_jewels[0].affected_nodes.find(n => n.node_id === 102);
+    expect(small?.original_name).toBe("Strength");
+    expect(small?.node_type).toBe("small");
+    expect(notable?.original_name).toBe("Heart of the Warrior");
+    expect(notable?.node_type).toBe("notable");
+  });
+
+  it("handles diagonal distance correctly (boundary case)", () => {
+    // 1800^2 = 3_240_000
+    // Node at (1273, 1273): dist^2 = 1273^2 + 1273^2 = 1620529 + 1620529 = 3241058 > 3240000 -> outside
+    // Node at (1272, 1272): dist^2 = 1272^2 + 1272^2 = 1617984 + 1617984 = 3235968 -> inside
+    const treeNodes = mockTreeNodesWithPos([
+      { id: "50000", x: 0, y: 0, isJewelSocket: true, name: "Jewel Socket" },
+      { id: "101", x: 1272, y: 1272, stats: [], name: "Inside" },
+      { id: "102", x: 1273, y: 1273, stats: [], name: "Outside" },
+    ]);
+    const stats = { ...baseStats, allocated_nodes: [101, 102] };
+    const sockets = [{ nodeId: 50000, itemId: "1" }];
+
+    const result = convertToRustInput(stats, [timelessItem], [], treeNodes, {}, sockets);
+    expect(result.timeless_jewels[0].affected_nodes).toHaveLength(1);
+    expect(result.timeless_jewels[0].affected_nodes[0].node_id).toBe(101);
+  });
+
+  it("returns empty affected_nodes when no allocated nodes in radius", () => {
+    const treeNodes = mockTreeNodesWithPos([
+      { id: "50000", x: 0, y: 0, isJewelSocket: true, name: "Jewel Socket" },
+      { id: "101", x: 5000, y: 5000, stats: [], name: "Far Away" },
+    ]);
+    const stats = { ...baseStats, allocated_nodes: [101] };
+    const sockets = [{ nodeId: 50000, itemId: "1" }];
+
+    const result = convertToRustInput(stats, [timelessItem], [], treeNodes, {}, sockets);
+    expect(result.timeless_jewels).toHaveLength(1);
+    expect(result.timeless_jewels[0].affected_nodes).toHaveLength(0);
+  });
+});

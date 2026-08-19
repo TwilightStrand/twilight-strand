@@ -115,7 +115,7 @@ export interface TimelessJewelInput {
   jewel_type: string;
   seed: number;
   conqueror: string;
-  affected_nodes: Array<{ node_id: number; node_type: string }>;
+  affected_nodes: Array<{ node_id: number; node_type: string; original_name: string }>;
 }
 
 export interface RustCalcOutput {
