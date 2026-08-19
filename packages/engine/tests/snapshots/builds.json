@@ -5,6 +5,7 @@
         "Diamond Flask",
         "Lion's Roar"
       ],
+      "active_golems": [],
       "allocated_keystones": [],
       "ascendancy_name": "Slayer",
       "base_dex": 23,
@@ -176,7 +177,7 @@
     },
     "name": "Cyclone Slayer - Endgame Phys",
     "snapshot": {
-      "armour": 8161.0,
+      "armour": 8100.0,
       "attack_speed": 4.81,
       "bleed_dps": 16596.64,
       "chaos_res": -20.0,
@@ -186,7 +187,7 @@
       "crit_multiplier": 230.0,
       "dexterity": 83.0,
       "energy_shield": 0.0,
-      "evasion": 16.0,
+      "evasion": 17.0,
       "fire_res": 75.0,
       "hit_chance": 100.0,
       "ignite_dps": 0.0,
@@ -208,6 +209,7 @@
         "Granite Flask",
         "Basalt Flask"
       ],
+      "active_golems": [],
       "allocated_keystones": [],
       "ascendancy_name": "Juggernaut",
       "base_dex": 14,
@@ -357,17 +359,17 @@
     },
     "name": "RF Juggernaut - Endgame Tank",
     "snapshot": {
-      "armour": 15115.0,
+      "armour": 15000.0,
       "attack_speed": 1.0,
       "bleed_dps": 0.0,
       "chaos_res": 0.0,
       "cold_res": 75.0,
-      "combined_dps": 160.0,
+      "combined_dps": 240.0,
       "crit_chance": 5.0,
       "crit_multiplier": 150.0,
       "dexterity": 14.0,
       "energy_shield": 0.0,
-      "evasion": 2.0,
+      "evasion": 15.0,
       "fire_res": 78.0,
       "hit_chance": 92.32,
       "ignite_dps": 0.0,
@@ -379,13 +381,14 @@
       "mana": 587.0,
       "poison_dps": 0.0,
       "strength": 232.0,
-      "total_dps": 160.0,
+      "total_dps": 240.0,
       "total_ehp": 68110.0
     }
   },
   {
     "input": {
       "active_flasks": [],
+      "active_golems": [],
       "allocated_keystones": [
         "Chaos Inoculation"
       ],
@@ -526,17 +529,17 @@
     },
     "name": "CI Vortex Occultist - ES DoT",
     "snapshot": {
-      "armour": 2.0,
+      "armour": 0.0,
       "attack_speed": 1.0,
       "bleed_dps": 0.0,
-      "chaos_res": 75.0,
+      "chaos_res": 100.0,
       "cold_res": 75.0,
-      "combined_dps": 7789.76,
+      "combined_dps": 11035.49,
       "crit_chance": 1.8,
       "crit_multiplier": 210.0,
       "dexterity": 14.0,
       "energy_shield": 2984.0,
-      "evasion": 2.0,
+      "evasion": 15.0,
       "fire_res": 75.0,
       "hit_chance": 92.77,
       "ignite_dps": 0.0,
@@ -548,13 +551,14 @@
       "mana": 708.0,
       "poison_dps": 0.0,
       "strength": 14.0,
-      "total_dps": 7789.76,
-      "total_ehp": 3734.85
+      "total_dps": 11035.49,
+      "total_ehp": 3731.25
     }
   },
   {
     "input": {
       "active_flasks": [],
+      "active_golems": [],
       "allocated_keystones": [],
       "ascendancy_name": "Deadeye",
       "base_dex": 32,
@@ -724,7 +728,7 @@
     },
     "name": "Lightning Arrow Deadeye - Ele Bow",
     "snapshot": {
-      "armour": 2.0,
+      "armour": 0.0,
       "attack_speed": 3.39,
       "bleed_dps": 268.24,
       "chaos_res": -60.0,
@@ -734,7 +738,7 @@
       "crit_multiplier": 408.0,
       "dexterity": 212.0,
       "energy_shield": 0.0,
-      "evasion": 4492.0,
+      "evasion": 5279.0,
       "fire_res": 75.0,
       "hit_chance": 100.0,
       "ignite_dps": 0.0,
@@ -747,12 +751,13 @@
       "poison_dps": 0.0,
       "strength": 14.0,
       "total_dps": 17603.87,
-      "total_ehp": 9141.98
+      "total_ehp": 9866.02
     }
   },
   {
     "input": {
       "active_flasks": [],
+      "active_golems": [],
       "allocated_keystones": [],
       "ascendancy_name": "Assassin",
       "base_dex": 23,
@@ -910,7 +915,7 @@
     },
     "name": "Poison BV Assassin - DoT Stacker",
     "snapshot": {
-      "armour": 2.0,
+      "armour": 0.0,
       "attack_speed": 2.74,
       "bleed_dps": 124.51,
       "chaos_res": 0.0,
@@ -920,7 +925,7 @@
       "crit_multiplier": 200.0,
       "dexterity": 143.0,
       "energy_shield": 0.0,
-      "evasion": 2750.0,
+      "evasion": 3151.0,
       "fire_res": 75.0,
       "hit_chance": 100.0,
       "ignite_dps": 0.0,
@@ -933,7 +938,7 @@
       "poison_dps": 235.87,
       "strength": 14.0,
       "total_dps": 712.56,
-      "total_ehp": 5431.61
+      "total_ehp": 5728.94
     }
   }
 ]

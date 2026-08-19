@@ -82,9 +82,11 @@ mod tests {
             boosted_out.life,
             base_out.life
         );
-        assert!(
-            boosted_out.armour > base_out.armour,
-            "More str should mean more armour"
+        // Str gives melee physical damage INC, not armour.
+        // With no gear armour, both should be 0.
+        assert_eq!(
+            boosted_out.armour, base_out.armour,
+            "Str should not affect armour (it gives melee phys dmg INC)"
         );
     }
 
@@ -1135,9 +1137,11 @@ mod tests {
     #[test]
     fn dual_engine_ci_occultist_defences() {
         let out = evaluate_build(ci_occultist_proxy());
-        // No gear_armour/gear_evasion in proxy; these are base-only values.
-        assert_near(out.armour, 2.0, 1.0, "armour (no gear)");
-        assert_near(out.evasion, 2.0, 1.0, "evasion (no gear)");
+        // No gear_armour/gear_evasion in proxy.
+        // Str does not give armour (it gives melee phys dmg INC), so armour = 0 with no gear.
+        assert_near(out.armour, 0.0, 1.0, "armour (no gear)");
+        // Evasion: base char evasion 15, dex INC = floor(14/5) = 2% => 15 * 1.02 = 15.3 => 15
+        assert_near(out.evasion, 15.0, 1.0, "evasion (base char + dex INC)");
         assert_near(out.block_chance, 0.0, 0.1, "block (no shield)");
         // Spell suppression from mod
         assert!(out.suppression >= 40.0, "suppression from mod: {}", out.suppression);
@@ -1150,8 +1154,8 @@ mod tests {
         assert_near(out.fire_res, 75.0, 0.1, "fire res capped");
         assert_near(out.cold_res, 75.0, 0.1, "cold res capped");
         assert_near(out.lightning_res, 75.0, 0.1, "lightning res capped");
-        // CI maxes chaos res
-        assert_near(out.chaos_res, 75.0, 0.1, "chaos res (CI)");
+        // CI sets max chaos res to 100%: +160 flat - 60 penalty = 100, capped at 100
+        assert_near(out.chaos_res, 100.0, 0.1, "chaos res (CI)");
     }
 
     #[test]
@@ -1279,5 +1283,37 @@ mod tests {
         assert!(out.crit_chance <= 100.0);
         // DPS shouldn't be in the billions
         assert!(out.total_dps < 1_000_000_000.0, "DPS is {:.0}, way too high", out.total_dps);
+    }
+
+    #[test]
+    fn vortex_elementalist_fixture() {
+        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/snapshots/vortex-elementalist.json");
+        if !path.exists() {
+            eprintln!("Skipping vortex_elementalist_fixture: fixture not yet generated");
+            return;
+        }
+        let json = std::fs::read_to_string(&path).expect("read vortex fixture");
+        let input: BuildInput = serde_json::from_str(&json).expect("parse vortex fixture");
+        let out = evaluate_build(input);
+
+        println!("\n=== VORTEX ELEMENTALIST FIXTURE ===");
+        println!("Life:       {:.0}", out.life);
+        println!("ES:         {:.0}", out.energy_shield);
+        println!("Mana:       {:.0}", out.mana);
+        println!("DPS:        {:.0}", out.total_dps);
+        println!("Combined:   {:.0}", out.combined_dps);
+        println!("Fire Res:   {:.0} (max {:.0})", out.fire_res, out.fire_res_max);
+        println!("Cold Res:   {:.0} (max {:.0})", out.cold_res, out.cold_res_max);
+        println!("Light Res:  {:.0} (max {:.0})", out.lightning_res, out.lightning_res_max);
+        println!("Chaos Res:  {:.0} (max {:.0})", out.chaos_res, out.chaos_res_max);
+        println!("Block:      {:.0}%", out.block_chance);
+        println!("Spell Block:{:.0}%", out.spell_block);
+        println!("Evasion:    {:.0}", out.evasion);
+        println!("Armour:     {:.0}", out.armour);
+        println!("Life Regen: {:.1}/s", out.life_regen);
+
+        assert!(out.energy_shield > 0.0 || out.life > 0.0, "must have a pool");
+        assert!(out.mana > 0.0, "must have mana");
     }
 }

@@ -11,6 +11,7 @@ export interface TreeNode {
   isNotable?: boolean;
   isKeystone?: boolean;
   isMastery?: boolean;
+  masteryEffects?: Array<{ effect: number; stats: string[] }>;
   isJewelSocket?: boolean;
   isBloodline?: boolean;
   classStartIndex?: number;
@@ -154,6 +155,7 @@ export function parseTreeData(raw: Record<string, unknown>): TreeData {
       isNotable: n.isNotable as boolean | undefined,
       isKeystone: n.isKeystone as boolean | undefined,
       isMastery: n.isMastery as boolean | undefined,
+      masteryEffects: n.masteryEffects as Array<{ effect: number; stats: string[] }> | undefined,
       isJewelSocket: n.isJewelSocket as boolean | undefined,
       isBloodline: n.isBloodline as boolean | undefined,
       classStartIndex: n.classStartIndex as number | undefined,

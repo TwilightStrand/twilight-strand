@@ -35,6 +35,15 @@ pub fn get_flask_mods(flask_name: &str) -> Vec<Modifier> {
     if name.contains("amethyst") {
         mods.push(Modifier { stat: "ChaosRes".into(), value: 35.0, mod_type: "flat".into() });
     }
+    if name.contains("ruby") {
+        mods.push(Modifier { stat: "FireRes".into(), value: 50.0, mod_type: "flat".into() });
+    }
+    if name.contains("sapphire") {
+        mods.push(Modifier { stat: "ColdRes".into(), value: 50.0, mod_type: "flat".into() });
+    }
+    if name.contains("topaz") {
+        mods.push(Modifier { stat: "LightningRes".into(), value: 50.0, mod_type: "flat".into() });
+    }
     if name.contains("quartz") {
         mods.push(Modifier { stat: "SpellSuppressionChance".into(), value: 25.0, mod_type: "flat".into() });
     }

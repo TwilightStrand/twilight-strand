@@ -100,11 +100,22 @@ export interface RustBuildInput {
   hit_recently_by_enemy: boolean;
   used_skill_recently: boolean;
   nearby_rare_or_unique: boolean;
+  active_golems: Array<{ name: string; gem_level: number }>;
+  active_auras: Array<{ name: string; gem_level: number }>;
+  active_curses: Array<{ name: string; gem_level: number }>;
+  timeless_jewels: TimelessJewelInput[];
 }
 
 export interface RustSocketGroup {
   active_skill: string;
   support_gems: string[];
+}
+
+export interface TimelessJewelInput {
+  jewel_type: string;
+  seed: number;
+  conqueror: string;
+  affected_nodes: Array<{ node_id: number; node_type: string }>;
 }
 
 export interface RustCalcOutput {
@@ -194,6 +205,10 @@ export function defaultRustInput(overrides?: Partial<RustBuildInput>): RustBuild
     hit_recently_by_enemy: false,
     used_skill_recently: false,
     nearby_rare_or_unique: false,
+    active_golems: [],
+    active_auras: [],
+    active_curses: [],
+    timeless_jewels: [],
     ...overrides,
   };
 }

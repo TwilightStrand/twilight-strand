@@ -6,6 +6,8 @@ pub fn apply_keystones(input: &BuildInput, mods: &mut Vec<Modifier>) {
             "Chaos Inoculation" | "CI" => {
                 mods.push(Modifier { stat: "Life".into(), value: -99999.0, mod_type: "flat".into() });
                 mods.push(Modifier { stat: "ChaosRes".into(), value: 160.0, mod_type: "flat".into() });
+                // CI sets max chaos res to 100% (PoB: output.ChaosResMax = 100)
+                mods.push(Modifier { stat: "ChaosResMax".into(), value: 25.0, mod_type: "flat".into() });
             }
             "Elemental Overload" | "EO" => {
                 mods.push(Modifier { stat: "CritMultiplier".into(), value: -1000.0, mod_type: "flat".into() });
@@ -178,6 +180,7 @@ mod tests {
         apply_keystones(&input, &mut mods);
         assert!(mods.iter().any(|m| m.stat == "ChaosRes" && m.value == 160.0));
         assert!(mods.iter().any(|m| m.stat == "Life" && m.value < 0.0));
+        assert!(mods.iter().any(|m| m.stat == "ChaosResMax" && m.value == 25.0));
     }
 
     #[test]
@@ -193,7 +196,9 @@ mod tests {
         let mut input = base_input();
         input.allocated_keystones.push("CI".into());
         let output = crate::evaluate_build(input);
-        assert!(output.chaos_res >= 75.0);
+        // CI: +160 flat - 60 penalty = 100 uncapped, max raised to 100
+        assert_eq!(output.chaos_res, 100.0);
+        assert_eq!(output.chaos_res_max, 100.0);
     }
 
     #[test]
@@ -268,7 +273,7 @@ mod tests {
         input.allocated_keystones.push("Pain Attunement".into());
         let output = crate::evaluate_build(input);
         assert_eq!(output.life, 1.0);
-        assert!(output.chaos_res >= 75.0);
+        assert_eq!(output.chaos_res, 100.0);
     }
 
     #[test]
@@ -298,6 +303,7 @@ mod tests {
         input.modifiers.push(crate::Modifier {
             stat: "Evasion".into(), value: 500.0, mod_type: "flat".into(),
         });
+        input.gear_armour = 100.0; // Need some base armour for the +100% INC to amplify
         input.allocated_keystones.push("Iron Reflexes".into());
         let output = crate::evaluate_build(input);
         assert_eq!(output.evasion, 0.0, "Iron Reflexes should zero evasion");

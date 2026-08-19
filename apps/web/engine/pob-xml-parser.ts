@@ -11,12 +11,18 @@ function getNumAttr(el: Element, name: string, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+export interface JewelSocketEntry {
+  nodeId: number;
+  itemId: string;
+}
+
 export function parsePobXml(xml: string): {
   stats: BuildStats;
   items: ItemData[];
   skills: SkillGroup[];
   notes: string;
   config: Record<string, string | boolean | number>;
+  jewelSockets: JewelSocketEntry[];
 } {
   const parser = new DOMParser();
   const doc = parser.parseFromString(xml, "text/xml");
@@ -37,8 +43,9 @@ export function parsePobXml(xml: string): {
   const notesEl = root.querySelector("Notes");
   const notes = notesEl?.textContent?.trim() ?? "";
   const config = extractConfig(root, activeConfigSet);
+  const jewelSockets = extractJewelSockets(root);
 
-  return { stats, items, skills, notes, config };
+  return { stats, items, skills, notes, config, jewelSockets };
 }
 
 function extractConfig(root: Element, activeConfigSet: number): Record<string, string | boolean | number> {
@@ -103,8 +110,42 @@ function extractBuildInfo(root: Element): BuildStats {
   const allocatedNodes = extractAllocatedNodes(root);
 
   const treeEl = root.querySelector("Tree");
-  const specEl = treeEl?.querySelector("Spec");
+  const activeSpec = getNumAttr(treeEl ?? root, "activeSpec", 1);
+  const specs = treeEl?.querySelectorAll("Spec") ?? [];
+  const specEl = specs[activeSpec - 1] ?? specs[0] ?? null;
   const treeVersion = specEl?.getAttribute("treeVersion") || "3_29";
+
+  // Parse mastery effects from the active Spec element
+  let masteryEffects: Array<{ nodeId: number; effectId: number }> | undefined;
+  const masteryAttr = specEl?.getAttribute("masteryEffects");
+  if (masteryAttr) {
+    const pairs = [...masteryAttr.matchAll(/\{(\d+),(\d+)\}/g)].map(m => ({
+      nodeId: +m[1],
+      effectId: +m[2],
+    }));
+    if (pairs.length > 0) masteryEffects = pairs;
+  }
+
+  // Parse node overrides (Tattoos, Runegrafts, Timeless Jewels) from the active Spec
+  let nodeOverrides: Record<string, string[]> | undefined;
+  const overridesEl = specEl?.querySelector("Overrides");
+  if (overridesEl) {
+    const overrideMap: Record<string, string[]> = {};
+    for (const ov of overridesEl.querySelectorAll("Override")) {
+      const nodeId = ov.getAttribute("nodeId");
+      const text = ov.textContent?.trim();
+      if (!nodeId || !text) continue;
+      const stats = text.split("\n")
+        .map(l => l.trim())
+        .filter(l => l && !l.startsWith("Limited to"));
+      if (stats.length > 0) {
+        overrideMap[nodeId] = stats;
+      }
+    }
+    if (Object.keys(overrideMap).length > 0) {
+      nodeOverrides = overrideMap;
+    }
+  }
 
   return {
     total_dps: 0,
@@ -158,6 +199,8 @@ function extractBuildInfo(root: Element): BuildStats {
     es_leech_rate: 0,
     es_regen: 0,
     es_recharge_rate: 0,
+    mastery_effects: masteryEffects,
+    node_overrides: nodeOverrides,
   };
 }
 
@@ -201,6 +244,26 @@ function extractAllocatedNodes(root: Element): number[] {
   }
 }
 
+function extractJewelSockets(root: Element): JewelSocketEntry[] {
+  const treeEl = root.querySelector("Tree");
+  if (!treeEl) return [];
+
+  const activeSpec = getNumAttr(treeEl, "activeSpec", 1);
+  const specs = treeEl.querySelectorAll("Spec");
+  const specEl = specs[activeSpec - 1] ?? specs[0];
+  if (!specEl) return [];
+
+  const entries: JewelSocketEntry[] = [];
+  for (const socket of specEl.querySelectorAll("Socket")) {
+    const nodeId = getNumAttr(socket, "nodeId", 0);
+    const itemId = getAttr(socket, "itemId");
+    if (nodeId > 0 && itemId && itemId !== "0") {
+      entries.push({ nodeId, itemId });
+    }
+  }
+  return entries;
+}
+
 /** Strip all leading {tag} prefixes from a PoB mod line (e.g. {tags:resistance}{range:1}+30%) */
 function stripTagPrefixes(line: string): string {
   let s = line;
@@ -217,6 +280,24 @@ function stripTagPrefixes(line: string): string {
   }
   return s;
 }
+
+const SHIELD_BASE_BLOCK: Record<string, number> = {
+  "Goathide Buckler": 22, "Pine Buckler": 22, "Painted Buckler": 24,
+  "Hammered Buckler": 24, "War Buckler": 26, "Gilded Buckler": 26,
+  "Oak Buckler": 28, "Enameled Buckler": 28, "Lacquered Buckler": 24,
+  "Twig Spirit Shield": 22, "Bone Spirit Shield": 22, "Tarnished Spirit Shield": 24,
+  "Jingling Spirit Shield": 24, "Brass Spirit Shield": 26, "Walnut Spirit Shield": 26,
+  "Ivory Spirit Shield": 28, "Ancient Spirit Shield": 28, "Chiming Spirit Shield": 24,
+  "Rotted Round Shield": 24, "Fir Round Shield": 24, "Studded Round Shield": 26,
+  "Scarlet Round Shield": 26, "Splendid Round Shield": 28, "Maple Round Shield": 28,
+  "Spiked Round Shield": 30, "Crimson Round Shield": 30, "Baroque Round Shield": 26,
+  "Rawhide Tower Shield": 24, "Cedar Tower Shield": 24,
+  "Copper Tower Shield": 26, "Reinforced Tower Shield": 26, "Painted Tower Shield": 28,
+  "Buckskin Tower Shield": 28, "Mahogany Tower Shield": 30, "Bronze Tower Shield": 30,
+  "Girded Tower Shield": 32, "Crested Tower Shield": 32, "Shagreen Tower Shield": 34,
+  "Ebony Tower Shield": 34, "Ezomyte Tower Shield": 36, "Colossal Tower Shield": 38,
+  "Pinnacle Tower Shield": 38,
+};
 
 function extractItems(root: Element, activeItemSet: number): ItemData[] {
   const itemsEl = root.querySelector("Items");
@@ -235,6 +316,36 @@ function extractItems(root: Element, activeItemSet: number): ItemData[] {
           }
         }
         break;
+      }
+    }
+  }
+
+  // Map jewels socketed in the passive tree from the active Spec.
+  // <Socket nodeId="X" itemId="Y"/> elements live in <Spec> and reference items in <Items>.
+  const jewelSocketMap = new Map<string, string>();
+  const treeEl = root.querySelector("Tree");
+  if (treeEl) {
+    const activeSpec = getNumAttr(treeEl, "activeSpec", 1);
+    const specs = treeEl.querySelectorAll("Spec");
+    const specEl = specs[activeSpec - 1] ?? specs[0];
+    if (specEl) {
+      let jewelIndex = 1;
+      for (const socket of specEl.querySelectorAll("Socket")) {
+        const itemId = getAttr(socket, "itemId");
+        if (itemId && itemId !== "0") {
+          jewelSocketMap.set(itemId, `TreeJewel ${jewelIndex}`);
+          jewelIndex++;
+        }
+      }
+    }
+  }
+
+  // When an active ItemSet is filtering, jewels must be in the slot map
+  // to survive the filter (they have no <Slot> assignment in <Items>).
+  if (activeItemSet > 0) {
+    for (const [itemId, slotName] of jewelSocketMap) {
+      if (!activeSlotMap.has(itemId)) {
+        activeSlotMap.set(itemId, slotName);
       }
     }
   }
@@ -282,13 +393,13 @@ function extractItems(root: Element, activeItemSet: number): ItemData[] {
       }
 
       // Defence stats can appear in the header (both formats)
-      const defMatch = line.match(/^(Armour|Evasion Rating|Energy Shield|Chance to Block):\s*(\d+)/);
+      const defMatch = line.match(/^(Armour|Evasion Rating|Evasion|Energy Shield|Chance to Block|Block Chance|Block):\s*(\d+)/);
       if (defMatch) {
         const val = parseInt(defMatch[2], 10);
         if (defMatch[1] === "Armour") baseArmour = val;
-        else if (defMatch[1] === "Evasion Rating") baseEvasion = val;
+        else if (defMatch[1] === "Evasion Rating" || defMatch[1] === "Evasion") baseEvasion = val;
         else if (defMatch[1] === "Energy Shield") baseES = val;
-        else if (defMatch[1] === "Chance to Block") baseBlock = val;
+        else if (defMatch[1] === "Chance to Block" || defMatch[1] === "Block Chance" || defMatch[1] === "Block") baseBlock = val;
         continue;
       }
 
@@ -321,7 +432,12 @@ function extractItems(root: Element, activeItemSet: number): ItemData[] {
       }
     }
 
-    const slot = activeSlotMap.get(id) ?? findSlotForItem(itemsEl, id);
+    // If no block value was parsed from headers, look up the shield base type
+    if (baseBlock === 0 && base in SHIELD_BASE_BLOCK) {
+      baseBlock = SHIELD_BASE_BLOCK[base];
+    }
+
+    const slot = activeSlotMap.get(id) ?? jewelSocketMap.get(id) ?? findSlotForItem(itemsEl, id);
 
     items.push({
       slot,

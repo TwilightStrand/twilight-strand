@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { BuildInputKind } from "@/engine/import-export";
 import { classifyBuildInput, gggDataToXml, parseAccountCharFromUrl } from "@/engine/import-export";
 import type { BuildStats, ItemData, SkillGroup } from "@/engine/types";
+import type { JewelSocketEntry } from "@/engine/pob-xml-parser";
 
 type EngineStatus = "idle" | "loading" | "ready" | "error";
 
@@ -441,7 +442,7 @@ export const useBuildStore = create<BuildState>((set, get) => ({
       }
 
       // Rust WASM eval for full stats
-      runRustEval(result.stats, result.items, result.skills);
+      runRustEval(result.stats, result.items, result.skills, result.jewelSockets);
     } catch (e) {
       set({
         loading: false,
@@ -501,7 +502,7 @@ async function importFromProfile(input: string, kind: BuildInputKind): Promise<s
   return gggDataToXml(data.items, data.passives, charName);
 }
 
-async function runRustEval(xmlStats: BuildStats, items: ItemData[], skills: SkillGroup[]) {
+async function runRustEval(xmlStats: BuildStats, items: ItemData[], skills: SkillGroup[], jewelSockets?: JewelSocketEntry[]) {
   const { setState } = useBuildStore;
   try {
     const [
@@ -514,7 +515,7 @@ async function runRustEval(xmlStats: BuildStats, items: ItemData[], skills: Skil
 
     const treeNodes = await ensureTreeData();
     const config = useBuildStore.getState().configOverrides;
-    const rustInput = convertToRustInput(xmlStats, items, skills, treeNodes, config);
+    const rustInput = convertToRustInput(xmlStats, items, skills, treeNodes, config, jewelSockets);
     const rustStart = performance.now();
     const rustOutput = evaluateBuildRust(rustInput);
     const rustTime = Math.round(performance.now() - rustStart);

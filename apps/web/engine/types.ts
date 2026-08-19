@@ -50,6 +50,8 @@ export interface BuildStats {
   allocated_nodes: number[];
   main_socket_group: number;
   tree_version: string;
+  mastery_effects?: Array<{ nodeId: number; effectId: number }>;
+  node_overrides?: Record<string, string[]>;
 }
 
 export interface ItemData {

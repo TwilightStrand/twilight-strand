@@ -149,6 +149,121 @@ Something</Item>
   });
 });
 
+describe("pob-xml-parser: tree jewel sockets", () => {
+  it("includes jewels from Socket elements when active ItemSet is used", () => {
+    const xml = `<?xml version="1.0"?>
+<PathOfBuilding>
+  <Build level="90" className="Witch" ascendClassName="Occultist" mainSocketGroup="1" targetVersion="3_0"/>
+  <Tree activeSpec="1">
+    <Spec treeVersion="3_29">
+      <URL></URL>
+      <Socket nodeId="26725" itemId="2"/>
+      <Socket nodeId="36634" itemId="3"/>
+    </Spec>
+  </Tree>
+  <Items activeItemSet="1">
+    <Item id="1">Rarity: Rare
+Hypnotic Crown
+Hubris Circlet
+--------
+Energy Shield: 245
+--------
++80 to maximum Energy Shield</Item>
+    <Item id="2">Rarity: Unique
+Watcher's Eye
+Prismatic Jewel
+--------
+Implicits: 0
++50 to maximum Energy Shield
+6% increased maximum Energy Shield while affected by Discipline</Item>
+    <Item id="3">Rarity: Rare
+Armageddon Splinter
+Cobalt Jewel
+--------
+Implicits: 0
++12 to maximum Energy Shield
++10% to Fire Resistance</Item>
+    <ItemSet id="1">
+      <Slot name="Helmet" itemId="1"/>
+    </ItemSet>
+  </Items>
+  <Skills/>
+</PathOfBuilding>`;
+
+    const result = parsePobXml(xml);
+    expect(result.items).toHaveLength(3);
+
+    const helmet = result.items.find(i => i.slot === "Helmet");
+    expect(helmet).toBeDefined();
+    expect(helmet!.name).toBe("Hypnotic Crown");
+
+    const jewel1 = result.items.find(i => i.slot === "TreeJewel 1");
+    expect(jewel1).toBeDefined();
+    expect(jewel1!.name).toBe("Watcher's Eye");
+    expect(jewel1!.mods).toContain("+50 to maximum Energy Shield");
+
+    const jewel2 = result.items.find(i => i.slot === "TreeJewel 2");
+    expect(jewel2).toBeDefined();
+    expect(jewel2!.name).toBe("Armageddon Splinter");
+    expect(jewel2!.mods).toContain("+10% to Fire Resistance");
+  });
+
+  it("assigns TreeJewel slot names without active ItemSet", () => {
+    const xml = `<?xml version="1.0"?>
+<PathOfBuilding>
+  <Build level="90" className="Witch" ascendClassName="Occultist" mainSocketGroup="1" targetVersion="3_0"/>
+  <Tree activeSpec="1">
+    <Spec treeVersion="3_29">
+      <URL></URL>
+      <Socket nodeId="26725" itemId="1"/>
+    </Spec>
+  </Tree>
+  <Items>
+    <Item id="1">Rarity: Unique
+Watcher's Eye
+Prismatic Jewel
+--------
+Implicits: 0
++50 to maximum Energy Shield</Item>
+  </Items>
+  <Skills/>
+</PathOfBuilding>`;
+
+    const result = parsePobXml(xml);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].slot).toBe("TreeJewel 1");
+    expect(result.items[0].name).toBe("Watcher's Eye");
+  });
+
+  it("skips Socket elements with itemId 0", () => {
+    const xml = `<?xml version="1.0"?>
+<PathOfBuilding>
+  <Build level="90" className="Witch" ascendClassName="Occultist" mainSocketGroup="1" targetVersion="3_0"/>
+  <Tree activeSpec="1">
+    <Spec treeVersion="3_29">
+      <URL></URL>
+      <Socket nodeId="26725" itemId="0"/>
+      <Socket nodeId="36634" itemId="1"/>
+    </Spec>
+  </Tree>
+  <Items activeItemSet="1">
+    <Item id="1">Rarity: Rare
+Test Jewel
+Cobalt Jewel
+--------
+Implicits: 0
++10% to Fire Resistance</Item>
+    <ItemSet id="1"/>
+  </Items>
+  <Skills/>
+</PathOfBuilding>`;
+
+    const result = parsePobXml(xml);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].slot).toBe("TreeJewel 1");
+  });
+});
+
 describe("pob-xml-parser: config", () => {
   it("extracts boolean config values", () => {
     const xml = wrap(`<Items/><Skills/>

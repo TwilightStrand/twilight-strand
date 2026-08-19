@@ -1,5 +1,6 @@
 import type { BuildStats, ItemData, SkillGroup } from "./types";
-import type { RustBuildInput, RustCalcOutput, RustSocketGroup } from "./rust-bridge";
+import type { RustBuildInput, RustCalcOutput, RustSocketGroup, TimelessJewelInput } from "./rust-bridge";
+import type { JewelSocketEntry } from "./pob-xml-parser";
 import type { TreeNode } from "@/components/tree/tree-data";
 import { parseClusterJewel } from "./cluster-jewel";
 import { CLUSTER_NOTABLES } from "@/data/cluster-data.generated";
@@ -34,6 +35,8 @@ export async function ensureTreeData(): Promise<Map<string, TreeNode>> {
         stats: n.stats as string[] | undefined,
         isKeystone: n.isKeystone as boolean | undefined,
         isNotable: n.isNotable as boolean | undefined,
+        isMastery: n.isMastery as boolean | undefined,
+        masteryEffects: n.masteryEffects as Array<{ effect: number; stats: string[] }> | undefined,
         group: 0,
         orbit: 0,
         orbitIndex: 0,
@@ -62,6 +65,20 @@ const AURA_NAMES = new Set([
 ]);
 
 const WHILE_AFFECTED_RE = /\s+while affected by\s+.+$/i;
+const DURING_FLASK_EFFECT_RE = /\s+during (?:Flask )?Effect$/i;
+
+const CURSE_NAMES = new Set([
+  "Assassin's Mark", "Poacher's Mark", "Warlord's Mark", "Sniper's Mark",
+  "Frostbite", "Elemental Weakness", "Conductivity", "Flammability",
+  "Despair", "Punishment", "Enfeeble", "Temporal Chains", "Vulnerability",
+]);
+
+const GOLEM_NAMES = new Set([
+  "Summon Chaos Golem", "Summon Stone Golem", "Summon Lightning Golem",
+  "Summon Flame Golem", "Summon Ice Golem",
+]);
+
+const MINION_PREFIX_RE = /^(Golems|Minions|Zombies|Spectres|Skeletons|Sentinels of Purity) (have|deal|get|gain) /i;
 
 interface WeaponStats {
   base: string;
@@ -122,6 +139,68 @@ function isLocalEvasionMod(lower: string): boolean {
     || lower.includes("additional evasion");
 }
 
+// ---------------------------------------------------------------------------
+// Timeless jewel detection
+// ---------------------------------------------------------------------------
+
+const TIMELESS_JEWEL_NAMES = new Set([
+  "Glorious Vanity", "Lethal Pride", "Brutal Restraint",
+  "Militant Faith", "Elegant Hubris",
+]);
+
+interface TimelessJewelInfo {
+  jewelType: string;
+  seed: number;
+  conqueror: string;
+}
+
+/** Parse timeless jewel type, seed, and conqueror from the item's mod lines. */
+function parseTimelessJewel(itemName: string, mods: string[]): TimelessJewelInfo | null {
+  // Check item name against known timeless jewel names
+  let jewelType = "";
+  for (const name of TIMELESS_JEWEL_NAMES) {
+    if (itemName.includes(name)) {
+      jewelType = name;
+      break;
+    }
+  }
+  if (!jewelType) return null;
+
+  // Extract seed and conqueror from mod text
+  for (const mod of mods) {
+    // Elegant Hubris: "Commissioned 27800 coins to commemorate Caspiro"
+    let m = mod.match(/Commissioned\s+(\d+)\s+coins\s+to\s+commemorate\s+(\w+)/i);
+    if (m) return { jewelType, seed: parseInt(m[1], 10), conqueror: m[2] };
+
+    // Lethal Pride: "Bathed in the blood of X warriors under Y"
+    m = mod.match(/Bathed\s+in\s+the\s+blood\s+of\s+(\d+)\s+warriors\s+under\s+(\w+)/i);
+    if (m) return { jewelType, seed: parseInt(m[1], 10), conqueror: m[2] };
+
+    // Brutal Restraint: "Denoted service of X dekhara in the name of Y"
+    m = mod.match(/Denoted\s+service\s+of\s+(\d+)\s+dekhara\s+in\s+the\s+name\s+of\s+(\w+)/i);
+    if (m) return { jewelType, seed: parseInt(m[1], 10), conqueror: m[2] };
+
+    // Militant Faith: "Carved to glorify X new faithful converted by Y"
+    m = mod.match(/Carved\s+to\s+glorify\s+(\d+)\s+new\s+faithful\s+converted\s+by\s+(\w+)/i);
+    if (m) return { jewelType, seed: parseInt(m[1], 10), conqueror: m[2] };
+
+    // Glorious Vanity: "Sacrificed in the name of Y" (seed is the first number in another mod)
+    m = mod.match(/Sacrificed\s+in\s+the\s+name\s+of\s+(\w+)/i);
+    if (m) {
+      // Glorious Vanity uses "X sacrifices" pattern for seed
+      const conqueror = m[1];
+      for (const m2 of mods) {
+        const seedMatch = m2.match(/(\d+)\s+sacrifices?/i);
+        if (seedMatch) return { jewelType, seed: parseInt(seedMatch[1], 10), conqueror };
+      }
+      // Seed might be embedded in a different line pattern
+      return { jewelType, seed: 0, conqueror };
+    }
+  }
+
+  return null;
+}
+
 function bossEnemyRes(boss: string | undefined, element: string): number {
   if (!boss || boss === "None" || boss === "") return 0;
   const isPinnacle = boss.toLowerCase().includes("pinnacle");
@@ -135,18 +214,30 @@ export function convertToRustInput(
   skills: SkillGroup[],
   treeNodes: Map<string, TreeNode>,
   config?: Record<string, string | boolean | number>,
+  jewelSockets?: JewelSocketEntry[],
 ): RustBuildInput {
   const statLines: string[] = [];
   const keystones: string[] = [];
   const equippedUniques: string[] = [];
 
-  // Detect active auras from skill groups
+  // Detect active auras, curses, and golems from skill groups
   const activeAuras = new Set<string>();
+  const activeAuraData = new Map<string, number>();
+  const activeCurseData = new Map<string, number>();
+  const activeGolemData = new Map<string, number>();
   for (const group of skills) {
     if (!group.enabled) continue;
     for (const gem of group.gems) {
-      if (gem.enabled && AURA_NAMES.has(gem.name)) {
+      if (!gem.enabled) continue;
+      if (AURA_NAMES.has(gem.name)) {
         activeAuras.add(gem.name.toLowerCase());
+        activeAuraData.set(gem.name, gem.level || 20);
+      }
+      if (CURSE_NAMES.has(gem.name)) {
+        activeCurseData.set(gem.name, gem.level || 20);
+      }
+      if (GOLEM_NAMES.has(gem.name)) {
+        activeGolemData.set(gem.name, gem.level || 20);
       }
     }
   }
@@ -183,6 +274,8 @@ export function convertToRustInput(
     const hasLocalArmour = (item.baseArmour ?? 0) > 0;
     const hasLocalEvasion = (item.baseEvasion ?? 0) > 0;
 
+    const isFlaskItem = FLASK_SLOTS.includes(item.slot);
+
     for (const mod of item.mods) {
       let line = mod;
       const affectedMatch = mod.match(/while affected by (.+)$/i);
@@ -190,6 +283,11 @@ export function convertToRustInput(
         const aura = affectedMatch[1].trim().toLowerCase();
         if (!activeAuras.has(aura)) continue;
         line = mod.replace(WHILE_AFFECTED_RE, "");
+      }
+
+      // Strip "during Effect" / "during Flask Effect" suffix from flask mods
+      if (isFlaskItem) {
+        line = line.replace(DURING_FLASK_EFFECT_RE, "");
       }
 
       // Filter local defence mods from items that have computed defence headers.
@@ -205,17 +303,40 @@ export function convertToRustInput(
   }
 
   // Tree node stats → stat lines + keystone detection
+  // When a node has an override (Tattoo/Runegraft/Timeless Jewel), use the
+  // override stats instead of the original tree node stats.
   for (const nodeId of stats.allocated_nodes) {
     const node = treeNodes.get(String(nodeId));
     if (!node) continue;
 
-    if (node.isKeystone && node.name) {
-      keystones.push(node.name);
-    }
-
-    if (node.stats) {
-      for (const statLine of node.stats) {
+    const overrideStats = stats.node_overrides?.[String(nodeId)];
+    if (overrideStats) {
+      for (const statLine of overrideStats) {
         statLines.push(statLine);
+      }
+    } else {
+      if (node.isKeystone && node.name) {
+        keystones.push(node.name);
+      }
+
+      if (node.stats) {
+        for (const statLine of node.stats) {
+          statLines.push(statLine);
+        }
+      }
+    }
+  }
+
+  // Resolve mastery effects to stat lines
+  if (stats.mastery_effects) {
+    for (const { nodeId, effectId } of stats.mastery_effects) {
+      const node = treeNodes.get(String(nodeId));
+      if (!node?.masteryEffects) continue;
+      const entry = node.masteryEffects.find(e => e.effect === effectId);
+      if (entry) {
+        for (const stat of entry.stats) {
+          statLines.push(stat);
+        }
       }
     }
   }
@@ -284,11 +405,72 @@ export function convertToRustInput(
   // Weapon stats
   const weapon = extractWeaponStats(items, WEAPON1_SLOTS);
   const weapon2 = extractWeaponStats(items, WEAPON2_SLOTS);
-  const isDualWield = weapon.aps > 0 && weapon2.aps > 0;
+  const isDualWield = weapon.aps > 0 && weapon2.aps > 0 && gearBlock === 0;
+
+  // Filter out minion-specific stat lines the Rust engine can't process
+  const filteredStatLines = statLines.filter(s => !MINION_PREFIX_RE.test(s));
 
   // Map config overrides to Rust engine boolean fields
   const cfg = config ?? {};
   const cfgBool = (key: string): boolean => cfg[key] === true;
+
+  // Detect timeless jewels socketed in the passive tree
+  const timelessJewels: TimelessJewelInput[] = [];
+  if (jewelSockets && jewelSockets.length > 0) {
+    // Build itemId -> item lookup for tree jewels
+    const itemIdToItem = new Map<string, ItemData>();
+    for (const item of items) {
+      // Items parsed from XML have their IDs in the slot system; match by slot name
+      // which was set to "TreeJewel N" during parsing
+      if (item.slot.startsWith("TreeJewel")) {
+        // Find which itemId this corresponds to by matching order
+        for (const js of jewelSockets) {
+          if (!itemIdToItem.has(js.itemId)) {
+            itemIdToItem.set(js.itemId, item);
+            break;
+          }
+        }
+      }
+    }
+
+    // Also try matching by iterating all items and jewelSockets in order
+    // The XML parser assigns "TreeJewel 1", "TreeJewel 2", etc. in Socket order
+    const treeJewelItems = items.filter(i => i.slot.startsWith("TreeJewel"));
+    const socketsSorted = jewelSockets.slice().sort((a, b) => {
+      // Match the order used in extractItems (sequential)
+      return parseInt(a.itemId) - parseInt(b.itemId);
+    });
+
+    for (let i = 0; i < treeJewelItems.length && i < socketsSorted.length; i++) {
+      const item = treeJewelItems[i];
+      const socket = socketsSorted[i];
+      const parsed = parseTimelessJewel(item.name, item.mods);
+      if (!parsed || parsed.seed === 0) continue;
+
+      // Gather affected allocated nodes (all non-ascendancy, non-mastery nodes)
+      const affectedNodes: Array<{ node_id: number; node_type: string }> = [];
+      for (const nodeId of stats.allocated_nodes) {
+        const node = treeNodes.get(String(nodeId));
+        if (!node) continue;
+        if (node.isMastery) continue;
+        // Skip nodes that already have overrides (e.g., from PoB's own timeless calculation)
+        if (stats.node_overrides?.[String(nodeId)]) continue;
+
+        let nodeType = "small";
+        if (node.isKeystone) nodeType = "keystone";
+        else if (node.isNotable) nodeType = "notable";
+
+        affectedNodes.push({ node_id: nodeId, node_type: nodeType });
+      }
+
+      timelessJewels.push({
+        jewel_type: parsed.jewelType,
+        seed: parsed.seed,
+        conqueror: parsed.conqueror,
+        affected_nodes: affectedNodes,
+      });
+    }
+  }
 
   return {
     level: stats.level,
@@ -341,7 +523,6 @@ export function convertToRustInput(
     weapon2_crit: weapon2.crit,
     is_dual_wield: isDualWield,
     socket_groups: socketGroups,
-    stat_lines: statLines,
     gear_armour: gearArmour,
     gear_evasion: gearEvasion,
     gear_es: gearES,
@@ -356,6 +537,11 @@ export function convertToRustInput(
     hit_recently_by_enemy: cfgBool("conditionBeenHitRecently"),
     used_skill_recently: cfgBool("conditionUsedSkillRecently"),
     nearby_rare_or_unique: false,
+    active_golems: Array.from(activeGolemData).map(([name, gem_level]) => ({ name, gem_level })),
+    active_auras: Array.from(activeAuraData).map(([name, gem_level]) => ({ name, gem_level })),
+    active_curses: Array.from(activeCurseData).map(([name, gem_level]) => ({ name, gem_level })),
+    timeless_jewels: timelessJewels,
+    stat_lines: filteredStatLines,
   };
 
 }

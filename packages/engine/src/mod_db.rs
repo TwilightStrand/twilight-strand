@@ -808,6 +808,24 @@ define_stats! {
     (MAGIC_FLASK_DISABLED, "MagicFlaskDisabled") = 495,
     // Misc unique
     (MISC_UNIQUE, "MiscUnique") = 496,
+    // Max block chance
+    (BLOCK_CHANCE_MAX, "BlockChanceMax") = 497,
+    (SPELL_BLOCK_CHANCE_MAX, "SpellBlockChanceMax") = 498,
+    // Enemy resistance modifiers (from curses / debuffs)
+    (ENEMY_FIRE_RES, "EnemyFireRes") = 499,
+    (ENEMY_COLD_RES, "EnemyColdRes") = 500,
+    (ENEMY_LIGHTNING_RES, "EnemyLightningRes") = 501,
+    (ENEMY_CHAOS_RES, "EnemyChaosRes") = 502,
+    // Enemy damage taken (from curses like Vulnerability)
+    (ENEMY_PHYS_DAMAGE_TAKEN, "EnemyPhysDamageTaken") = 503,
+    // Enemy damage dealt (from Enfeeble)
+    (ENEMY_DAMAGE_DEALT, "EnemyDamageDealt") = 504,
+    // Enemy action speed (from Temporal Chains)
+    (ENEMY_ACTION_SPEED, "EnemyActionSpeed") = 505,
+    // Frenzy charge on hit (from Poacher's Mark)
+    (FRENZY_CHARGE_ON_HIT, "FrenzyChargeOnHit") = 506,
+    // Enemy projectile damage taken (from Sniper's Mark)
+    (ENEMY_PROJECTILE_DAMAGE_TAKEN, "EnemyProjectileDamageTaken") = 507,
 }
 
 // ---------------------------------------------------------------------------

@@ -29,6 +29,9 @@ pub mod watchers_eye;
 pub use watchers_eye::{get_watchers_eye_mods, get_all_mods_for_auras};
 pub mod triggers;
 pub mod timeless;
+pub mod golems;
+pub mod curses;
+pub mod auras;
 pub use flasks::{get_flask_mods, charge_mods};
 pub use weapons::{calc_weapon_dps, find_weapon_base, WeaponDps};
 pub use stat_parser::{parse_stat_line, parse_stats};
@@ -223,6 +226,14 @@ pub struct BuildInput {
     pub used_skill_recently: bool,
     #[serde(default)]
     pub nearby_rare_or_unique: bool,
+    #[serde(default)]
+    pub active_golems: Vec<GolemInput>,
+    #[serde(default)]
+    pub active_auras: Vec<AuraInput>,
+    #[serde(default)]
+    pub active_curses: Vec<CurseInput>,
+    #[serde(default)]
+    pub timeless_jewels: Vec<TimelessJewelInput>,
 }
 
 /// A socket group links an active skill with its support gems.
@@ -231,6 +242,44 @@ pub struct BuildInput {
 pub struct SocketGroup {
     pub active_skill: String,
     pub support_gems: Vec<String>,
+}
+
+#[derive(Tsify, Serialize, Deserialize, Clone, Debug, Default)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
+pub struct GolemInput {
+    pub name: String,
+    pub gem_level: u32,
+}
+
+#[derive(Tsify, Serialize, Deserialize, Clone, Debug, Default)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
+pub struct AuraInput {
+    pub name: String,
+    pub gem_level: u32,
+}
+
+#[derive(Tsify, Serialize, Deserialize, Clone, Debug, Default)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
+pub struct CurseInput {
+    pub name: String,
+    pub gem_level: u32,
+}
+
+#[derive(Tsify, Serialize, Deserialize, Clone, Debug, Default)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
+pub struct TimelessJewelInput {
+    pub jewel_type: String,
+    pub seed: u32,
+    pub conqueror: String,
+    pub affected_nodes: Vec<TimelessAffectedNode>,
+}
+
+#[derive(Tsify, Serialize, Deserialize, Clone, Debug, Default)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
+pub struct TimelessAffectedNode {
+    pub node_id: u32,
+    /// "small", "notable", or "keystone"
+    pub node_type: String,
 }
 
 fn default_enemy_level() -> u32 { 83 }
@@ -603,6 +652,61 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     if input.used_skill_recently { mst.set_condition(ConditionId::UsedSkillRecently); }
     if input.nearby_rare_or_unique { mst.set_condition(ConditionId::NearbyRareOrUnique); }
 
+    // Golem buffs
+    let golem_buff_effect = db.sum_base(StatId::GOLEM_BUFF_EFFECT, &global_cfg, &mst);
+    for golem in &input.active_golems {
+        let mods = golems::get_golem_buff_mods(&golem.name, golem.gem_level, golem_buff_effect);
+        for m in mods {
+            db.add(m);
+        }
+    }
+
+    // Aura buffs
+    let inc_aura_effect = db.sum_base(StatId::AURA_EFFECT, &global_cfg, &mst);
+    for aura in &input.active_auras {
+        let mods = auras::get_aura_mods(&aura.name, aura.gem_level, inc_aura_effect);
+        for m in mods {
+            db.add(m);
+        }
+    }
+
+    // Curse effects
+    let inc_curse_effect = db.sum_base(StatId::CURSE_EFFECT, &global_cfg, &mst);
+    for curse in &input.active_curses {
+        let mods = curses::get_curse_mods(&curse.name, curse.gem_level, inc_curse_effect);
+        for m in mods {
+            db.add(m);
+        }
+    }
+
+    // Timeless jewel node transformations
+    for jewel in &input.timeless_jewels {
+        if let Some(jt) = timeless::JewelType::from_str(&jewel.jewel_type) {
+            for node in &jewel.affected_nodes {
+                let is_notable = node.node_type == "notable";
+                let is_keystone = node.node_type == "keystone";
+                let transform = timeless::transform_node_typed(
+                    jt, jewel.seed, node.node_id,
+                    is_notable, is_keystone, &jewel.conqueror,
+                );
+                // Parse stat display strings through the stat parser and add to ModDB
+                for line in &transform.added_stats {
+                    let v2_mods = stat_parser::parse_stat_line_v2(line);
+                    if !v2_mods.is_empty() {
+                        for m in v2_mods {
+                            db.add(m);
+                        }
+                    } else {
+                        // Fall back to legacy parser
+                        for m in stat_parser::parse_stat_line(line) {
+                            db.add_legacy(&m.stat, m.value, &m.mod_type);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // --- Attributes ----------------------------------------------------------
     let strength = db.calc(StatId::STR, eff_str as f64, &global_cfg, &mst).round();
     let dexterity = db.calc(StatId::DEX, eff_dex as f64, &global_cfg, &mst).round();
@@ -639,13 +743,18 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     };
 
     // --- Armour / Evasion (gear values are pre-computed with local mods) -----
+    // Str does NOT give armour (it gives melee phys damage INC).
     let armour = {
-        let str_armour_bonus = (strength / 5.0).floor();
-        db.calc(StatId::ARMOUR, input.gear_armour + str_armour_bonus, &global_cfg, &mst).round()
+        db.calc(StatId::ARMOUR, input.gear_armour, &global_cfg, &mst).round()
     };
+    // Dex gives floor(dex/5)% increased evasion, not flat. Base character evasion is 15.
     let evasion = {
-        let dex_evasion_bonus = (dexterity / 5.0).floor();
-        db.calc(StatId::EVASION, input.gear_evasion + dex_evasion_bonus, &global_cfg, &mst).round().max(0.0)
+        let dex_evasion_inc = (dexterity / 5.0).floor();
+        let base_evasion = 15.0 + input.gear_evasion;
+        let flat = db.sum_base(StatId::EVASION, &global_cfg, &mst);
+        let inc = db.sum_inc(StatId::EVASION, &global_cfg, &mst) + dex_evasion_inc;
+        let more = db.product_more(StatId::EVASION, &global_cfg, &mst);
+        ((base_evasion + flat) * (1.0 + inc / 100.0) * more).round().max(0.0)
     };
 
     // --- Resistances with max res cap ----------------------------------------
@@ -659,8 +768,10 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     let chaos_res = (db.sum_base(StatId::CHAOS_RES, &global_cfg, &mst) - 60.0).min(chaos_res_max);
 
     // --- Block ---------------------------------------------------------------
-    let block_chance = (input.gear_block + db.sum_base(StatId::BLOCK_CHANCE, &global_cfg, &mst)).clamp(0.0, 75.0);
-    let spell_block = db.sum_base(StatId::SPELL_BLOCK_CHANCE, &global_cfg, &mst).clamp(0.0, 75.0);
+    let block_max = 75.0 + db.sum_base(StatId::BLOCK_CHANCE_MAX, &global_cfg, &mst);
+    let spell_block_max = 75.0 + db.sum_base(StatId::SPELL_BLOCK_CHANCE_MAX, &global_cfg, &mst);
+    let block_chance = db.calc(StatId::BLOCK_CHANCE, input.gear_block, &global_cfg, &mst).clamp(0.0, block_max);
+    let spell_block = db.calc(StatId::SPELL_BLOCK_CHANCE, 0.0, &global_cfg, &mst).clamp(0.0, spell_block_max);
 
     // --- Suppression ---------------------------------------------------------
     let suppression = db.sum_base(StatId::SPELL_SUPPRESSION, &global_cfg, &mst).clamp(0.0, 100.0);
@@ -911,13 +1022,20 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     let lightning_pen = db.sum_base(StatId::LIGHTNING_PEN, &cfg, &mst);
     let chaos_pen = db.sum_base(StatId::CHAOS_PEN, &cfg, &mst);
 
-    let (e_fire, e_cold, e_light, e_chaos) = if input.enemy_is_boss {
+    // Determine base enemy res (boss floor applies before curse reduction)
+    let (base_e_fire, base_e_cold, base_e_light, base_e_chaos) = if input.enemy_is_boss {
         (input.enemy_fire_res.max(40.0), input.enemy_cold_res.max(40.0),
          input.enemy_lightning_res.max(40.0), input.enemy_chaos_res.max(25.0))
     } else {
         (input.enemy_fire_res, input.enemy_cold_res,
          input.enemy_lightning_res, input.enemy_chaos_res)
     };
+
+    // Apply curse/debuff resistance reduction (e.g. Frostbite -44 cold res)
+    let e_fire = base_e_fire + db.sum_base(StatId::ENEMY_FIRE_RES, &cfg, &mst);
+    let e_cold = base_e_cold + db.sum_base(StatId::ENEMY_COLD_RES, &cfg, &mst);
+    let e_light = base_e_light + db.sum_base(StatId::ENEMY_LIGHTNING_RES, &cfg, &mst);
+    let e_chaos = base_e_chaos + db.sum_base(StatId::ENEMY_CHAOS_RES, &cfg, &mst);
 
     let res_fire = apply_resistance(e_fire, fire_pen);
     let res_cold = apply_resistance(e_cold, cold_pen);
@@ -933,10 +1051,32 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
         let spell_dot_inc = if gem.unwrap().tags.contains(&gems::GemTag::Spell) {
             db.sum_inc(StatId::SPELL_DAMAGE, &cfg, &mst)
         } else { 0.0 };
-        let dot_raw = calc_stat(dot_base, dot_flat, dot_inc + spell_dot_inc, dot_more);
+
+        // Element-specific increased damage for DoT
         let g = gem.unwrap();
         let primary_element = g.base_damages.first().map(|d| &d.damage_type)
             .or_else(|| g.damage_types.first());
+        let elem_dot_inc = match primary_element {
+            Some(gems::DamageType::Fire) => db.sum_inc(StatId::FIRE_DAMAGE, &cfg, &mst),
+            Some(gems::DamageType::Cold) => db.sum_inc(StatId::COLD_DAMAGE, &cfg, &mst),
+            Some(gems::DamageType::Lightning) => db.sum_inc(StatId::LIGHTNING_DAMAGE, &cfg, &mst),
+            Some(gems::DamageType::Chaos) => db.sum_inc(StatId::CHAOS_DAMAGE, &cfg, &mst),
+            _ => 0.0,
+        };
+
+        let dot_raw = calc_stat(dot_base, dot_flat, dot_inc + spell_dot_inc + elem_dot_inc, dot_more);
+
+        // DoT multiplier: generic + element-specific, summed additively
+        let dot_multi_generic = db.sum_base(StatId::DOT_MULTI, &cfg, &mst);
+        let dot_multi_elem = match primary_element {
+            Some(gems::DamageType::Fire) => db.sum_base(StatId::FIRE_DOT_MULTI, &cfg, &mst),
+            Some(gems::DamageType::Cold) => db.sum_base(StatId::COLD_DOT_MULTI, &cfg, &mst),
+            Some(gems::DamageType::Chaos) => db.sum_base(StatId::CHAOS_DOT_MULTI, &cfg, &mst),
+            _ => 0.0,
+        };
+        let total_dot_multi = dot_multi_generic + dot_multi_elem;
+        let dot_after_multi = dot_raw * (1.0 + total_dot_multi / 100.0);
+
         let dot_res = match primary_element {
             Some(gems::DamageType::Fire) => res_fire,
             Some(gems::DamageType::Cold) => res_cold,
@@ -944,7 +1084,7 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
             Some(gems::DamageType::Chaos) => res_chaos,
             _ => res_fire,
         };
-        dot_raw * dot_res
+        dot_after_multi * dot_res
     } else { 0.0 };
 
     // DoT gems use DoT DPS as the primary damage number.
@@ -1096,9 +1236,53 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
     let es_regen = db.sum_base(StatId::ES_REGEN, &global_cfg, &mst);
 
     // --- Aura reservation -------------------------------------------------------
-    let mana_reserved_pct = input.mana_reserved_pct.clamp(0.0, 100.0);
+    // Compute mana reservation from active auras and Spellslinger links.
+    // Falls back to the input field if no auras are active (backward compat).
+    let reservation_efficiency =
+        db.sum_base(StatId::MANA_RESERVATION_EFF, &global_cfg, &mst)
+        + db.sum_base(StatId::RESERVATION_EFFICIENCY, &global_cfg, &mst);
+    let eff_mult = if reservation_efficiency > 0.0 {
+        1.0 / (1.0 + reservation_efficiency / 100.0)
+    } else {
+        1.0
+    };
+
+    let mut computed_mana_pct = 0.0_f64;
+    let mut computed_mana_flat = 0.0_f64;
+    for aura in &input.active_auras {
+        let (pct, flat) = auras::get_aura_reservation(&aura.name, aura.gem_level);
+        computed_mana_pct += pct * eff_mult;
+        computed_mana_flat += flat * eff_mult;
+    }
+
+    // Spellslinger: each socket group with Spellslinger support reserves mana
+    let spellslinger_count = input.socket_groups.iter()
+        .filter(|sg| {
+            sg.support_gems.iter().any(|g| {
+                let gl = g.to_lowercase();
+                gl.contains("spellslinger")
+            })
+        })
+        .count();
+    if spellslinger_count > 0 {
+        // Default to level 20 reservation; gem-level tracking for supports
+        // is not yet wired per socket group.
+        let ss_pct = auras::get_spellslinger_reservation(20);
+        computed_mana_pct += ss_pct * spellslinger_count as f64 * eff_mult;
+    }
+
+    // Use computed reservation when auras are present, otherwise fall back
+    // to the input field for backward compatibility.
+    let mana_reserved_pct = if !input.active_auras.is_empty() || spellslinger_count > 0 {
+        computed_mana_pct.clamp(0.0, 100.0)
+    } else {
+        input.mana_reserved_pct.clamp(0.0, 100.0)
+    };
+    // Flat reservation is subtracted directly from mana pool
+    let mana_after_flat = (mana - computed_mana_flat).max(0.0);
+    let mana_unreserved = mana_after_flat * (1.0 - mana_reserved_pct / 100.0);
+
     let life_reserved_pct = input.life_reserved_pct.clamp(0.0, 100.0);
-    let mana_unreserved = mana * (1.0 - mana_reserved_pct / 100.0);
     let life_unreserved = life * (1.0 - life_reserved_pct / 100.0);
     let is_low_life = life > 0.0 && (life_unreserved / life) < 0.5;
 
@@ -1545,7 +1729,8 @@ mod tests {
     #[test]
     fn test_ehp_positive() {
         let out = evaluate_build(default_input());
-        assert!(out.total_ehp > out.life, "EHP should exceed raw life pool");
+        // With no gear (no armour/evasion/block), EHP equals the raw pool.
+        assert!(out.total_ehp >= out.life, "EHP should be at least the raw life pool");
     }
 
     #[test]
@@ -1731,6 +1916,73 @@ mod tests {
 
         let boss = evaluate_build(input).total_dps;
         assert!(boss < normal, "boss should reduce DPS: {} vs {}", boss, normal);
+    }
+
+    // ---- Curse tests ------------------------------------------------------
+
+    #[test]
+    fn test_frostbite_increases_cold_dps() {
+        let mut input = default_input();
+        // IceNova deals cold damage and is in the gem DB
+        input.main_skill_id = "IceNova".into();
+        input.enemy_cold_res = 40.0;
+        input.enemy_is_boss = true;
+
+        let no_curse = evaluate_build(input.clone()).total_dps;
+        assert!(no_curse > 0.0, "IceNova should deal DPS: {}", no_curse);
+
+        input.active_curses = vec![CurseInput {
+            name: "Frostbite".into(),
+            gem_level: 20,
+        }];
+        let with_frostbite = evaluate_build(input).total_dps;
+        assert!(
+            with_frostbite > no_curse,
+            "Frostbite should increase cold DPS against boss: {} vs {}",
+            with_frostbite, no_curse
+        );
+    }
+
+    #[test]
+    fn test_flammability_increases_fire_dps() {
+        let mut input = default_input();
+        input.main_skill_id = "Fireball".into();
+        input.enemy_fire_res = 40.0;
+        input.enemy_is_boss = true;
+
+        let no_curse = evaluate_build(input.clone()).total_dps;
+
+        input.active_curses = vec![CurseInput {
+            name: "Flammability".into(),
+            gem_level: 20,
+        }];
+        let with_curse = evaluate_build(input).total_dps;
+        assert!(
+            with_curse > no_curse,
+            "Flammability should increase fire DPS against boss: {} vs {}",
+            with_curse, no_curse
+        );
+    }
+
+    #[test]
+    fn test_elemental_weakness_increases_dps() {
+        let mut input = default_input();
+        input.main_skill_id = "Fireball".into();
+        input.enemy_fire_res = 40.0;
+        input.enemy_is_boss = true;
+
+        let no_curse = evaluate_build(input.clone()).total_dps;
+
+        input.active_curses = vec![CurseInput {
+            name: "Elemental Weakness".into(),
+            gem_level: 20,
+        }];
+        let with_curse = evaluate_build(input).total_dps;
+        assert!(
+            with_curse > no_curse,
+            "Elemental Weakness should increase fire DPS against boss: {} vs {}",
+            with_curse, no_curse
+        );
     }
 
     // ---- Socket group tests -----------------------------------------------
@@ -2051,6 +2303,167 @@ mod tests {
         input.main_skill_id = "StormBrand".into();
         let out = evaluate_build(input);
         assert!(out.total_dps > 0.0, "Storm Brand DPS should be positive: {}", out.total_dps);
+    }
+
+    // --- Mana reservation ---
+
+    #[test]
+    fn test_single_50pct_aura_reserves_mana() {
+        let mut input = default_input();
+        input.active_auras = vec![AuraInput { name: "Discipline".into(), gem_level: 21 }];
+        let out = evaluate_build(input);
+        // 50% reserved, so mana_reserved_percent should be ~50
+        assert!(
+            (out.mana_reserved_percent - 50.0).abs() < 1.0,
+            "Expected ~50% reserved, got {}", out.mana_reserved_percent
+        );
+        assert!(
+            out.mana_unreserved < out.mana,
+            "Unreserved mana ({}) should be less than total ({})", out.mana_unreserved, out.mana
+        );
+    }
+
+    #[test]
+    fn test_two_50pct_auras_reserve_100pct() {
+        let mut input = default_input();
+        input.active_auras = vec![
+            AuraInput { name: "Discipline".into(), gem_level: 21 },
+            AuraInput { name: "Malevolence".into(), gem_level: 20 },
+        ];
+        let out = evaluate_build(input);
+        // 50 + 50 = 100%, clamped to 100
+        assert!(
+            (out.mana_reserved_percent - 100.0).abs() < 0.01,
+            "Expected 100% reserved, got {}", out.mana_reserved_percent
+        );
+        assert!(
+            out.mana_unreserved.abs() < 0.01,
+            "Expected 0 unreserved mana, got {}", out.mana_unreserved
+        );
+    }
+
+    #[test]
+    fn test_clarity_reserves_flat_mana() {
+        let mut input = default_input();
+        // Clarity alone: flat 175 at level 20, no percentage
+        input.active_auras = vec![AuraInput { name: "Clarity".into(), gem_level: 20 }];
+        let out = evaluate_build(input);
+        // 0% reserved but flat reduces the pool
+        assert_eq!(out.mana_reserved_percent, 0.0);
+        // Unreserved should be total mana minus ~175
+        let expected_unreserved = out.mana - 175.0;
+        assert!(
+            (out.mana_unreserved - expected_unreserved).abs() < 1.0,
+            "Expected ~{:.0} unreserved, got {:.0}", expected_unreserved, out.mana_unreserved
+        );
+    }
+
+    #[test]
+    fn test_reservation_efficiency_reduces_cost() {
+        let mut input = default_input();
+        input.active_auras = vec![AuraInput { name: "Hatred".into(), gem_level: 20 }];
+        // 50% increased Mana Reservation Efficiency
+        input.modifiers.push(Modifier {
+            stat: "ManaReservationEfficiency".into(),
+            value: 50.0,
+            mod_type: "flat".into(),
+        });
+        let out = evaluate_build(input);
+        // effective = 50 / (1 + 50/100) = 50 / 1.5 = 33.33
+        assert!(
+            (out.mana_reserved_percent - 33.33).abs() < 0.5,
+            "Expected ~33.33% with 50% efficiency, got {}", out.mana_reserved_percent
+        );
+    }
+
+    #[test]
+    fn test_spellslinger_reserves_mana_from_socket_groups() {
+        let mut input = default_input();
+        input.socket_groups = vec![
+            SocketGroup {
+                active_skill: "Volatile Dead".into(),
+                support_gems: vec![
+                    "Spellslinger Support".into(),
+                    "Spell Cascade Support".into(),
+                ],
+            },
+        ];
+        let out = evaluate_build(input);
+        // One Spellslinger link = ~25% at level 20
+        assert!(
+            (out.mana_reserved_percent - 25.0).abs() < 0.5,
+            "Expected ~25% from Spellslinger, got {}", out.mana_reserved_percent
+        );
+    }
+
+    #[test]
+    fn test_multiple_spellslinger_groups_stack() {
+        let mut input = default_input();
+        input.socket_groups = vec![
+            SocketGroup {
+                active_skill: "Volatile Dead".into(),
+                support_gems: vec!["Spellslinger Support".into()],
+            },
+            SocketGroup {
+                active_skill: "Desecrate".into(),
+                support_gems: vec!["Spellslinger Support".into()],
+            },
+        ];
+        let out = evaluate_build(input);
+        // Two Spellslinger links = ~50%
+        assert!(
+            (out.mana_reserved_percent - 50.0).abs() < 0.5,
+            "Expected ~50% from 2 Spellslingers, got {}", out.mana_reserved_percent
+        );
+    }
+
+    #[test]
+    fn test_auras_plus_spellslinger_stack() {
+        let mut input = default_input();
+        input.active_auras = vec![AuraInput { name: "Hatred".into(), gem_level: 20 }];
+        input.socket_groups = vec![
+            SocketGroup {
+                active_skill: "Volatile Dead".into(),
+                support_gems: vec!["Spellslinger Support".into()],
+            },
+        ];
+        let out = evaluate_build(input);
+        // 50% from Hatred + 25% from Spellslinger = 75%
+        assert!(
+            (out.mana_reserved_percent - 75.0).abs() < 0.5,
+            "Expected ~75% total, got {}", out.mana_reserved_percent
+        );
+    }
+
+    #[test]
+    fn test_no_auras_falls_back_to_input_field() {
+        let mut input = default_input();
+        input.mana_reserved_pct = 40.0;
+        let out = evaluate_build(input);
+        assert!(
+            (out.mana_reserved_percent - 40.0).abs() < 0.01,
+            "Should use input field when no auras, got {}", out.mana_reserved_percent
+        );
+    }
+
+    #[test]
+    fn test_reservation_clamped_to_100() {
+        let mut input = default_input();
+        // 3 x 50% = 150%, should clamp to 100%
+        input.active_auras = vec![
+            AuraInput { name: "Hatred".into(), gem_level: 20 },
+            AuraInput { name: "Discipline".into(), gem_level: 20 },
+            AuraInput { name: "Malevolence".into(), gem_level: 20 },
+        ];
+        let out = evaluate_build(input);
+        assert!(
+            (out.mana_reserved_percent - 100.0).abs() < 0.01,
+            "Should clamp to 100%, got {}", out.mana_reserved_percent
+        );
+        assert!(
+            out.mana_unreserved.abs() < 0.01,
+            "Should have 0 unreserved, got {}", out.mana_unreserved
+        );
     }
 }
 

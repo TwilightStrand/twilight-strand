@@ -203,6 +203,7 @@ static RULES: &[StatRule] = &[
 
     // === Resistances ===
     StatRule::multi3(PctValue, "to all elemental resistances", Flat, "FireRes", "ColdRes", "LightningRes").group(4),
+    StatRule::multi3(PctValue, "additional elemental resistances", Flat, "FireRes", "ColdRes", "LightningRes").group(4),
     StatRule::new(PctValue, "to fire resistance", Flat, "FireRes")
         .excludes(["all elemental", "all resistances", "", ""]),
     StatRule::new(PctValue, "to cold resistance", Flat, "ColdRes")
@@ -282,12 +283,20 @@ static RULES: &[StatRule] = &[
 
     // === Max resistances ===
     StatRule::multi3(PctValue, "to all maximum elemental resistances", Flat, "FireResMax", "ColdResMax", "LightningResMax").group(7),
+    StatRule::multi3(PctValue, "to all maximum resistances", Flat, "FireResMax", "ColdResMax", "LightningResMax").group(7),
     StatRule::new(PctValue, "to maximum fire resistance", Flat, "FireResMax").group(7),
     StatRule::new(PctValue, "to maximum cold resistance", Flat, "ColdResMax").group(7),
     StatRule::new(PctValue, "to maximum lightning resistance", Flat, "LightningResMax").group(7),
+    StatRule::new(PctValue, "to maximum chaos resistance", Flat, "ChaosResMax").group(7),
 
     // === DoT Multiplier (generic) ===
     StatRule::new(PctValue, "to damage over time multiplier", Flat, "DamageOverTimeMulti"),
+
+    // === Block Chance ===
+    StatRule::new(PctValue, "chance to block attack damage", Flat, "BlockChance"),
+    StatRule::new(PctValue, "chance to block spell damage", Flat, "SpellBlockChance"),
+    StatRule::new(Pct, "increased chance to block", Increased, "BlockChance"),
+    StatRule::new(PctValue, "to maximum chance to block attack damage", Flat, "BlockChanceMax"),
 
     // === Mana Regen (% increased) ===
     StatRule::new(Pct, "increased mana regeneration rate", Increased, "ManaRegen"),
@@ -5892,6 +5901,17 @@ mod tests {
         assert!(stats.contains(&"FireRes"));
         assert!(stats.contains(&"ColdRes"));
         assert!(stats.contains(&"LightningRes"));
+    }
+
+    #[test]
+    fn test_additional_elemental_resistances() {
+        let mods = parse_stat_line("20% additional Elemental Resistances");
+        assert_eq!(mods.len(), 3);
+        let stats: Vec<_> = mods.iter().map(|m| m.stat.as_str()).collect();
+        assert!(stats.contains(&"FireRes"));
+        assert!(stats.contains(&"ColdRes"));
+        assert!(stats.contains(&"LightningRes"));
+        assert!(mods.iter().all(|m| m.value == 20.0));
     }
 
     #[test]
