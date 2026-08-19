@@ -286,3 +286,75 @@ export function transformNodeFull(
     return null;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Timeless jewel LUT lazy loading
+// ---------------------------------------------------------------------------
+
+/** Map jewel type name to binary LUT filename. */
+const JEWEL_TYPE_TO_FILE: Record<string, string> = {
+  "Lethal Pride": "LethalPride.bin",
+  "Brutal Restraint": "BrutalRestraint.bin",
+  "Militant Faith": "MilitantFaith.bin",
+  "Elegant Hubris": "ElegantHubris.bin",
+};
+
+const loadedLuts = new Set<string>();
+const pendingLoads = new Map<string, Promise<boolean>>();
+
+/** Check whether a LUT is already loaded in the WASM engine. */
+export function hasTimelessLut(jewelType: string): boolean {
+  if (!wasmModule) return false;
+  try {
+    return wasmModule.has_timeless_lut(jewelType) ?? false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Fetch and load binary LUT data for the given timeless jewel types.
+ *
+ * Fetches are deduplicated and cached; calling this multiple times with the
+ * same jewel type is cheap. Glorious Vanity is skipped (variable-length
+ * format, not yet supported). If a fetch fails the engine falls back to
+ * hash-based transforms automatically.
+ */
+export async function ensureTimelessLuts(jewelTypes: string[]): Promise<void> {
+  if (!wasmModule) return;
+
+  const loads: Promise<boolean>[] = [];
+
+  for (const jt of jewelTypes) {
+    if (loadedLuts.has(jt)) continue;
+
+    const fileName = JEWEL_TYPE_TO_FILE[jt];
+    if (!fileName) continue; // GV or unknown type
+
+    // Deduplicate concurrent fetches for the same type
+    let pending = pendingLoads.get(jt);
+    if (!pending) {
+      pending = (async (): Promise<boolean> => {
+        try {
+          const resp = await fetch(`/data/timeless/${fileName}`);
+          if (!resp.ok) return false;
+          const data = new Uint8Array(await resp.arrayBuffer());
+          const accepted: boolean = wasmModule.load_timeless_lut(jt, data);
+          if (accepted) {
+            loadedLuts.add(jt);
+          }
+          return accepted;
+        } catch {
+          return false;
+        } finally {
+          pendingLoads.delete(jt);
+        }
+      })();
+      pendingLoads.set(jt, pending);
+    }
+
+    loads.push(pending);
+  }
+
+  await Promise.all(loads);
+}

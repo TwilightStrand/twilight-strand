@@ -698,6 +698,7 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
                             timeless::transform_node_typed(
                                 jt, jewel.seed, node.node_id,
                                 is_notable, false, &jewel.conqueror,
+                                &node.original_name,
                             )
                         })
                 } else {
@@ -705,6 +706,7 @@ pub fn evaluate_build(input: BuildInput) -> CalcOutput {
                     timeless::transform_node_typed(
                         jt, jewel.seed, node.node_id,
                         false, true, &jewel.conqueror,
+                        &node.original_name,
                     )
                 };
 

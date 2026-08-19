@@ -506,7 +506,7 @@ async function runRustEval(xmlStats: BuildStats, items: ItemData[], skills: Skil
   const { setState } = useBuildStore;
   try {
     const [
-      { isRustEngineReady, initRustEngine, evaluateBuildRust },
+      { isRustEngineReady, initRustEngine, evaluateBuildRust, ensureTimelessLuts },
       { ensureTreeData, convertToRustInput, rustOutputToBuildStats },
     ] = await Promise.all([import("@/engine/rust-bridge"), import("@/engine/rust-converter")]);
 
@@ -516,6 +516,14 @@ async function runRustEval(xmlStats: BuildStats, items: ItemData[], skills: Skil
     const treeNodes = await ensureTreeData();
     const config = useBuildStore.getState().configOverrides;
     const rustInput = convertToRustInput(xmlStats, items, skills, treeNodes, config, jewelSockets);
+
+    // Load LUT data for any timeless jewels before evaluating.
+    // If the fetch fails, the engine falls back to hash-based transforms.
+    const timelessTypes = rustInput.timeless_jewels.map(j => j.jewel_type);
+    if (timelessTypes.length > 0) {
+      await ensureTimelessLuts(timelessTypes);
+    }
+
     const rustStart = performance.now();
     const rustOutput = evaluateBuildRust(rustInput);
     const rustTime = Math.round(performance.now() - rustStart);

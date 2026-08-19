@@ -315,9 +315,11 @@ const MARAKETH_NOTABLE_ADDITIONS: &[AdditionMod] = &[
 ];
 
 /// Templar (Militant Faith) small passive additions.
+/// Index 0 = attribute node bonus, index 1 = non-attribute node bonus
+/// (consistent with Karui and Maraketh ordering).
 const TEMPLAR_SMALL_ADDITIONS: &[AdditionMod] = &[
-    AdditionMod { id: "templar_small_devotion",     display: "+3 to Devotion", stat_key: "base_devotion" },
     AdditionMod { id: "templar_attribute_devotion",  display: "+2 to Devotion", stat_key: "base_devotion" },
+    AdditionMod { id: "templar_small_devotion",      display: "+3 to Devotion", stat_key: "base_devotion" },
 ];
 
 /// Templar (Militant Faith) notable additions.
@@ -499,22 +501,33 @@ fn timeless_hash(seed: u32, node_id: u32) -> u32 {
     h
 }
 
-/// How many addition mods a small passive gets.
-/// Lethal Pride gives 0-2 additions per small passive, weighted toward 1.
-fn small_addition_count(hash: u32) -> usize {
-    // ~15% chance of 0, ~60% chance of 1, ~25% chance of 2
-    match hash % 20 {
-        0..=2 => 0,
-        3..=14 => 1,
-        _ => 2,
-    }
-}
-
 /// How many addition mods a notable passive gets.
 /// Notables always get at least 1 addition, up to 2.
 fn notable_addition_count(hash: u32) -> usize {
     // ~65% chance of 1, ~35% chance of 2
     if hash % 20 < 13 { 1 } else { 2 }
+}
+
+// ---------------------------------------------------------------------------
+// Attribute-node detection
+// ---------------------------------------------------------------------------
+
+/// Check if a passive node is an attribute node based on its original name.
+///
+/// In the passive tree, attribute small passives are named "+10 to Strength",
+/// "+10 to Dexterity", or "+10 to Intelligence". Timeless jewels give these
+/// nodes smaller bonuses than non-attribute small passives:
+/// - Lethal Pride: +2 Str (vs +4 for non-attribute)
+/// - Brutal Restraint: +2 Dex (vs +4 for non-attribute)
+/// - Militant Faith: +2 Devotion (vs +3 for non-attribute)
+pub fn is_attribute_node(original_name: &str) -> bool {
+    if original_name.is_empty() {
+        return false;
+    }
+    let name_lower = original_name.to_lowercase();
+    name_lower.contains("strength")
+        || name_lower.contains("dexterity")
+        || name_lower.contains("intelligence")
 }
 
 // ---------------------------------------------------------------------------
@@ -538,7 +551,9 @@ pub struct TimelessTransform {
 ///
 /// `is_notable` and `is_keystone` indicate the type of passive node.
 /// For keystones, the conqueror name determines the replacement.
-/// For small passives and notables, the seed+node_id hash selects additions.
+/// For notables, the seed+node_id hash selects additions.
+/// For small passives, `original_name` determines whether the node is an
+/// attribute node ("+10 to Strength" etc.) which receives a smaller bonus.
 pub fn transform_node_typed(
     jewel_type: JewelType,
     seed: u32,
@@ -546,6 +561,7 @@ pub fn transform_node_typed(
     is_notable: bool,
     is_keystone: bool,
     conqueror: &str,
+    original_name: &str,
 ) -> TimelessTransform {
     // Keystone replacement - depends only on conqueror, not seed
     if is_keystone {
@@ -627,7 +643,7 @@ pub fn transform_node_typed(
 
     // -----------------------------------------------------------------------
     // Lethal Pride / Brutal Restraint / Militant Faith
-    //   - Small passives: deterministic flat stat addition based on hash
+    //   - Small passives: deterministic stat based on attribute-node detection
     //   - Notables: 1-2 stat additions selected by hash from the mod pool
     // -----------------------------------------------------------------------
     let (small_adds, notable_adds) = match jewel_type {
@@ -651,15 +667,14 @@ pub fn transform_node_typed(
             }
         }
     } else {
-        let count = small_addition_count(hash >> 4);
-        let adds = small_adds;
-        if !adds.is_empty() {
-            for i in 0..count {
-                let sub_hash = timeless_hash(hash, i as u32 + 1);
-                let idx = sub_hash as usize % adds.len();
-                added_stats.push(adds[idx].display.to_string());
-                stat_keys.push(adds[idx].stat_key.to_string());
-            }
+        // Small passives get exactly one stat determined by attribute status.
+        // For LP/BR/MF, small_adds is ordered: [0] = attribute bonus, [1] = non-attribute bonus.
+        // Attribute nodes (+10 to Str/Dex/Int) get the smaller bonus.
+        let is_attr = is_attribute_node(original_name);
+        let idx = if is_attr { 0 } else { 1 };
+        if idx < small_adds.len() {
+            added_stats.push(small_adds[idx].display.to_string());
+            stat_keys.push(small_adds[idx].stat_key.to_string());
         }
     }
 
@@ -699,7 +714,7 @@ pub fn transform_node(jewel_type: &str, seed: u32, node_id: u32) -> Vec<String> 
         return vec![format!("Seed {} out of range [{}, {}] for {}", seed, min_seed, max_seed, jewel_type)];
     }
 
-    let result = transform_node_typed(jt, seed, node_id, false, false, "");
+    let result = transform_node_typed(jt, seed, node_id, false, false, "", "");
     result.added_stats
 }
 
@@ -723,7 +738,7 @@ pub fn transform_node_full(
     let is_notable = node_type == "notable";
     let is_keystone = node_type == "keystone";
 
-    let result = transform_node_typed(jt, seed, node_id, is_notable, is_keystone, conqueror);
+    let result = transform_node_typed(jt, seed, node_id, is_notable, is_keystone, conqueror, "");
     serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::NULL)
 }
 
@@ -823,22 +838,16 @@ mod tests {
 
     #[test]
     fn test_lethal_pride_small_passive() {
+        // When original_name is empty (not an attribute node), should get +4 Str
         let result = transform_node("Lethal Pride", 10000, 42);
-        // Should return 0-2 stat lines, each being a karui small addition
-        assert!(result.len() <= 2, "got {} stats: {:?}", result.len(), result);
-        for line in &result {
-            assert!(
-                line.contains("Strength"),
-                "unexpected stat line: {}",
-                line
-            );
-        }
+        assert_eq!(result.len(), 1, "small passive should get exactly 1 stat");
+        assert_eq!(result[0], "+4 to Strength");
     }
 
     #[test]
     fn test_lethal_pride_notable() {
         let result = transform_node_typed(
-            JewelType::LethalPride, 10000, 42, true, false, ""
+            JewelType::LethalPride, 10000, 42, true, false, "", ""
         );
         assert!(!result.added_stats.is_empty(), "notable should get at least 1 addition");
         assert!(result.added_stats.len() <= 2, "notable should get at most 2 additions");
@@ -848,7 +857,7 @@ mod tests {
     #[test]
     fn test_lethal_pride_keystone_kaom() {
         let result = transform_node_typed(
-            JewelType::LethalPride, 10000, 42, false, true, "Kaom"
+            JewelType::LethalPride, 10000, 42, false, true, "Kaom", ""
         );
         assert_eq!(result.replaced_keystone.as_deref(), Some("Strength of Blood"));
         assert!(!result.added_stats.is_empty());
@@ -857,7 +866,7 @@ mod tests {
     #[test]
     fn test_lethal_pride_keystone_rakiata() {
         let result = transform_node_typed(
-            JewelType::LethalPride, 10000, 42, false, true, "Rakiata"
+            JewelType::LethalPride, 10000, 42, false, true, "Rakiata", ""
         );
         assert_eq!(result.replaced_keystone.as_deref(), Some("Tempered by War"));
     }
@@ -865,7 +874,7 @@ mod tests {
     #[test]
     fn test_lethal_pride_keystone_unknown_conqueror() {
         let result = transform_node_typed(
-            JewelType::LethalPride, 10000, 42, false, true, "FakeConqueror"
+            JewelType::LethalPride, 10000, 42, false, true, "FakeConqueror", ""
         );
         assert!(result.replaced_keystone.is_none());
         assert!(result.added_stats.is_empty());
@@ -877,22 +886,18 @@ mod tests {
 
     #[test]
     fn test_brutal_restraint_small_passive() {
+        // Non-attribute small passive gets +4 Dex
         let result = transform_node_typed(
-            JewelType::BrutalRestraint, 500, 100, false, false, ""
+            JewelType::BrutalRestraint, 500, 100, false, false, "", ""
         );
-        for line in &result.added_stats {
-            assert!(
-                line.contains("Dexterity"),
-                "expected dex stat, got: {}",
-                line
-            );
-        }
+        assert_eq!(result.added_stats.len(), 1, "small passive should get exactly 1 stat");
+        assert_eq!(result.added_stats[0], "+4 to Dexterity");
     }
 
     #[test]
     fn test_brutal_restraint_notable() {
         let result = transform_node_typed(
-            JewelType::BrutalRestraint, 500, 42, true, false, ""
+            JewelType::BrutalRestraint, 500, 42, true, false, "", ""
         );
         assert!(!result.added_stats.is_empty(), "notable should get at least 1 addition");
         assert!(result.added_stats.len() <= 2, "notable should get at most 2 additions");
@@ -902,7 +907,7 @@ mod tests {
     #[test]
     fn test_brutal_restraint_notable_stat_keys() {
         let result = transform_node_typed(
-            JewelType::BrutalRestraint, 1500, 77, true, false, ""
+            JewelType::BrutalRestraint, 1500, 77, true, false, "", ""
         );
         assert_eq!(
             result.added_stats.len(),
@@ -917,7 +922,7 @@ mod tests {
     #[test]
     fn test_brutal_restraint_keystone_deshret() {
         let result = transform_node_typed(
-            JewelType::BrutalRestraint, 500, 42, false, true, "Deshret"
+            JewelType::BrutalRestraint, 500, 42, false, true, "Deshret", ""
         );
         assert_eq!(result.replaced_keystone.as_deref(), Some("Wind Dancer"));
     }
@@ -925,7 +930,7 @@ mod tests {
     #[test]
     fn test_brutal_restraint_keystone_balbala() {
         let result = transform_node_typed(
-            JewelType::BrutalRestraint, 500, 42, false, true, "Balbala"
+            JewelType::BrutalRestraint, 500, 42, false, true, "Balbala", ""
         );
         assert_eq!(result.replaced_keystone.as_deref(), Some("The Traitor"));
     }
@@ -933,7 +938,7 @@ mod tests {
     #[test]
     fn test_brutal_restraint_keystone_asenath() {
         let result = transform_node_typed(
-            JewelType::BrutalRestraint, 500, 42, false, true, "Asenath"
+            JewelType::BrutalRestraint, 500, 42, false, true, "Asenath", ""
         );
         assert_eq!(result.replaced_keystone.as_deref(), Some("Dance with Death"));
     }
@@ -941,7 +946,7 @@ mod tests {
     #[test]
     fn test_brutal_restraint_keystone_nasima() {
         let result = transform_node_typed(
-            JewelType::BrutalRestraint, 500, 42, false, true, "Nasima"
+            JewelType::BrutalRestraint, 500, 42, false, true, "Nasima", ""
         );
         assert_eq!(result.replaced_keystone.as_deref(), Some("Second Sight"));
     }
@@ -950,7 +955,7 @@ mod tests {
     fn test_brutal_restraint_all_conqueror_keystones() {
         for ks in BRUTAL_RESTRAINT_KEYSTONES {
             let result = transform_node_typed(
-                JewelType::BrutalRestraint, 500, 1, false, true, ks.conqueror
+                JewelType::BrutalRestraint, 500, 1, false, true, ks.conqueror, ""
             );
             assert_eq!(
                 result.replaced_keystone.as_deref(),
@@ -967,7 +972,7 @@ mod tests {
         let mut seen = std::collections::HashSet::new();
         for node_id in 1..100u32 {
             let r = transform_node_typed(
-                JewelType::BrutalRestraint, 1000, node_id, true, false, ""
+                JewelType::BrutalRestraint, 1000, node_id, true, false, "", ""
             );
             seen.insert(r.added_stats);
         }
@@ -976,8 +981,8 @@ mod tests {
 
     #[test]
     fn test_brutal_restraint_deterministic() {
-        let r1 = transform_node_typed(JewelType::BrutalRestraint, 1234, 55, true, false, "");
-        let r2 = transform_node_typed(JewelType::BrutalRestraint, 1234, 55, true, false, "");
+        let r1 = transform_node_typed(JewelType::BrutalRestraint, 1234, 55, true, false, "", "");
+        let r2 = transform_node_typed(JewelType::BrutalRestraint, 1234, 55, true, false, "", "");
         assert_eq!(r1.added_stats, r2.added_stats);
         assert_eq!(r1.stat_keys, r2.stat_keys);
     }
@@ -988,22 +993,18 @@ mod tests {
 
     #[test]
     fn test_militant_faith_small_passive() {
+        // Non-attribute small passive gets +3 Devotion
         let result = transform_node_typed(
-            JewelType::MilitantFaith, 2000, 100, false, false, ""
+            JewelType::MilitantFaith, 2000, 100, false, false, "", ""
         );
-        for line in &result.added_stats {
-            assert!(
-                line.contains("Devotion"),
-                "expected devotion stat, got: {}",
-                line
-            );
-        }
+        assert_eq!(result.added_stats.len(), 1, "small passive should get exactly 1 stat");
+        assert_eq!(result.added_stats[0], "+3 to Devotion");
     }
 
     #[test]
     fn test_militant_faith_notable() {
         let result = transform_node_typed(
-            JewelType::MilitantFaith, 3000, 42, true, false, ""
+            JewelType::MilitantFaith, 3000, 42, true, false, "", ""
         );
         assert!(!result.added_stats.is_empty(), "notable should get at least 1 addition");
         assert!(result.added_stats.len() <= 2, "notable should get at most 2 additions");
@@ -1016,7 +1017,7 @@ mod tests {
         let mut has_devotion_theme = false;
         for node_id in 1..200u32 {
             let r = transform_node_typed(
-                JewelType::MilitantFaith, 5000, node_id, true, false, ""
+                JewelType::MilitantFaith, 5000, node_id, true, false, "", ""
             );
             for line in &r.added_stats {
                 if line.contains("Devotion") || line.contains("150 Devotion") {
@@ -1033,7 +1034,7 @@ mod tests {
         let mut seen = std::collections::HashSet::new();
         for node_id in 1..200u32 {
             let r = transform_node_typed(
-                JewelType::MilitantFaith, 5000, node_id, true, false, ""
+                JewelType::MilitantFaith, 5000, node_id, true, false, "", ""
             );
             seen.insert(r.added_stats);
         }
@@ -1043,7 +1044,7 @@ mod tests {
     #[test]
     fn test_militant_faith_keystone_dominus() {
         let result = transform_node_typed(
-            JewelType::MilitantFaith, 2000, 42, false, true, "Dominus"
+            JewelType::MilitantFaith, 2000, 42, false, true, "Dominus", ""
         );
         assert_eq!(result.replaced_keystone.as_deref(), Some("Inner Conviction"));
     }
@@ -1051,7 +1052,7 @@ mod tests {
     #[test]
     fn test_militant_faith_keystone_avarius() {
         let result = transform_node_typed(
-            JewelType::MilitantFaith, 2000, 42, false, true, "Avarius"
+            JewelType::MilitantFaith, 2000, 42, false, true, "Avarius", ""
         );
         assert_eq!(result.replaced_keystone.as_deref(), Some("Power of Purpose"));
     }
@@ -1059,7 +1060,7 @@ mod tests {
     #[test]
     fn test_militant_faith_keystone_maxarius() {
         let result = transform_node_typed(
-            JewelType::MilitantFaith, 2000, 42, false, true, "Maxarius"
+            JewelType::MilitantFaith, 2000, 42, false, true, "Maxarius", ""
         );
         assert_eq!(result.replaced_keystone.as_deref(), Some("Transcendence"));
     }
@@ -1067,7 +1068,7 @@ mod tests {
     #[test]
     fn test_militant_faith_keystone_venarius() {
         let result = transform_node_typed(
-            JewelType::MilitantFaith, 2000, 42, false, true, "Venarius"
+            JewelType::MilitantFaith, 2000, 42, false, true, "Venarius", ""
         );
         assert_eq!(result.replaced_keystone.as_deref(), Some("Battlemage"));
     }
@@ -1076,7 +1077,7 @@ mod tests {
     fn test_militant_faith_all_conqueror_keystones() {
         for ks in MILITANT_FAITH_KEYSTONES {
             let result = transform_node_typed(
-                JewelType::MilitantFaith, 2000, 1, false, true, ks.conqueror
+                JewelType::MilitantFaith, 2000, 1, false, true, ks.conqueror, ""
             );
             assert_eq!(
                 result.replaced_keystone.as_deref(),
@@ -1094,7 +1095,7 @@ mod tests {
     #[test]
     fn test_elegant_hubris_small_passive_blanked() {
         let result = transform_node_typed(
-            JewelType::ElegantHubris, 2000, 42, false, false, ""
+            JewelType::ElegantHubris, 2000, 42, false, false, "", ""
         );
         assert_eq!(result.added_stats.len(), 1);
         assert_eq!(result.added_stats[0], "Passive grants nothing");
@@ -1104,7 +1105,7 @@ mod tests {
     #[test]
     fn test_elegant_hubris_notable_gets_replacement() {
         let result = transform_node_typed(
-            JewelType::ElegantHubris, 2000, 42, true, false, ""
+            JewelType::ElegantHubris, 2000, 42, true, false, "", ""
         );
         assert_eq!(result.added_stats.len(), 1, "notable should get exactly 1 replacement mod");
         assert!(!result.added_stats[0].is_empty());
@@ -1119,7 +1120,7 @@ mod tests {
         let mut seen = std::collections::HashSet::new();
         for node_id in 1..200u32 {
             let r = transform_node_typed(
-                JewelType::ElegantHubris, 50000, node_id, true, false, ""
+                JewelType::ElegantHubris, 50000, node_id, true, false, "", ""
             );
             seen.insert(r.added_stats[0].clone());
         }
@@ -1128,15 +1129,15 @@ mod tests {
 
     #[test]
     fn test_elegant_hubris_notable_deterministic() {
-        let r1 = transform_node_typed(JewelType::ElegantHubris, 5000, 77, true, false, "");
-        let r2 = transform_node_typed(JewelType::ElegantHubris, 5000, 77, true, false, "");
+        let r1 = transform_node_typed(JewelType::ElegantHubris, 5000, 77, true, false, "", "");
+        let r2 = transform_node_typed(JewelType::ElegantHubris, 5000, 77, true, false, "", "");
         assert_eq!(r1.added_stats, r2.added_stats);
     }
 
     #[test]
     fn test_elegant_hubris_keystone_cadiro() {
         let result = transform_node_typed(
-            JewelType::ElegantHubris, 2000, 42, false, true, "Cadiro"
+            JewelType::ElegantHubris, 2000, 42, false, true, "Cadiro", ""
         );
         assert_eq!(result.replaced_keystone.as_deref(), Some("Supreme Decadence"));
     }
@@ -1144,7 +1145,7 @@ mod tests {
     #[test]
     fn test_elegant_hubris_keystone_victario() {
         let result = transform_node_typed(
-            JewelType::ElegantHubris, 2000, 42, false, true, "Victario"
+            JewelType::ElegantHubris, 2000, 42, false, true, "Victario", ""
         );
         assert_eq!(result.replaced_keystone.as_deref(), Some("Supreme Grandstanding"));
     }
@@ -1152,7 +1153,7 @@ mod tests {
     #[test]
     fn test_elegant_hubris_keystone_caspiro() {
         let result = transform_node_typed(
-            JewelType::ElegantHubris, 2000, 42, false, true, "Caspiro"
+            JewelType::ElegantHubris, 2000, 42, false, true, "Caspiro", ""
         );
         assert_eq!(result.replaced_keystone.as_deref(), Some("Supreme Ego"));
     }
@@ -1160,7 +1161,7 @@ mod tests {
     #[test]
     fn test_elegant_hubris_keystone_chitus() {
         let result = transform_node_typed(
-            JewelType::ElegantHubris, 2000, 42, false, true, "Chitus"
+            JewelType::ElegantHubris, 2000, 42, false, true, "Chitus", ""
         );
         assert_eq!(result.replaced_keystone.as_deref(), Some("Supreme Ostentation"));
     }
@@ -1169,7 +1170,7 @@ mod tests {
     fn test_elegant_hubris_all_conqueror_keystones() {
         for ks in ELEGANT_HUBRIS_KEYSTONES {
             let result = transform_node_typed(
-                JewelType::ElegantHubris, 2000, 1, false, true, ks.conqueror
+                JewelType::ElegantHubris, 2000, 1, false, true, ks.conqueror, ""
             );
             assert_eq!(
                 result.replaced_keystone.as_deref(),
@@ -1183,7 +1184,7 @@ mod tests {
     #[test]
     fn test_elegant_hubris_stat_keys_parallel() {
         let result = transform_node_typed(
-            JewelType::ElegantHubris, 10000, 42, true, false, ""
+            JewelType::ElegantHubris, 10000, 42, true, false, "", ""
         );
         assert_eq!(result.added_stats.len(), result.stat_keys.len());
     }
@@ -1195,7 +1196,7 @@ mod tests {
     #[test]
     fn test_glorious_vanity_small_passive_replaced() {
         let result = transform_node_typed(
-            JewelType::GloriousVanity, 100, 42, false, false, ""
+            JewelType::GloriousVanity, 100, 42, false, false, "", ""
         );
         assert_eq!(result.added_stats.len(), 1, "small passive should get exactly 1 replacement");
         assert!(!result.added_stats[0].is_empty());
@@ -1205,7 +1206,7 @@ mod tests {
     #[test]
     fn test_glorious_vanity_notable_replaced() {
         let result = transform_node_typed(
-            JewelType::GloriousVanity, 100, 42, true, false, ""
+            JewelType::GloriousVanity, 100, 42, true, false, "", ""
         );
         assert_eq!(result.added_stats.len(), 1, "notable should get exactly 1 replacement");
         assert!(!result.added_stats[0].is_empty());
@@ -1217,7 +1218,7 @@ mod tests {
         let mut seen = std::collections::HashSet::new();
         for node_id in 1..200u32 {
             let r = transform_node_typed(
-                JewelType::GloriousVanity, 3000, node_id, false, false, ""
+                JewelType::GloriousVanity, 3000, node_id, false, false, "", ""
             );
             seen.insert(r.added_stats[0].clone());
         }
@@ -1229,7 +1230,7 @@ mod tests {
         let mut seen = std::collections::HashSet::new();
         for node_id in 1..200u32 {
             let r = transform_node_typed(
-                JewelType::GloriousVanity, 3000, node_id, true, false, ""
+                JewelType::GloriousVanity, 3000, node_id, true, false, "", ""
             );
             seen.insert(r.added_stats[0].clone());
         }
@@ -1238,8 +1239,8 @@ mod tests {
 
     #[test]
     fn test_glorious_vanity_deterministic() {
-        let r1 = transform_node_typed(JewelType::GloriousVanity, 500, 77, false, false, "");
-        let r2 = transform_node_typed(JewelType::GloriousVanity, 500, 77, false, false, "");
+        let r1 = transform_node_typed(JewelType::GloriousVanity, 500, 77, false, false, "", "");
+        let r2 = transform_node_typed(JewelType::GloriousVanity, 500, 77, false, false, "", "");
         assert_eq!(r1.added_stats, r2.added_stats);
         assert_eq!(r1.stat_keys, r2.stat_keys);
     }
@@ -1249,7 +1250,7 @@ mod tests {
         let mut seen = std::collections::HashSet::new();
         for seed in 100..200u32 {
             let r = transform_node_typed(
-                JewelType::GloriousVanity, seed, 42, false, false, ""
+                JewelType::GloriousVanity, seed, 42, false, false, "", ""
             );
             seen.insert(r.added_stats);
         }
@@ -1259,7 +1260,7 @@ mod tests {
     #[test]
     fn test_glorious_vanity_keystone_xibaqua() {
         let result = transform_node_typed(
-            JewelType::GloriousVanity, 100, 42, false, true, "Xibaqua"
+            JewelType::GloriousVanity, 100, 42, false, true, "Xibaqua", ""
         );
         assert_eq!(result.replaced_keystone.as_deref(), Some("Divine Flesh"));
         assert!(result.added_stats.iter().any(|s| s.contains("Chaos Damage")));
@@ -1268,7 +1269,7 @@ mod tests {
     #[test]
     fn test_glorious_vanity_keystone_zerphi() {
         let result = transform_node_typed(
-            JewelType::GloriousVanity, 100, 42, false, true, "Zerphi"
+            JewelType::GloriousVanity, 100, 42, false, true, "Zerphi", ""
         );
         assert_eq!(result.replaced_keystone.as_deref(), Some("Corrupted Soul"));
     }
@@ -1276,7 +1277,7 @@ mod tests {
     #[test]
     fn test_glorious_vanity_keystone_ahuana() {
         let result = transform_node_typed(
-            JewelType::GloriousVanity, 100, 42, false, true, "Ahuana"
+            JewelType::GloriousVanity, 100, 42, false, true, "Ahuana", ""
         );
         assert_eq!(result.replaced_keystone.as_deref(), Some("Immortal Ambition"));
     }
@@ -1284,7 +1285,7 @@ mod tests {
     #[test]
     fn test_glorious_vanity_keystone_doryani() {
         let result = transform_node_typed(
-            JewelType::GloriousVanity, 100, 42, false, true, "Doryani"
+            JewelType::GloriousVanity, 100, 42, false, true, "Doryani", ""
         );
         assert_eq!(result.replaced_keystone.as_deref(), Some("Coruscating Elixir"));
     }
@@ -1292,12 +1293,12 @@ mod tests {
     #[test]
     fn test_glorious_vanity_stat_keys_parallel() {
         let r_small = transform_node_typed(
-            JewelType::GloriousVanity, 200, 42, false, false, ""
+            JewelType::GloriousVanity, 200, 42, false, false, "", ""
         );
         assert_eq!(r_small.added_stats.len(), r_small.stat_keys.len());
 
         let r_notable = transform_node_typed(
-            JewelType::GloriousVanity, 200, 42, true, false, ""
+            JewelType::GloriousVanity, 200, 42, true, false, "", ""
         );
         assert_eq!(r_notable.added_stats.len(), r_notable.stat_keys.len());
     }
@@ -1324,16 +1325,19 @@ mod tests {
     }
 
     #[test]
-    fn test_different_seeds_different_results() {
-        // Over enough seeds, different seeds should produce different stats.
-        // Testing with many seeds to verify distribution is not degenerate.
+    fn test_different_seeds_different_notable_results() {
+        // Over enough seeds, different seeds should produce different notable stats.
+        // Small passives are deterministic (based on attribute status, not seed),
+        // but notables still use hash-based selection.
         let mut seen = std::collections::HashSet::new();
         for seed in 10000..10100 {
-            let r = transform_node("Lethal Pride", seed, 42);
-            seen.insert(r);
+            let r = transform_node_typed(
+                JewelType::LethalPride, seed, 42, true, false, "", ""
+            );
+            seen.insert(r.added_stats);
         }
-        // Should have more than 1 distinct result across 100 seeds
-        assert!(seen.len() > 1, "all seeds produced the same result");
+        // Should have more than 1 distinct result across 100 seeds for notables
+        assert!(seen.len() > 1, "all seeds produced the same notable result");
     }
 
     #[test]
@@ -1346,18 +1350,10 @@ mod tests {
     }
 
     #[test]
-    fn test_small_addition_counts_valid() {
-        for i in 0..1000u32 {
-            let c = small_addition_count(i);
-            assert!(c <= 2, "small count {} out of range", c);
-        }
-    }
-
-    #[test]
     fn test_all_conqueror_keystones_lethal_pride() {
         for ks in LETHAL_PRIDE_KEYSTONES {
             let result = transform_node_typed(
-                JewelType::LethalPride, 10000, 1, false, true, ks.conqueror
+                JewelType::LethalPride, 10000, 1, false, true, ks.conqueror, ""
             );
             assert_eq!(
                 result.replaced_keystone.as_deref(),
@@ -1372,7 +1368,7 @@ mod tests {
     fn test_all_conqueror_keystones_glorious_vanity() {
         for ks in GLORIOUS_VANITY_KEYSTONES {
             let result = transform_node_typed(
-                JewelType::GloriousVanity, 100, 1, false, true, ks.conqueror
+                JewelType::GloriousVanity, 100, 1, false, true, ks.conqueror, ""
             );
             assert_eq!(
                 result.replaced_keystone.as_deref(),
@@ -1398,12 +1394,197 @@ mod tests {
     #[test]
     fn test_stat_keys_parallel_to_stat_lines() {
         let result = transform_node_typed(
-            JewelType::LethalPride, 10000, 42, true, false, ""
+            JewelType::LethalPride, 10000, 42, true, false, "", ""
         );
         assert_eq!(
             result.added_stats.len(),
             result.stat_keys.len(),
             "stat_keys must be parallel to added_stats"
         );
+    }
+
+    // -------------------------------------------------------------------
+    // Attribute-node detection tests
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_is_attribute_node_strength() {
+        assert!(is_attribute_node("+10 to Strength"));
+    }
+
+    #[test]
+    fn test_is_attribute_node_dexterity() {
+        assert!(is_attribute_node("+10 to Dexterity"));
+    }
+
+    #[test]
+    fn test_is_attribute_node_intelligence() {
+        assert!(is_attribute_node("+10 to Intelligence"));
+    }
+
+    #[test]
+    fn test_is_attribute_node_case_insensitive() {
+        assert!(is_attribute_node("+10 to STRENGTH"));
+        assert!(is_attribute_node("+10 to strength"));
+    }
+
+    #[test]
+    fn test_is_not_attribute_node() {
+        assert!(!is_attribute_node("Melee Damage"));
+        assert!(!is_attribute_node("Attack Speed"));
+        assert!(!is_attribute_node("Maximum Life"));
+        assert!(!is_attribute_node(""));
+    }
+
+    // -------------------------------------------------------------------
+    // Attribute-node bonus tests (Lethal Pride)
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn lethal_pride_attribute_node_gets_plus_2() {
+        // A "+10 to Strength" node should get +2 Str, not +4
+        let result = transform_node_typed(
+            JewelType::LethalPride, 10000, 42, false, false, "",
+            "+10 to Strength"
+        );
+        assert_eq!(result.added_stats.len(), 1);
+        assert_eq!(result.added_stats[0], "+2 to Strength");
+        assert_eq!(result.stat_keys[0], "base_strength");
+    }
+
+    #[test]
+    fn lethal_pride_non_attribute_node_gets_plus_4() {
+        // A regular small passive should get +4 Str
+        let result = transform_node_typed(
+            JewelType::LethalPride, 10000, 42, false, false, "",
+            "Melee Damage"
+        );
+        assert_eq!(result.added_stats.len(), 1);
+        assert_eq!(result.added_stats[0], "+4 to Strength");
+        assert_eq!(result.stat_keys[0], "base_strength");
+    }
+
+    #[test]
+    fn lethal_pride_dex_attribute_node_gets_plus_2() {
+        // "+10 to Dexterity" is also an attribute node; LP still gives +2 Str
+        let result = transform_node_typed(
+            JewelType::LethalPride, 10000, 42, false, false, "",
+            "+10 to Dexterity"
+        );
+        assert_eq!(result.added_stats.len(), 1);
+        assert_eq!(result.added_stats[0], "+2 to Strength");
+    }
+
+    #[test]
+    fn lethal_pride_int_attribute_node_gets_plus_2() {
+        // "+10 to Intelligence" is also an attribute node
+        let result = transform_node_typed(
+            JewelType::LethalPride, 10000, 42, false, false, "",
+            "+10 to Intelligence"
+        );
+        assert_eq!(result.added_stats.len(), 1);
+        assert_eq!(result.added_stats[0], "+2 to Strength");
+    }
+
+    #[test]
+    fn lethal_pride_attribute_deterministic_across_seeds() {
+        // Attribute detection does not depend on seed
+        for seed in 10000..10010u32 {
+            let r = transform_node_typed(
+                JewelType::LethalPride, seed, 42, false, false, "",
+                "+10 to Strength"
+            );
+            assert_eq!(r.added_stats[0], "+2 to Strength",
+                "seed {} gave wrong bonus", seed);
+        }
+    }
+
+    // -------------------------------------------------------------------
+    // Attribute-node bonus tests (Brutal Restraint)
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn brutal_restraint_attribute_node_gets_plus_2() {
+        let result = transform_node_typed(
+            JewelType::BrutalRestraint, 500, 42, false, false, "",
+            "+10 to Dexterity"
+        );
+        assert_eq!(result.added_stats.len(), 1);
+        assert_eq!(result.added_stats[0], "+2 to Dexterity");
+        assert_eq!(result.stat_keys[0], "base_dexterity");
+    }
+
+    #[test]
+    fn brutal_restraint_non_attribute_node_gets_plus_4() {
+        let result = transform_node_typed(
+            JewelType::BrutalRestraint, 500, 42, false, false, "",
+            "Evasion"
+        );
+        assert_eq!(result.added_stats.len(), 1);
+        assert_eq!(result.added_stats[0], "+4 to Dexterity");
+        assert_eq!(result.stat_keys[0], "base_dexterity");
+    }
+
+    // -------------------------------------------------------------------
+    // Attribute-node bonus tests (Militant Faith)
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn militant_faith_attribute_node_gets_plus_2_devotion() {
+        let result = transform_node_typed(
+            JewelType::MilitantFaith, 2000, 42, false, false, "",
+            "+10 to Intelligence"
+        );
+        assert_eq!(result.added_stats.len(), 1);
+        assert_eq!(result.added_stats[0], "+2 to Devotion");
+        assert_eq!(result.stat_keys[0], "base_devotion");
+    }
+
+    #[test]
+    fn militant_faith_non_attribute_node_gets_plus_3_devotion() {
+        let result = transform_node_typed(
+            JewelType::MilitantFaith, 2000, 42, false, false, "",
+            "Spell Damage"
+        );
+        assert_eq!(result.added_stats.len(), 1);
+        assert_eq!(result.added_stats[0], "+3 to Devotion");
+        assert_eq!(result.stat_keys[0], "base_devotion");
+    }
+
+    // -------------------------------------------------------------------
+    // Attribute-node: Elegant Hubris (all smalls are blank regardless)
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn elegant_hubris_attribute_node_still_blank() {
+        let result = transform_node_typed(
+            JewelType::ElegantHubris, 2000, 42, false, false, "",
+            "+10 to Strength"
+        );
+        assert_eq!(result.added_stats.len(), 1);
+        assert_eq!(result.added_stats[0], "Passive grants nothing");
+    }
+
+    #[test]
+    fn elegant_hubris_non_attribute_node_still_blank() {
+        let result = transform_node_typed(
+            JewelType::ElegantHubris, 2000, 42, false, false, "",
+            "Maximum Life"
+        );
+        assert_eq!(result.added_stats.len(), 1);
+        assert_eq!(result.added_stats[0], "Passive grants nothing");
+    }
+
+    // -------------------------------------------------------------------
+    // Attribute-node: empty original_name treated as non-attribute
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn empty_original_name_treated_as_non_attribute() {
+        let result = transform_node_typed(
+            JewelType::LethalPride, 10000, 42, false, false, "", ""
+        );
+        assert_eq!(result.added_stats[0], "+4 to Strength",
+            "empty name should be treated as non-attribute node");
     }
 }
